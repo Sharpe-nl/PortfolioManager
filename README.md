@@ -209,4 +209,9 @@ data/         Local SQLite database (ignored by Git)
 
 ## License
 
-Personal use only.
+Copyright © 2026 Sharpe-nl. All rights reserved.
+
+PortfolioManager is available for personal, non-commercial use under the
+[PortfolioManager Personal Use License](LICENSE). Ownership and all
+intellectual-property rights remain with Sharpe-nl; redistribution, resale,
+sublicensing, and commercial use require prior written permission.
