@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="{{ get_lang(request) }}" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}PortfolioManager{% endblock %}</title>
+  <link rel="stylesheet" href="/static/vendor/pico.min.css?v={{ sv }}">
+  <link rel="stylesheet" href="/static/style.css?v={{ sv }}">
+  <script>
+    // Apply saved theme before first paint (default: dark)
+    (function(){
+      var t = localStorage.getItem('pm-theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+</head>
+<body data-logo-token="{{ get_logo_dev_token() }}">
+
+<!-- ── Top navigation (desktop) ──────────────────────────────────────────── -->
+<header class="topnav">
+  <div class="topnav-inner">
+    <a href="/" class="brand-link">
+      <span>📈</span>
+      <span>PortfolioManager</span>
+    </a>
+    <nav class="topnav-links" aria-label="{{ t(request, 'nav.aria') }}">
+      <a href="/"          class="{% if request.url.path == '/' %}active{% endif %}">{{ t(request, 'nav.dashboard') }}</a>
+      <a href="/holdings"  class="{% if '/holdings' in request.url.path %}active{% endif %}">{{ t(request, 'nav.holdings') }}</a>
+      <a href="/dividends" class="{% if '/dividends' in request.url.path %}active{% endif %}">{{ t(request, 'nav.dividends') }}</a>
+      <a href="/benchmark" class="{% if '/benchmark' in request.url.path %}active{% endif %}">{{ t(request, 'nav.benchmark') }}</a>
+      <a href="/actions"   class="{% if '/actions' in request.url.path %}active{% endif %}">{{ t(request, 'nav.actions') }}</a>
+      <a href="/settings"  class="{% if '/settings' in request.url.path or '/accounts' in request.url.path or '/import' in request.url.path %}active{% endif %}">{{ t(request, 'nav.settings') }}</a>
+    </nav>
+    <div class="topnav-actions">
+      <button class="lang-toggle" onclick="toggleLanguage()" title="{{ t(request, 'nav.lang_toggle') }}" aria-label="{{ t(request, 'nav.lang_toggle') }}">
+        {% if get_lang(request) == 'nl' %}🇳🇱{% else %}🇬🇧{% endif %}
+      </button>
+      <button class="theme-toggle" onclick="toggleTheme()" title="{{ t(request, 'nav.theme_toggle') }}" aria-label="{{ t(request, 'nav.theme_toggle') }}">
+        <span class="theme-icon-light">🌙</span>
+        <span class="theme-icon-dark">☀️</span>
+      </button>
+      <form action="/auth/logout" method="post" style="margin:0">
+        <button type="submit" class="logout-btn">{{ t(request, 'nav.logout') }}</button>
+      </form>
+    </div>
+  </div>
+</header>
+
+<!-- ── Mobile header ──────────────────────────────────────────────────────── -->
+<div class="mobile-header">
+  <button class="hamburger" onclick="toggleMobileMenu()" aria-label="{{ t(request, 'nav.menu') }}">☰</button>
+  <span class="brand-name-mobile">📈 PortfolioManager</span>
+  <button class="lang-toggle" onclick="toggleLanguage()" aria-label="{{ t(request, 'nav.lang_toggle') }}">
+    {% if get_lang(request) == 'nl' %}🇳🇱{% else %}🇬🇧{% endif %}
+  </button>
+  <button class="theme-toggle" onclick="toggleTheme()" aria-label="{{ t(request, 'nav.theme_toggle') }}">
+    <span class="theme-icon-light">🌙</span>
+    <span class="theme-icon-dark">☀️</span>
+  </button>
+</div>
+
+<!-- ── Mobile nav drawer ───────────────────────────────────────────────────── -->
+<div class="mobile-nav-drawer" id="mobileNavDrawer">
+  <a href="/"          class="{% if request.url.path == '/' %}active{% endif %}">🏠 {{ t(request, 'nav.dashboard') }}</a>
+  <a href="/holdings"  class="{% if '/holdings' in request.url.path %}active{% endif %}">📊 {{ t(request, 'nav.holdings') }}</a>
+  <a href="/dividends" class="{% if '/dividends' in request.url.path %}active{% endif %}">💶 {{ t(request, 'nav.dividends') }}</a>
+  <a href="/benchmark" class="{% if '/benchmark' in request.url.path %}active{% endif %}">📈 {{ t(request, 'nav.benchmark') }}</a>
+  <a href="/actions"   class="{% if '/actions' in request.url.path %}active{% endif %}">⚡ {{ t(request, 'nav.actions') }}</a>
+  <a href="/settings"  class="{% if '/settings' in request.url.path or '/accounts' in request.url.path or '/import' in request.url.path %}active{% endif %}">⚙ {{ t(request, 'nav.settings') }}</a>
+  <div class="drawer-divider"></div>
+  <div class="drawer-footer">
+    <form action="/auth/logout" method="post" style="margin:0;flex:1">
+      <button type="submit" class="logout-btn" style="width:100%">{{ t(request, 'nav.logout') }}</button>
+    </form>
+  </div>
+</div>
+
+<!-- ── Main content ───────────────────────────────────────────────────────── -->
+<main class="main-content">
+  {% block content %}{% endblock %}
+</main>
+
+
+<script src="/static/vendor/chart.umd.js?v={{ sv }}"></script>
+<script src="/static/app.js?v={{ sv }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

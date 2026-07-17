@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ t(request, 'imports.preview_title') }} – PortfolioManager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ t(request, 'imports.preview_heading') }}</h1>
+  <span class="muted">{{ filename }}</span>
+</div>
+
+<!-- ── Summary ───────────────────────────────────────────────────────── -->
+<div class="stat-grid">
+  <article class="stat-card">
+    <header>{{ t(request, 'imports.stat_new') }}</header>
+    <div class="stat-value pl-positive">{{ counts.new }}</div>
+  </article>
+  <article class="stat-card">
+    <header>{{ t(request, 'imports.stat_duplicate') }}</header>
+    <div class="stat-value muted">{{ counts.duplicate }}</div>
+  </article>
+  <article class="stat-card">
+    <header>{{ t(request, 'imports.stat_errors') }}</header>
+    <div class="stat-value {{ 'pl-negative' if counts.error > 0 else 'muted' }}">{{ counts.error }}</div>
+  </article>
+  <article class="stat-card">
+    <header>{{ t(request, 'imports.stat_informational') }}</header>
+    <div class="stat-value muted">{{ counts.informational }}</div>
+  </article>
+</div>
+
+{% if counts.error > 0 %}
+<div class="notice warning">
+  {{ t(request, 'imports.error_notice', count=counts.error) }}
+</div>
+{% endif %}
+
+<!-- ── Row list ───────────────────────────────────────────────────────── -->
+<article>
+  <div class="table-scroll">
+  <table>
+    <thead><tr>
+      <th>{{ t(request, 'imports.col_status') }}</th><th>{{ t(request, 'imports.col_type') }}</th><th>{{ t(request, 'common.description') }}</th><th>{{ t(request, 'imports.col_errors_single') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for row in staged %}
+    <tr class="status-{{ row.status }}">
+      <td>
+        <span class="badge status-badge-{{ row.status }}">{{ row.status }}</span>
+      </td>
+      <td>{{ row.row_type }}</td>
+      <td class="muted small">{{ (row.row_json | fromjson).get('_label', '') }}</td>
+      <td class="pl-negative small">{{ row.error_msg or '' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</article>
+
+<!-- ── Confirm / Cancel ───────────────────────────────────────────────── -->
+<div class="action-bar">
+  {% if counts.new > 0 %}
+  <form method="post" action="/import/confirm">
+    <button type="submit" class="primary">
+      {{ t(request, 'imports.confirm_button', count=counts.new) }}
+    </button>
+  </form>
+  {% else %}
+  <p class="muted">{{ t(request, 'imports.no_new_rows') }}</p>
+  {% endif %}
+  <a href="/import" role="button" class="outline secondary">{{ t(request, 'common.cancel') }}</a>
+</div>
+{% endblock %}

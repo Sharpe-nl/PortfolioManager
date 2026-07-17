@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% block title %}{{ t(request, 'imports.page_title') }} – PortfolioManager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ t(request, 'imports.page_title') }}</h1>
+</div>
+
+{% if request.query_params.get('result') %}
+{% set res = request.session.get('import_result', {}) %}
+{% if res %}
+<div class="notice {{ 'error' if res.imported == 0 and res.skipped == 0 else 'success' }}">
+  {% if res.imported == 0 and res.skipped == 0 and res.errors == 0 %}
+    {{ t(request, 'imports.no_rows_alert') }}
+  {% elif res.file_type == 'degiro_account' %}
+    {{ t(request, 'imports.account_statement_prefix') }} <strong>{{ res.imported }}</strong> {{ t(request, 'imports.account_statement_mid') }}
+    {{ res.skipped }} {{ t(request, 'imports.duplicates_skipped_word') }}.
+  {% elif res.imported == 0 %}
+    {{ t(request, 'imports.import_failed_prefix') }}{% if res.errors > 0 %}, {{ res.errors }} {{ t(request, 'imports.errors_word') }}{% endif %}.
+  {% else %}
+    {{ t(request, 'imports.import_done_prefix') }} <strong>{{ res.imported }}</strong> {{ t(request, 'imports.rows_added_word') }},
+    {{ res.skipped }} {{ t(request, 'imports.duplicates_skipped_word') }}{% if res.errors > 0 %},
+    <span class="pl-negative">{{ res.errors }} {{ t(request, 'imports.errors_word') }}</span>{% endif %}.
+  {% endif %}
+  {% if res.error_details %}
+  <details><summary>{{ t(request, 'imports.error_details_summary') }}</summary>
+  <ul>{% for e in res.error_details %}<li><code>{{ e }}</code></li>{% endfor %}</ul>
+  </details>
+  {% endif %}
+</div>
+{% endif %}
+{% endif %}
+
+<!-- ── Upload form ────────────────────────────────────────────────────────── -->
+<article>
+  <header>{{ t(request, 'imports.upload_header') }}</header>
+
+  {% if not accounts %}
+  <div class="notice warning">
+    {{ t(request, 'imports.no_accounts_warning') }}
+    <a href="/accounts">{{ t(request, 'imports.create_account_first') }}</a> {{ t(request, 'imports.create_account_before') }}
+  </div>
+  {% else %}
+  <form method="post" action="/import/upload" enctype="multipart/form-data">
+    <div class="form-grid">
+      <label>{{ t(request, 'common.account') }}
+        <select name="account_id" required>
+          <option value="">{{ t(request, 'imports.account_choose_option') }}</option>
+          {% for acc in accounts %}
+          <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.type }})</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>{{ t(request, 'imports.csv_file_label') }}
+        <input type="file" name="file" accept=".csv,text/csv" required>
+      </label>
+    </div>
+    <p class="hint">
+      <strong>Rekeningoverzicht.csv</strong> → {{ t(request, 'imports.hint_account_statement') }}<br>
+      <strong>Transacties.csv</strong> → {{ t(request, 'imports.hint_transactions') }}
+    </p>
+    <button type="submit">{{ t(request, 'imports.upload_button') }}</button>
+  </form>
+  {% endif %}
+</article>
+
+<!-- ── Needs ticker mapping ────────────────────────────────────────────────── -->
+{% if needs_mapping %}
+<article>
+  <header>
+    {{ t(request, 'imports.mapping_header') }}
+    <span class="badge">{{ needs_mapping | length }}</span>
+  </header>
+  <p class="hint">
+    {{ t(request, 'imports.mapping_hint_pre') }}<strong>{{ t(request, 'imports.auto_map_label') }}</strong>{{ t(request, 'imports.mapping_hint_mid') }}<code>VWRL.AS</code>{{ t(request, 'imports.mapping_hint_post') }}
+  </p>
+
+  <button id="auto-map-btn" onclick="autoMapTickers()">🔍 {{ t(request, 'imports.auto_map_label') }}</button>
+  <div id="auto-map-status" class="notice" hidden></div>
+
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>{{ t(request, 'imports.col_name') }}</th><th>ISIN</th><th>Ticker</th><th></th></tr></thead>
+    <tbody>
+    {% for inst in needs_mapping %}
+    <tr>
+      <td><a href="/instrument/{{ inst.id }}" class="instrument-name-with-logo">
+        <span data-instrument-logo data-isin="{{ inst.isin or '' }}" data-symbol="{{ inst.symbol or '' }}" data-name="{{ inst.name }}"></span><span>{{ inst.name }}</span>
+      </a></td>
+      <td>{{ inst.isin or '—' }}</td>
+      <td>
+        <form method="post" action="/instrument/{{ inst.id }}/update" class="inline-form">
+          <input type="text" name="symbol" placeholder="{{ t(request, 'imports.symbol_placeholder') }}" style="width:12rem">
+          <button type="submit" class="btn-sm">{{ t(request, 'common.save') }}</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</article>
+
+<script>
+const I18N = {
+  lookupStarted: {{ t(request, 'imports.js_lookup_started') | tojson }},
+  startFailed: {{ t(request, 'imports.js_start_failed') | tojson }},
+  unknown: {{ t(request, 'imports.js_unknown') | tojson }},
+  busy: {{ t(request, 'imports.js_busy') | tojson }},
+  fetchError: {{ t(request, 'imports.js_fetch_error') | tojson }},
+  mappedResult: {{ t(request, 'imports.js_mapped_result') | tojson }},
+  notFound: {{ t(request, 'imports.js_not_found') | tojson }},
+  refreshPage: {{ t(request, 'imports.js_refresh_page') | tojson }},
+  errorPrefix: {{ t(request, 'imports.js_error_prefix') | tojson }},
+};
+
+async function autoMapTickers() {
+  const btn = document.getElementById('auto-map-btn');
+  const status = document.getElementById('auto-map-status');
+  btn.disabled = true;
+  status.hidden = false;
+  status.className = 'notice';
+  status.textContent = I18N.lookupStarted;
+
+  try {
+    // Always use force=1 to reset any stuck "running" state
+    const startResp = await fetch('/api/auto-map-tickers?force=1', { method: 'POST' });
+    const startData = await startResp.json();
+
+    if (!startResp.ok || startData.started === false) {
+      status.className = 'notice error';
+      status.textContent = I18N.startFailed + (startData.reason || I18N.unknown);
+      btn.disabled = false;
+      return;
+    }
+
+    // Poll for status every 3 seconds
+    const poll = setInterval(async () => {
+      try {
+        const r = await fetch('/api/auto-map-tickers/status');
+        const data = await r.json();
+
+        if (data.status === 'running') {
+          status.textContent = '⏳ ' + (data.progress || I18N.busy);
+          return;
+        }
+
+        clearInterval(poll);
+        btn.disabled = false;
+
+        if (data.status === 'error') {
+          status.className = 'notice error';
+          status.textContent = I18N.fetchError + (data.result?.error || data.result || I18N.unknown);
+          return;
+        }
+
+        // Done
+        const res = data.result || {};
+        status.className = 'notice success';
+        let msg = I18N.mappedResult.replace('{count}', res.mapped || 0);
+        if (res.failed?.length) {
+          msg += `<br><small>${I18N.notFound} (${res.failed.length}): ${res.failed.slice(0, 8).join(', ')}${res.failed.length > 8 ? '…' : ''}</small>`;
+        }
+        msg += ` <a href="/import">${I18N.refreshPage}</a>`;
+        status.innerHTML = msg;
+
+      } catch (e) {
+        // Network hiccup during poll — keep trying
+      }
+    }, 3000);
+
+  } catch(err) {
+    status.className = 'notice error';
+    status.textContent = I18N.errorPrefix + err.message;
+    btn.disabled = false;
+  }
+}
+</script>
+{% endif %}
+
+<!-- ── Unclassified rows ──────────────────────────────────────────────── -->
+{% if unclassified %}
+<article>
+  <header>
+    {{ t(request, 'imports.unclassified_header') }}
+    <span class="badge">{{ unclassified | length }}</span>
+  </header>
+  <p class="hint">{{ t(request, 'imports.unclassified_hint_pre') }}<em>other</em>{{ t(request, 'imports.unclassified_hint_post') }}</p>
+  <div class="table-scroll">
+  <table>
+    <thead><tr>
+      <th>{{ t(request, 'common.date') }}</th><th>{{ t(request, 'common.account') }}</th><th>{{ t(request, 'common.description') }}</th><th class="num">{{ t(request, 'imports.col_amount_eur') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for e in unclassified %}
+    <tr>
+      <td>{{ e.ts[:10] }}</td>
+      <td>{{ e.account_name }}</td>
+      <td>{{ e.description }}</td>
+      <td class="num">{{ e.amount_eur | eur }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</article>
+{% endif %}
+
+<!-- ── Import history ────────────────────────────────────────────────── -->
+{% if import_history %}
+<article>
+  <header>{{ t(request, 'imports.history_header') }}</header>
+  <div class="table-scroll">
+  <table>
+    <thead><tr>
+      <th>{{ t(request, 'common.date') }}</th><th>{{ t(request, 'common.account') }}</th><th>{{ t(request, 'imports.col_file') }}</th><th>{{ t(request, 'imports.col_type') }}</th>
+      <th class="num">{{ t(request, 'imports.col_imported') }}</th><th class="num">{{ t(request, 'imports.col_duplicates') }}</th><th class="num">{{ t(request, 'imports.col_errors') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for h in import_history %}
+    <tr>
+      <td>{{ h.imported_at[:16] }}</td>
+      <td>{{ h.account_name or '—' }}</td>
+      <td>{{ h.filename or '—' }}</td>
+      <td>{{ h.file_type or '—' }}</td>
+      <td class="num">{{ h.rows_imported }}</td>
+      <td class="num">{{ h.rows_skipped }}</td>
+      <td class="num {{ 'pl-negative' if h.rows_error > 0 else '' }}">{{ h.rows_error }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</article>
+{% endif %}
+{% endblock %}

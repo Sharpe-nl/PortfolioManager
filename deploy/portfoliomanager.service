@@ -1,0 +1,26 @@
+[Unit]
+Description=PortfolioManager
+After=network.target
+
+[Service]
+Type=simple
+User=service_portfolio_manager
+Group=service_portfolio_manager
+WorkingDirectory=/opt/portfoliomanager
+# Optional: a Logo.dev publishable key enables official company/ETF logos.
+# Environment=PM_LOGO_DEV_TOKEN=pk_your_publishable_key
+ExecStart=/opt/portfoliomanager/.venv/bin/uvicorn app.main:app \
+    --host 0.0.0.0 \
+    --port 8443 \
+    --forwarded-allow-ips="*" \
+    --workers 1
+Restart=always
+RestartSec=5
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/portfoliomanager/data
+
+[Install]
+WantedBy=multi-user.target

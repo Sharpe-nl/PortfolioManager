@@ -1,0 +1,81 @@
+"""Shared strings: top nav, mobile drawer, range selector, and other bits
+repeated verbatim across multiple pages."""
+
+NL = {
+    # ── Top nav / mobile drawer (base.html) ──────────────────────────────
+    "nav.aria": "Hoofdnavigatie",
+    "nav.dashboard": "Dashboard",
+    "nav.holdings": "Holdings",
+    "nav.dividends": "Dividenden",
+    "nav.benchmark": "Benchmark",
+    "nav.actions": "Acties",
+    "nav.settings": "Instellingen",
+    "nav.theme_toggle": "Thema wisselen",
+    "nav.lang_toggle": "Taal wisselen",
+    "nav.logout": "Uitloggen",
+    "nav.menu": "Menu",
+
+    # ── Range selector (dashboard/dividends/benchmark) ───────────────────
+    "range.1m": "1M",
+    "range.ytd": "YTD",
+    "range.1y": "1J",
+    "range.custom": "Custom",
+    "range.all": "Alles",
+    "range.custom_period": "Aangepaste periode",
+    "range.from": "Van",
+    "range.to": "Tot",
+    "range.invalid_alert": "Kies een geldige periode (van ≤ tot).",
+
+    # ── Generic buttons / labels ──────────────────────────────────────────
+    "common.cancel": "Annuleren",
+    "common.apply": "Toepassen",
+    "common.save": "Opslaan",
+    "common.close": "Sluiten",
+    "common.all_accounts": "Alle accounts",
+    "common.account": "Account",
+    "common.total": "Totaal",
+    "common.date": "Datum",
+    "common.amount": "Bedrag",
+    "common.description": "Omschrijving",
+    "common.instrument": "Instrument",
+    "common.none_dash": "—",
+    "common.loading": "Bezig…",
+}
+
+EN = {
+    "nav.aria": "Main navigation",
+    "nav.dashboard": "Dashboard",
+    "nav.holdings": "Holdings",
+    "nav.dividends": "Dividends",
+    "nav.benchmark": "Benchmark",
+    "nav.actions": "Actions",
+    "nav.settings": "Settings",
+    "nav.theme_toggle": "Switch theme",
+    "nav.lang_toggle": "Switch language",
+    "nav.logout": "Log out",
+    "nav.menu": "Menu",
+
+    "range.1m": "1M",
+    "range.ytd": "YTD",
+    "range.1y": "1Y",
+    "range.custom": "Custom",
+    "range.all": "All",
+    "range.custom_period": "Custom period",
+    "range.from": "From",
+    "range.to": "To",
+    "range.invalid_alert": "Choose a valid period (from ≤ to).",
+
+    "common.cancel": "Cancel",
+    "common.apply": "Apply",
+    "common.save": "Save",
+    "common.close": "Close",
+    "common.all_accounts": "All accounts",
+    "common.account": "Account",
+    "common.total": "Total",
+    "common.date": "Date",
+    "common.amount": "Amount",
+    "common.description": "Description",
+    "common.instrument": "Instrument",
+    "common.none_dash": "—",
+    "common.loading": "Loading…",
+}

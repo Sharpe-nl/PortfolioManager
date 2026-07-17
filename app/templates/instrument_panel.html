@@ -1,0 +1,98 @@
+<div class="instrument-panel-head">
+  <div class="instrument-panel-title instrument-name-with-logo">
+    <span data-instrument-logo data-isin="{{ instrument.isin or '' }}" data-symbol="{{ instrument.symbol or '' }}" data-name="{{ instrument.name }}"></span>
+    <div>
+      <strong>{{ instrument.name }}</strong>
+      <div class="instrument-panel-meta">
+        {% if instrument.isin %}<span class="badge">{{ instrument.isin }}</span>{% endif %}
+        {% if instrument.symbol %}<span class="badge secondary">{{ instrument.symbol }}</span>{% endif %}
+      </div>
+    </div>
+  </div>
+  <button type="button" class="instrument-panel-close" data-instrument-panel-close aria-label="{{ t(request, 'common.close') }}">×</button>
+</div>
+
+<div class="instrument-panel-body">
+  {% if cached_price %}
+  <div class="instrument-panel-price">
+    <span>{{ t(request, 'instrument.price_label') }}</span>
+    <strong>{{ cached_price.close | eur }}</strong>
+    <small>{{ cached_price.date }}{% if instrument.currency and instrument.currency != 'EUR' %} · {{ instrument.currency }}{% endif %}</small>
+  </div>
+  {% endif %}
+
+  {% if holdings %}
+  <section class="instrument-panel-section">
+    <h2>{{ t(request, 'holdings.page_title') }}</h2>
+    {% for h in holdings %}
+    <div class="instrument-panel-holding">
+      <strong>{{ h.account_name }}</strong>
+      <span>{{ h.quantity | qty }} · {{ h.current_value | eur }}</span>
+      <small class="{{ h.unrealized_pl | pl_class }}">{{ h.unrealized_pl | eur }} ({{ h.unrealized_pl_pct | pct }})</small>
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if fund_data and fund_data.top_holdings %}
+  <section class="instrument-panel-section">
+    <h2>{{ t(request, 'instrument.top_holdings') }}</h2>
+    <div class="instrument-panel-list">
+      {% for h in fund_data.top_holdings[:8] %}
+      <div><span>{{ h.name or h.symbol }}</span><strong>{{ (h.percent * 100) | round(1) if h.percent is not none else '—' }}%</strong></div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if fund_data and fund_data.sector_weightings %}
+  <section class="instrument-panel-section">
+    <h2>{{ t(request, 'instrument.sector_breakdown') }}</h2>
+    <div class="instrument-panel-list">
+      {% for sector, weight in fund_data.sector_weightings.items() | sort(attribute='1', reverse=True) %}
+      <div><span>{{ sector | replace('_', ' ') | title }}</span><strong>{{ (weight * 100) | round(1) }}%</strong></div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if country_weights %}
+  <section class="instrument-panel-section">
+    <h2>{{ t(request, 'instrument.country_weight_title') }}</h2>
+    <div class="instrument-panel-list">
+      {% for weight in country_weights %}
+      <div><span>{{ weight.country }}</span><strong>{{ weight.weight_pct }}%</strong></div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="instrument-panel-section">
+    <h2>{{ t(request, 'instrument.transactions_title') }}</h2>
+    <div class="instrument-panel-list">
+      {% for txn in transactions[:8] %}
+      <div>
+        <span>{{ txn.ts[:10] }} · {{ txn.account_name }}</span>
+        <strong class="{{ 'pl-negative' if txn.quantity|float > 0 else 'pl-positive' }}">
+          {{ t(request, 'instrument.direction_buy') if txn.quantity|float > 0 else t(request, 'instrument.direction_sell') }} · {{ (txn.quantity | float) | abs | qty }} · {{ txn.value_eur | eur }}
+        </strong>
+      </div>
+      {% else %}
+      <small class="muted">{{ t(request, 'instrument.no_transactions') }}</small>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if dividends %}
+  <section class="instrument-panel-section">
+    <h2>{{ t(request, 'nav.dividends') }}</h2>
+    <div class="instrument-panel-list">
+      {% for dividend in dividends[:8] %}
+      <div><span>{{ dividend.ts[:10] }} · {{ dividend.type }}</span><strong class="{{ 'pl-positive' if dividend.amount_eur|float > 0 else 'pl-negative' }}">{{ dividend.amount_eur | eur }}</strong></div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <a class="instrument-panel-full-link" href="/instrument/{{ instrument.id }}">{{ t(request, 'instrument.edit_title') }} →</a>
+</div>

@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+{% block title %}{{ instrument.name }} – PortfolioManager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ instrument.name }}</h1>
+  {% if instrument.isin %}<span class="badge">{{ instrument.isin }}</span>{% endif %}
+  {% if instrument.symbol %}<span class="badge secondary">{{ instrument.symbol }}</span>{% endif %}
+</div>
+
+<!-- ── Position summary ───────────────────────────────────────────────── -->
+{% if holdings %}
+<div class="stat-grid">
+{% for h in holdings %}
+  <article class="stat-card">
+    <header>{{ h.account_name }}</header>
+    <div>{{ t(request, 'instrument.stat_quantity') }} <strong>{{ h.quantity | qty }}</strong></div>
+    <div>{{ t(request, 'instrument.stat_avg_cost') }} <strong>{{ h.avg_cost | eur }}</strong></div>
+    <div>{{ t(request, 'instrument.stat_value') }} <strong>{{ h.current_value | eur }}</strong></div>
+    <div class="{{ h.unrealized_pl | pl_class }}">
+      {{ t(request, 'instrument.stat_result') }} <strong>{{ h.unrealized_pl | eur }}</strong>
+      ({{ h.unrealized_pl_pct | pct }})
+    </div>
+  </article>
+{% endfor %}
+</div>
+{% endif %}
+
+{% if cached_price %}
+<p class="price-badge">
+  {{ t(request, 'instrument.price_label') }} {{ cached_price.close | eur }}
+  {% if instrument.currency and instrument.currency != 'EUR' %}
+  <small class="muted">{{ t(request, 'instrument.price_converted', currency=instrument.currency) }}</small>
+  {% endif %}
+  &nbsp;·&nbsp;{{ cached_price.date }}
+</p>
+{% endif %}
+
+<!-- ── Fondssamenstelling (ETF's/fondsen) ──────────────────────────────── -->
+{% if fund_data %}
+<article>
+  <header>{{ t(request, 'instrument.fund_composition') }} <small class="muted">{{ t(request, 'instrument.fund_updated', date=fund_data.fetched_at[:10]) }}</small></header>
+
+  {% if fund_data.asset_classes %}
+  <p>
+    <strong>{{ t(request, 'instrument.asset_classes_label') }}</strong>
+    {% for key, weight in fund_data.asset_classes.items() %}
+    {{ key | replace('Position', '') }}: {{ (weight * 100) | round(1) }}%{% if not loop.last %} · {% endif %}
+    {% endfor %}
+  </p>
+  {% endif %}
+
+  <div class="chart-grid">
+    {% if fund_data.sector_weightings %}
+    <div>
+      <header>{{ t(request, 'instrument.sector_breakdown') }}</header>
+      <table>
+        <tbody>
+        {% for key, weight in fund_data.sector_weightings.items() | sort(attribute='1', reverse=True) %}
+        <tr>
+          <td>{{ key | replace('_', ' ') | title }}</td>
+          <td class="num">{{ (weight * 100) | round(1) }}%</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {% if fund_data.top_holdings %}
+    <div>
+      <header>{{ t(request, 'instrument.top_holdings') }}</header>
+      <table>
+        <tbody>
+        {% for h in fund_data.top_holdings %}
+        <tr>
+          <td>{{ h.name or h.symbol }} <small class="muted">{{ h.symbol }}</small></td>
+          <td class="num">{{ (h.percent * 100) | round(1) if h.percent is not none else '—' }}%</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if fund_data.equity_metrics %}
+  <p class="muted" style="margin-top:.75rem;">
+    {% for key, value in fund_data.equity_metrics.items() %}
+    {{ key }}: {{ value | round(2) }}{% if not loop.last %} · {% endif %}
+    {% endfor %}
+  </p>
+  {% endif %}
+</article>
+{% endif %}
+
+<!-- ── Manual country allocation (ETF/fund) ───────────────────────────── -->
+{% if instrument.asset_type in ['etf', 'fund'] %}
+<article>
+  <header>
+    <span>{{ t(request, 'instrument.country_weight_title') }} <small class="muted">{{ t(request, 'instrument.country_weight_hint') }}</small></span>
+    <small class="muted">{{ t(request, 'instrument.country_weight_total', total=(country_weight_total | round(2))) }}</small>
+  </header>
+  {% if country_weight_error == 'invalid' %}
+  <p class="notice error">{{ t(request, 'instrument.country_weight_error_invalid') }}</p>
+  {% elif country_weight_error == 'total' %}
+  <p class="notice error">{{ t(request, 'instrument.country_weight_error_total') }}</p>
+  {% endif %}
+  {% if country_weights %}
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>{{ t(request, 'instrument.col_country') }}</th><th class="num">{{ t(request, 'instrument.col_weight') }}</th><th></th></tr></thead>
+      <tbody>
+      {% for weight in country_weights %}
+      <tr>
+        <td>{{ weight.country }}</td>
+        <td class="num">{{ weight.weight_pct }}%</td>
+        <td class="num">
+          <form method="post" action="/instrument/{{ instrument.id }}/country-weights/delete" style="margin:0">
+            <input type="hidden" name="country" value="{{ weight.country }}">
+            <button type="submit" class="outline secondary btn-sm">{{ t(request, 'instrument.btn_delete') }}</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  <form method="post" action="/instrument/{{ instrument.id }}/country-weights" class="inline-form" style="margin-top:.75rem">
+    <input name="country" type="text" placeholder="{{ t(request, 'instrument.country_placeholder') }}" required>
+    <input name="weight_pct" type="number" min="0.01" max="100" step="0.01" placeholder="{{ t(request, 'instrument.weight_placeholder') }}" required>
+    <button type="submit" class="btn-sm">{{ t(request, 'instrument.btn_add') }}</button>
+  </form>
+</article>
+{% endif %}
+
+<!-- ── Edit form ──────────────────────────────────────────────────────── -->
+<article>
+  <header>{{ t(request, 'instrument.edit_title') }}</header>
+  <form method="post" action="/instrument/{{ instrument.id }}/update">
+    <div class="form-grid">
+      <label>{{ t(request, 'instrument.field_ticker') }}
+        <input type="text" name="symbol" value="{{ instrument.symbol or '' }}"
+               placeholder="{{ t(request, 'instrument.ticker_placeholder') }}">
+      </label>
+      <label>Sector
+        <input type="text" name="sector" value="{{ instrument.sector or '' }}">
+      </label>
+      <label>{{ t(request, 'instrument.field_region') }}
+        <input type="text" name="region" value="{{ instrument.region or '' }}">
+      </label>
+      <label>Type
+        <select name="asset_type">
+          {% for t in ['stock','etf','fund','bond','cash','other'] %}
+          <option value="{{ t }}" {% if instrument.asset_type == t %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>{{ t(request, 'instrument.field_manual_div') }}
+        <input type="text" name="manual_div_eur" placeholder="{{ t(request, 'instrument.manual_div_placeholder') }}"
+               {% if instrument.isin %}{% endif %}>
+      </label>
+    </div>
+    <button type="submit">{{ t(request, 'common.save') }}</button>
+    {% if instrument.symbol %}
+    <button type="button" class="outline secondary"
+            onclick="fetchInfo({{ instrument.id }})">
+      ↻ {{ t(request, 'instrument.btn_fetch_metadata') }}
+    </button>
+    {% endif %}
+  </form>
+</article>
+
+<!-- ── Manual transaction entry ───────────────────────────────────────── -->
+<article>
+  <details>
+    <summary>{{ t(request, 'instrument.manual_txn_summary') }}</summary>
+    <p class="muted">
+      {{ t(request, 'instrument.manual_txn_hint') }}
+    </p>
+    <form id="manual-txn-form"
+          onsubmit="submitManualTransaction(event, {{ instrument.id }})">
+      <div class="form-grid">
+        <label>{{ t(request, 'common.account') }}
+          <select name="account_id" required>
+            {% for acc in accounts %}
+            <option value="{{ acc.id }}">{{ acc.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>{{ t(request, 'instrument.field_direction') }}
+          <select name="direction">
+            <option value="buy">{{ t(request, 'instrument.direction_buy') }}</option>
+            <option value="sell">{{ t(request, 'instrument.direction_sell') }}</option>
+          </select>
+        </label>
+        <label>{{ t(request, 'common.date') }} <input type="date" name="date" required></label>
+        <label>{{ t(request, 'instrument.col_quantity') }} <input type="text" name="quantity" placeholder="{{ t(request, 'instrument.quantity_placeholder') }}" required></label>
+        <label>{{ t(request, 'instrument.col_price') }} <input type="text" name="price" placeholder="{{ t(request, 'instrument.txn_price_placeholder') }}" required></label>
+        <label>{{ t(request, 'instrument.field_note') }}
+          <input type="text" name="note" placeholder="{{ t(request, 'instrument.note_placeholder') }}">
+        </label>
+      </div>
+      <button type="submit">{{ t(request, 'instrument.btn_add_transaction') }}</button>
+    </form>
+  </details>
+</article>
+
+<!-- ── Manual price entry ─────────────────────────────────────────────── -->
+<article>
+  <details>
+    <summary>{{ t(request, 'instrument.manual_price_summary') }}</summary>
+    <form id="manual-price-form"
+          onsubmit="submitManualPrice(event, {{ instrument.id }})">
+      <div class="form-grid">
+        <label>{{ t(request, 'common.date') }} <input type="date" name="date" required></label>
+        <label>{{ t(request, 'instrument.col_price') }} <input type="text" name="price" placeholder="{{ t(request, 'instrument.manual_price_placeholder') }}" required></label>
+        <label>{{ t(request, 'instrument.field_currency') }}
+          <select name="currency">
+            <option>EUR</option><option>USD</option><option>GBP</option>
+          </select>
+        </label>
+      </div>
+      <button type="submit">{{ t(request, 'common.save') }}</button>
+    </form>
+  </details>
+</article>
+
+<!-- ── Transaction history ────────────────────────────────────────────── -->
+<article>
+  <header>{{ t(request, 'instrument.transactions_title') }}</header>
+  <div class="table-scroll">
+  <table>
+    <thead><tr>
+      <th>{{ t(request, 'common.date') }}</th><th>{{ t(request, 'common.account') }}</th><th class="num">{{ t(request, 'instrument.col_quantity') }}</th>
+      <th class="num">{{ t(request, 'instrument.col_price') }}</th><th class="num">{{ t(request, 'instrument.col_value_eur') }}</th>
+      <th class="num">{{ t(request, 'instrument.col_fees_eur') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for t in transactions %}
+    <tr>
+      <td>{{ t.ts[:10] }}</td>
+      <td>{{ t.account_name }}</td>
+      <td class="num {{ 'pl-positive' if t.quantity|float > 0 else 'pl-negative' }}">
+        {{ t.quantity }}
+      </td>
+      <td class="num">{{ t.price | eur(show_symbol=False) }} {{ t.local_currency }}</td>
+      <td class="num">{{ t.value_eur | eur }}</td>
+      <td class="num">{{ t.fees_eur | eur }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6">{{ t(request, 'instrument.no_transactions') }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</article>
+
+<!-- ── Dividend history ───────────────────────────────────────────────── -->
+{% if dividends %}
+<article>
+  <header>{{ t(request, 'nav.dividends') }}</header>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>{{ t(request, 'common.date') }}</th><th>{{ t(request, 'instrument.col_dividend_type') }}</th><th class="num">{{ t(request, 'common.amount') }} (€)</th></tr></thead>
+    <tbody>
+    {% for d in dividends %}
+    <tr>
+      <td>{{ d.ts[:10] }}</td>
+      <td>{{ d.type }}</td>
+      <td class="num {{ 'pl-positive' if d.amount_eur|float > 0 else 'pl-negative' }}">
+        {{ d.amount_eur | eur }}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</article>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// UI strings needed inside JS (not just static markup) — see app/i18n/.
+const I18N = {
+  txnAdded: {{ t(request, 'instrument.js_txn_added') | tojson }},
+  priceSaved: {{ t(request, 'instrument.js_price_saved') | tojson }},
+  errorPrefix: {{ t(request, 'instrument.js_error_prefix') | tojson }},
+  errorUnknown: {{ t(request, 'instrument.js_error_unknown') | tojson }},
+};
+
+async function submitManualTransaction(e, id) {
+  e.preventDefault();
+  const form = e.target;
+  const fd = new FormData(form);
+  const r = await fetch(`/api/manual-transaction/${id}`, { method: 'POST', body: fd });
+  const d = await r.json();
+  if (d.ok) {
+    alert(I18N.txnAdded);
+    form.reset();
+    location.reload();
+  } else {
+    alert(I18N.errorPrefix + (d.error || I18N.errorUnknown));
+  }
+}
+
+async function submitManualPrice(e, id) {
+  e.preventDefault();
+  const form = e.target;
+  const fd = new FormData(form);
+  const r = await fetch(`/api/manual-price/${id}`, { method: 'POST', body: fd });
+  if (r.ok) { alert(I18N.priceSaved); form.reset(); }
+  else alert(I18N.errorPrefix + await r.text());
+}
+
+async function fetchInfo(id) {
+  const r = await fetch(`/api/refresh-prices`, { method: 'POST' });
+  if (r.ok) location.reload();
+}
+</script>
+{% endblock %}

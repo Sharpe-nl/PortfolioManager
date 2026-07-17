@@ -1,0 +1,17 @@
+# ── Web framework ──────────────────────────────────────────────────────────────
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+jinja2==3.1.5
+python-multipart==0.0.20
+itsdangerous==2.2.0       # required by Starlette SessionMiddleware
+
+# ── Data source ────────────────────────────────────────────────────────────────
+yfinance>=0.2.54
+curl_cffi>=0.7.0          # browser TLS fingerprinting — auto-detected by yfinance to bypass Yahoo bot detection on server IPs
+
+# ── Authentication ─────────────────────────────────────────────────────────────
+# WebAuthn/FIDO2 (YubiKey support). Requires HTTPS — see deploy/install.md.
+webauthn==2.3.0
+
+# ── Dev / test (not needed in production) ──────────────────────────────────────
+pytest==8.3.4
