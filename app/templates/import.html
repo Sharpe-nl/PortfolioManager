@@ -52,12 +52,11 @@
           {% for acc in accounts %}
           <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.type }})</option>
           {% endfor %}
+          <option value="" data-add-account>{{ t(request, 'imports.account_add_option') }}</option>
         </select>
       </label>
-      <label>{{ t(request, 'imports.csv_file_label') }}
-        <input id="import-csv-file" type="file" name="file" accept=".csv,text/csv" required>
-      </label>
     </div>
+    <input id="import-csv-file" class="sr-only" type="file" name="file" accept=".csv,text/csv" required tabindex="-1">
     <div class="import-dropzone" id="importDropzone" tabindex="0" role="button" aria-controls="import-csv-file">
       <strong>{{ t(request, 'imports.dropzone_title') }}</strong>
       <small>{{ t(request, 'imports.dropzone_hint') }}</small>
@@ -268,9 +267,15 @@ function openDegiroCsvTutorial() {
 document.addEventListener('DOMContentLoaded', () => {
   const input = document.getElementById('import-csv-file');
   const dropzone = document.getElementById('importDropzone');
+  const accountSelect = document.querySelector('select[name="account_id"]');
   const tutorial = document.getElementById('degiroCsvTutorialDialog');
   if (tutorial) tutorial.addEventListener('click', event => {
     if (event.target === tutorial) tutorial.close();
+  });
+  accountSelect?.addEventListener('change', () => {
+    if (accountSelect.selectedOptions[0]?.hasAttribute('data-add-account')) {
+      window.location.assign('/accounts#add-account');
+    }
   });
   if (!input || !dropzone) return;
 
