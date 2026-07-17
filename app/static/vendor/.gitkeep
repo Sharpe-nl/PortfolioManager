@@ -1,9 +1,0 @@
-# Download this file's vendor assets by running:
-#   python scripts/download_vendors.py
-#
-# Required files:
-#   chart.umd.js   — Chart.js 4.4.4 (pinned)
-#   pico.min.css   — Pico.css 2.0.6 (pinned)
-#
-# These files are intentionally excluded from git (.gitignore).
-# Run the download script once after cloning.

@@ -13,8 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 COPY migrations ./migrations
-COPY scripts/download_vendors.py ./scripts/download_vendors.py
-RUN python scripts/download_vendors.py && mkdir -p /app/data && chown -R portfolio:portfolio /app
+RUN mkdir -p /app/data && chown -R portfolio:portfolio /app
 
 USER portfolio
 VOLUME ["/app/data"]

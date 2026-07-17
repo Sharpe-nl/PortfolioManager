@@ -17,11 +17,6 @@ env/
 data/
 !data/.gitkeep
 
-# Vendor assets (downloaded by scripts/download_vendors.py)
-app/static/vendor/*.js
-app/static/vendor/*.css
-!app/static/vendor/.gitkeep
-
 # TLS certificates
 *.pem
 *.key

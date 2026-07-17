@@ -77,7 +77,7 @@ docker run -d \
   portfoliomanager:latest
 ```
 
-The Docker image downloads Pico.css and Chart.js during the image build. The container runs as an unprivileged user and only needs write access to `/app/data`.
+Chart.js and Pico.css are versioned in `app/static/vendor`, so the image build and application startup do not download frontend assets. The container runs as an unprivileged user and only needs write access to `/app/data`.
 
 ## Option 3: Native LXC / systemd (Proxmox)
 
@@ -93,7 +93,6 @@ chown -R service_portfolio_manager:service_portfolio_manager /opt/portfoliomanag
 
 sudo -u service_portfolio_manager python3 -m venv /opt/portfoliomanager/.venv
 sudo -u service_portfolio_manager /opt/portfoliomanager/.venv/bin/pip install -r /opt/portfoliomanager/requirements.txt
-sudo -u service_portfolio_manager /opt/portfoliomanager/.venv/bin/python /opt/portfoliomanager/scripts/download_vendors.py
 
 cp /opt/portfoliomanager/deploy/portfoliomanager.service /etc/systemd/system/
 systemctl daemon-reload
@@ -108,7 +107,6 @@ The service listens on port `8443`. Configure the reverse proxy to reach the LXC
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
-python scripts/download_vendors.py
 
 # WebAuthn permits HTTP on localhost only.
 PM_HTTPS_ONLY=false uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
@@ -151,7 +149,6 @@ For a native installation, update with:
 cd /opt/portfoliomanager
 git pull
 sudo -u service_portfolio_manager .venv/bin/pip install -r requirements.txt
-sudo -u service_portfolio_manager .venv/bin/python scripts/download_vendors.py
 systemctl restart portfoliomanager
 ```
 
