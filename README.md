@@ -4,6 +4,21 @@ PortfolioManager is a private, self-hosted investment tracker. It imports DeGiro
 
 It is designed for a small home server: one Python process, one SQLite database, no external database service, and no frontend build step.
 
+## Interface
+
+<table>
+  <tr>
+    <td align="center"><strong>Dark theme</strong></td>
+    <td align="center"><strong>Light theme</strong></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/dashboard-dark.png" alt="PortfolioManager dashboard in dark theme" width="600"></td>
+    <td><img src="docs/screenshots/dashboard-light.png" alt="PortfolioManager dashboard in light theme" width="600"></td>
+  </tr>
+</table>
+
+The screenshots use an isolated demo portfolio with fictitious data.
+
 ## Features
 
 - DeGiro `Account.csv` imports with safe re-imports
