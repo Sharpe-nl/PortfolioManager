@@ -15,6 +15,14 @@ class TestAccountParser:
     def test_detects_account_csv(self, account_csv):
         assert acc_parser.is_account_csv(account_csv)
 
+    def test_parses_english_account_csv(self, account_en_csv):
+        result = acc_parser.parse(account_en_csv)
+        assert acc_parser.is_account_csv(account_en_csv)
+        assert len(result.txn_rows) == 2
+        assert result.txn_rows[0].quantity == Decimal("8")
+        assert result.txn_rows[1].quantity == Decimal("-2")
+        assert any(row.event_type == "deposit" for row in result.rows)
+
     def test_skips_koop_verkoop_valuta_rows(self, account_csv):
         result = acc_parser.parse(account_csv)
         types = [r.event_type for r in result.rows]

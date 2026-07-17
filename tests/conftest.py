@@ -15,6 +15,11 @@ def account_csv() -> str:
 
 
 @pytest.fixture()
+def account_en_csv() -> str:
+    return (FIXTURES_DIR / "account_EN.csv").read_text(encoding="utf-8")
+
+
+@pytest.fixture()
 def mem_db() -> sqlite3.Connection:
     """In-memory SQLite database with the full schema applied."""
     conn = sqlite3.connect(":memory:")

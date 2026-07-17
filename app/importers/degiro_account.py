@@ -36,12 +36,18 @@ from . import (
 # ---------------------------------------------------------------------------
 
 ACCOUNT_HEADERS = {"Omschrijving", "Valutadatum", "Saldo"}
+_ENGLISH_HEADERS = {
+    "Date": "Datum", "Time": "Tijd", "Value date": "Valutadatum",
+    "Description": "Omschrijving", "FX rate": "FX", "Change": "Mutatie",
+    "Balance": "Saldo", "Order ID": "Order Id",
+}
 
 
 def is_account_csv(content: str) -> bool:
     from . import strip_bom
     first_line = strip_bom(content).split("\n")[0]
-    return "Omschrijving" in first_line and "Valutadatum" in first_line
+    return (("Omschrijving" in first_line and "Valutadatum" in first_line)
+            or ("Description" in first_line and "Value date" in first_line))
 
 
 # ---------------------------------------------------------------------------
@@ -49,14 +55,14 @@ def is_account_csv(content: str) -> bool:
 # ---------------------------------------------------------------------------
 
 _TXN_RE = re.compile(
-    r'^(koop|verkoop)\s+([\d.,]+)\s*@\s*([\d.,]+)\s*([A-Z]{3})',
+    r'^(koop|verkoop|buy|sell)\s+([\d.,]+)\s*@\s*([\d.,]+)\s*([A-Z]{3})',
     re.IGNORECASE,
 )
 
 # Matches koop/verkoop anywhere in the description, e.g.:
 # "SPIN-OFF: Koop 2 @ 0 EUR"  or  "DRIP: Koop 1 @ 12,50 USD"
 _TXN_SEARCH_RE = re.compile(
-    r'\b(koop|verkoop)\s+([\d.,]+)\s*@\s*([\d.,]+)\s*([A-Z]{3})',
+    r'\b(koop|verkoop|buy|sell)\s+([\d.,]+)\s*@\s*([\d.,]+)\s*([A-Z]{3})',
     re.IGNORECASE,
 )
 
@@ -77,7 +83,8 @@ def _parse_txn_description(description: str):
     m = _TXN_RE.match(s) or _TXN_SEARCH_RE.search(s)
     if not m:
         return None
-    direction       = m.group(1).lower()          # 'koop' or 'verkoop'
+    direction       = m.group(1).lower()
+    direction = {"buy": "koop", "sell": "verkoop"}.get(direction, direction)
     quantity        = parse_dutch_decimal(m.group(2))
     price           = parse_dutch_decimal(m.group(3))
     price_currency  = m.group(4).upper()
@@ -219,6 +226,11 @@ class AccountParseResult:
 # ---------------------------------------------------------------------------
 
 def parse(content: str) -> AccountParseResult:
+    lines = content.splitlines()
+    if lines:
+        for source, target in _ENGLISH_HEADERS.items():
+            lines[0] = lines[0].replace(source, target)
+        content = "\n".join(lines)
     col, data_rows = read_csv_rows(content)
     result = AccountParseResult()
 
