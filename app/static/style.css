@@ -352,6 +352,40 @@ input[type="button"] {
 .realized-actions-dialog article { min-width: 0; }
 .realized-actions-dialog header small { display: block; margin-top: .2rem; font-weight: 400; }
 
+/* Import: a compact DEGIRO tutorial and a keyboard-accessible drop target. */
+.import-upload-header { display: flex; align-items: center; gap: .75rem; }
+.import-upload-header > button { margin: 0 0 0 auto; white-space: nowrap; }
+.import-dropzone {
+  display: grid;
+  gap: .2rem;
+  place-items: center;
+  min-height: 5.75rem;
+  margin: .25rem 0 .75rem;
+  padding: .85rem;
+  border: 1px dashed color-mix(in srgb, var(--primary) 55%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+.import-dropzone strong { color: var(--text); }
+.import-dropzone:hover, .import-dropzone:focus-visible, .import-dropzone.is-dragging {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+  outline: none;
+}
+.import-dropzone.is-dragging { transform: scale(1.01); }
+.import-tutorial-dialog p { line-height: 1.6; }
+.import-tutorial-steps { display: grid; gap: .9rem; padding-left: 1.35rem; }
+.import-tutorial-steps li::marker { color: var(--primary); font-weight: 700; }
+.import-tutorial-steps small { display: block; margin-top: .35rem; color: var(--text-muted); line-height: 1.55; }
+@media (max-width: 700px) {
+  .import-upload-header { align-items: flex-start; flex-direction: column; }
+  .import-upload-header > button { margin-left: 0; }
+}
+
 .info-tooltip {
   display: inline-block;
   margin-left: .16rem;
