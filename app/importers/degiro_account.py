@@ -4,9 +4,8 @@ Column structure:
   Datum, Tijd, Valutadatum, Product, ISIN, Omschrijving, FX,
   Mutatie, [amount], Saldo, [amount], Order Id
 
-IMPORTANT: unlike Transactions.csv, the "Mutatie" column contains the
-CURRENCY CODE (e.g. "EUR"), and the next unnamed column contains the
-AMOUNT.  Same structure for "Saldo".
+The "Mutatie" column contains the CURRENCY CODE (e.g. "EUR"), and the next
+unnamed column contains the AMOUNT. The same structure applies to "Saldo".
 
 This parser handles BOTH transaction rows ("Koop 3 @ 81,92 EUR") and
 cash-event rows (dividend, deposit, fee, etc.) from the same file.

@@ -6,7 +6,7 @@ It is designed for a small home server: one Python process, one SQLite database,
 
 ## Features
 
-- DeGiro `Transactions.csv` and `Account.csv` imports with safe re-imports
+- DeGiro `Account.csv` imports with safe re-imports
 - Manual accounts and generic CSV imports
 - Portfolio dashboard, value history, realised/unrealised P&L, dividends and benchmark comparison
 - Allocation by sector, continent and asset type, including manual ETF country weights
@@ -127,6 +127,8 @@ proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 ```
 
 Keep `PM_HTTPS_ONLY=true` behind HTTPS. Set it to `false` only for local HTTP development.
+
+For a closed home network, you can also run Uvicorn with a self-signed certificate. Create `data/server.key` and `data/server.crt` with `openssl req -x509 -newkey rsa:4096 -nodes -days 3650`, then add `--ssl-keyfile data/server.key --ssl-certfile data/server.crt` to the Uvicorn command. Your browser must trust or explicitly accept that certificate before WebAuthn can work.
 
 ## First run and settings
 
