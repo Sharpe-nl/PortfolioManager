@@ -61,15 +61,9 @@ sudo -u service_portfolio_manager .venv/bin/pip install -r requirements.txt
 
 ---
 
-## Step 6 — Download vendor assets (Chart.js, Pico.css)
+## Step 6 — Configure the reverse proxy (Nginx Proxy Manager)
 
-```bash
-sudo -u service_portfolio_manager .venv/bin/python scripts/download_vendors.py
-```
-
----
-
-## Step 7 — Configure the reverse proxy (Nginx Proxy Manager)
+Chart.js and Pico.css are committed in `app/static/vendor`, so no frontend asset download is required after cloning.
 
 TLS is terminated at the proxy; uvicorn runs plain HTTP on port 8443 and
 is never exposed directly to the internet.
@@ -101,14 +95,31 @@ service file, so it will trust these headers and present `https` as the
 request scheme to the application.  This is required for the session
 cookie (`Secure` flag) and for WebAuthn to construct the correct origin.
 
-> **WebAuthn RP-ID note:** the RP-ID must match the hostname your browser
-> uses.  After first login go to **Settings** and verify that the RP-ID
-> shown matches the domain set in the proxy (leave it blank to let the
-> app auto-detect it from the `Host` header).
+The hostname in the browser must remain stable after registering a WebAuthn
+credential. The application derives the RP ID from the forwarded `Host` header.
+
+### Alternative: nginx with an existing certificate
+
+If nginx itself owns your certificate, proxy HTTPS to the local application:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name portfolio.example.lan;
+    ssl_certificate     /etc/letsencrypt/live/portfolio.example.lan/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/portfolio.example.lan/privkey.pem;
+    location / {
+        proxy_pass http://127.0.0.1:8443;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+```
 
 ---
 
-## Step 8 — Install and start the systemd service
+## Step 7 — Install and start the systemd service
 
 ```bash
 cp /opt/portfoliomanager/deploy/portfoliomanager.service \
@@ -121,12 +132,12 @@ systemctl status portfoliomanager
 
 ---
 
-## Step 9 — First login (YubiKey registration)
+## Step 8 — First login (YubiKey registration)
 
 1. Open the URL configured in your proxy manager (e.g. `https://portfolio.lan`).
 2. The app redirects to the **YubiKey registration** page (only shown when
    no credentials exist yet).
-3. Insert your YubiKey and click **YubiKey registreren**.
+3. Insert your YubiKey and click the registration button.
 4. Touch the YubiKey when the browser prompts.
 5. You are redirected to the login page.  Insert your YubiKey and log in.
 
@@ -167,26 +178,25 @@ survive LXC deletion.
 
 ## Update procedure
 
-### Automatisch (aanbevolen) — deploy vanaf je Mac met één commando
+### Automatic (recommended) — deploy from your workstation
 
 ```bash
-# Stel je server-adres in (eenmalig, of zet dit in je ~/.zshrc)
+# Set the server address once (or add it to your shell profile)
 export PM_SERVER=root@192.168.1.100
 
-# Kopieer code + herstart service
+# Copy code and restart the service
 bash scripts/deploy_to_server.sh
 ```
 
-Het script gebruikt `rsync` (snel, alleen gewijzigde bestanden) en slaat `data/` en `.venv/` over.
-Daarna draait het automatisch `deploy/update.sh` op de server.
+The script uses `rsync`, excludes `data/` and `.venv/`, and runs `deploy/update.sh` on the server.
 
-### Handmatig — alleen op de server
+### Manual — on the server
 
 ```bash
 sudo bash /opt/portfoliomanager/deploy/update.sh
 ```
 
-Dit script doet: pip install → vendor assets → rechten → service restart.
+This script updates Python dependencies, corrects permissions, and restarts the service.
 
 ---
 
@@ -213,8 +223,7 @@ Then change `ExecStart` in the service file to add:
 And remove `--forwarded-allow-ips` (not needed without a proxy).
 Browsers will show a certificate warning; add a permanent exception.
 
-Then update the **WebAuthn RP-ID** in Settings to match the hostname
-(`portfoliomanager.home`).
+Use a stable hostname that matches the certificate common name when registering WebAuthn credentials.
 
 ---
 

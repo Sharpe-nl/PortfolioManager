@@ -21,7 +21,6 @@ NL = {
     "imports.account_choose_option": "— kies account —",
     "imports.csv_file_label": "CSV-bestand",
     "imports.hint_account_statement": "alle transacties (koop/verkoop), dividenden, stortingen en kosten.",
-    "imports.hint_transactions": "alternatief bestand met alleen transacties (ook ondersteund).",
     "imports.upload_button": "Uploaden & bekijken →",
 
     # ── import.html: ticker mapping ──────────────────────────────────────
@@ -91,7 +90,6 @@ EN = {
     "imports.account_choose_option": "— choose account —",
     "imports.csv_file_label": "CSV file",
     "imports.hint_account_statement": "all transactions (buy/sell), dividends, deposits and fees.",
-    "imports.hint_transactions": "alternative file with transactions only (also supported).",
     "imports.upload_button": "Upload & preview →",
 
     # ── import.html: ticker mapping ──────────────────────────────────────

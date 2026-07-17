@@ -4,9 +4,8 @@ Column structure:
   Datum, Tijd, Valutadatum, Product, ISIN, Omschrijving, FX,
   Mutatie, [amount], Saldo, [amount], Order Id
 
-IMPORTANT: unlike Transactions.csv, the "Mutatie" column contains the
-CURRENCY CODE (e.g. "EUR"), and the next unnamed column contains the
-AMOUNT.  Same structure for "Saldo".
+The "Mutatie" column contains the CURRENCY CODE (e.g. "EUR"), and the next
+unnamed column contains the AMOUNT. The same structure applies to "Saldo".
 
 This parser handles BOTH transaction rows ("Koop 3 @ 81,92 EUR") and
 cash-event rows (dividend, deposit, fee, etc.) from the same file.
@@ -37,12 +36,18 @@ from . import (
 # ---------------------------------------------------------------------------
 
 ACCOUNT_HEADERS = {"Omschrijving", "Valutadatum", "Saldo"}
+_ENGLISH_HEADERS = {
+    "Date": "Datum", "Time": "Tijd", "Value date": "Valutadatum",
+    "Description": "Omschrijving", "FX rate": "FX", "Change": "Mutatie",
+    "Balance": "Saldo", "Order ID": "Order Id",
+}
 
 
 def is_account_csv(content: str) -> bool:
     from . import strip_bom
     first_line = strip_bom(content).split("\n")[0]
-    return "Omschrijving" in first_line and "Valutadatum" in first_line
+    return (("Omschrijving" in first_line and "Valutadatum" in first_line)
+            or ("Description" in first_line and "Value date" in first_line))
 
 
 # ---------------------------------------------------------------------------
@@ -50,20 +55,20 @@ def is_account_csv(content: str) -> bool:
 # ---------------------------------------------------------------------------
 
 _TXN_RE = re.compile(
-    r'^(koop|verkoop)\s+([\d.,]+)\s*@\s*([\d.,]+)\s*([A-Z]{3})',
+    r'^(koop|verkoop|buy|sell)\s+([\d.,]+)\s*@\s*([\d.,]+)\s*([A-Z]{3})',
     re.IGNORECASE,
 )
 
 # Matches koop/verkoop anywhere in the description, e.g.:
 # "SPIN-OFF: Koop 2 @ 0 EUR"  or  "DRIP: Koop 1 @ 12,50 USD"
 _TXN_SEARCH_RE = re.compile(
-    r'\b(koop|verkoop)\s+([\d.,]+)\s*@\s*([\d.,]+)\s*([A-Z]{3})',
+    r'\b(koop|verkoop|buy|sell)\s+([\d.,]+)\s*@\s*([\d.,]+)\s*([A-Z]{3})',
     re.IGNORECASE,
 )
 
 # Matches: "SPLIT AANPASSING: 10 Unilever PLC @ 47,73 EUR (GB00B10RZP78)"
 _SPLIT_RE = re.compile(
-    r'^split aanpassing:\s*([\d.,]+)\s+.+?@\s*([\d.,]+)\s*([A-Z]{3})',
+    r'^(?:split aanpassing|split adjustment):\s*([\d.,]+)\s+.+?@\s*([\d.,]+)\s*([A-Z]{3})',
     re.IGNORECASE,
 )
 
@@ -78,7 +83,8 @@ def _parse_txn_description(description: str):
     m = _TXN_RE.match(s) or _TXN_SEARCH_RE.search(s)
     if not m:
         return None
-    direction       = m.group(1).lower()          # 'koop' or 'verkoop'
+    direction       = m.group(1).lower()
+    direction = {"buy": "koop", "sell": "verkoop"}.get(direction, direction)
     quantity        = parse_dutch_decimal(m.group(2))
     price           = parse_dutch_decimal(m.group(3))
     price_currency  = m.group(4).upper()
@@ -106,6 +112,7 @@ _SKIP_KEYWORDS = (
 )
 
 _TYPE_KEYWORDS: list[tuple[str, str]] = [
+    ("dividend tax",        "dividend_tax"),
     ("dividendbelasting",    "dividend_tax"),
     ("dividend",             "dividend"),
     ("terugstorting",        "withdrawal"),
@@ -117,6 +124,7 @@ _TYPE_KEYWORDS: list[tuple[str, str]] = [
     ("withdrawal",           "withdrawal"),
     ("aansluiting",          "fee"),
     ("transactiekosten",     "fee"),
+    ("transaction fee",      "fee"),
     ("kosten",               "fee"),
     ("adr",                  "fee"),
     ("flatex interest",      "interest"),
@@ -131,10 +139,10 @@ def classify_row(description: str) -> str | None:
     """Return cash_event type, 'transaction', 'corporate_action', or None to skip."""
     d = description.lower().strip()
     # Plain buy/sell at start of description
-    if d.startswith("koop ") or d.startswith("verkoop "):
+    if d.startswith(("koop ", "verkoop ", "buy ", "sell ")):
         return "transaction"
     # Corporate actions → need manual review
-    if d.startswith("split aanpassing"):
+    if d.startswith(("split aanpassing", "split adjustment")):
         return "corporate_action"
     # Embedded koop/verkoop (e.g. "SPIN-OFF: Koop 2 @ 0 EUR", "DRIP: Koop 1 @ ...")
     if _TXN_SEARCH_RE.search(description):
@@ -220,6 +228,11 @@ class AccountParseResult:
 # ---------------------------------------------------------------------------
 
 def parse(content: str) -> AccountParseResult:
+    lines = content.splitlines()
+    if lines:
+        for source, target in _ENGLISH_HEADERS.items():
+            lines[0] = lines[0].replace(source, target)
+        content = "\n".join(lines)
     col, data_rows = read_csv_rows(content)
     result = AccountParseResult()
 
@@ -509,3 +522,57 @@ def _get_instrument_id(conn: sqlite3.Connection, isin: str | None,
         "INSERT INTO instruments(isin, name) VALUES (?,?)", (isin, name)
     )
     return cur.lastrowid  # type: ignore[return-value]
+
+
+def commit_account_events(
+    conn: sqlite3.Connection, result: AccountParseResult, account_id: int,
+) -> tuple[int, int, list[str]]:
+    """Commit a parsed Account.csv result without the UI staging step.
+
+    The web flow deliberately stages imports for preview first.  This small
+    helper keeps the parser independently usable and makes idempotency
+    testable: both transaction and cash-event rows use their raw-row hash.
+    """
+    imported = skipped = 0
+    errors: list[str] = []
+
+    for txn in result.txn_rows:
+        try:
+            instrument_id = _get_instrument_id(conn, txn.isin, txn.product)
+            if instrument_id is None:
+                raise ValueError("transaction has no ISIN")
+            cur = conn.execute(
+                """INSERT OR IGNORE INTO transactions
+                   (account_id, instrument_id, ts, quantity, price, local_currency,
+                    fx_rate, value_eur, fees_eur, order_id, source, dedup_hash)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (account_id, instrument_id, txn.ts, str(txn.quantity), str(txn.price),
+                 txn.local_currency, str(txn.fx_rate) if txn.fx_rate else None,
+                 str(txn.value_eur), str(txn.fees_eur), txn.order_id,
+                 "degiro_account_csv", txn.dedup_hash),
+            )
+            if cur.rowcount:
+                imported += 1
+            else:
+                skipped += 1
+        except Exception as exc:
+            errors.append(f"transaction {txn.ts}: {exc}")
+
+    for row in result.rows:
+        try:
+            instrument_id = _get_instrument_id(conn, row.isin, row.product)
+            cur = conn.execute(
+                """INSERT OR IGNORE INTO cash_events
+                   (account_id, instrument_id, ts, type, amount_eur, description, dedup_hash)
+                   VALUES (?,?,?,?,?,?,?)""",
+                (account_id, instrument_id, row.ts, row.event_type, str(row.amount_eur),
+                 row.description, row.dedup_hash),
+            )
+            if cur.rowcount:
+                imported += 1
+            else:
+                skipped += 1
+        except Exception as exc:
+            errors.append(f"cash event {row.ts}: {exc}")
+
+    return imported, skipped, errors

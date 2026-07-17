@@ -10,13 +10,13 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
 @pytest.fixture()
-def transactions_csv() -> str:
-    return (FIXTURES_DIR / "transactions.csv").read_text(encoding="utf-8")
+def account_csv() -> str:
+    return (FIXTURES_DIR / "account.csv").read_text(encoding="utf-8")
 
 
 @pytest.fixture()
-def account_csv() -> str:
-    return (FIXTURES_DIR / "account.csv").read_text(encoding="utf-8")
+def account_en_csv() -> str:
+    return (FIXTURES_DIR / "account_EN.csv").read_text(encoding="utf-8")
 
 
 @pytest.fixture()

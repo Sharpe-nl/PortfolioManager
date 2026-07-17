@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from ..db import get_db
 from ..helpers import templates, require_auth
-from ..importers import degiro_transactions, degiro_account, generic
+from ..importers import degiro_account, generic
 from ..services.portfolio import list_accounts
 
 router = APIRouter(prefix="/import", tags=["import"])
@@ -72,11 +72,7 @@ async def upload(
     filename = file.filename or "upload.csv"
 
     # Auto-detect file type
-    if degiro_transactions.is_transactions_csv(content):
-        file_type = "degiro_transactions"
-        parse_result = degiro_transactions.parse(content)
-        rows = _stage_transactions(parse_result, account_id, conn)
-    elif degiro_account.is_account_csv(content):
+    if degiro_account.is_account_csv(content):
         file_type = "degiro_account"
         parse_result = degiro_account.parse(content)
         rows = _stage_account_events(parse_result, account_id, conn)
@@ -229,8 +225,7 @@ def _check_transaction_dup(conn, account_id, order_id, ts, quantity, price,
        This is the most reliable discriminator: two buys of the same stock at
        the same price in the same minute are NOT duplicates if the running
        balance differs, and their hashes will differ.
-    2. order_id   — DeGiro order ID (present in Transactions.csv, not always
-       in Account.csv).
+    2. order_id   — DeGiro order ID when it is present in the export.
     3. ts + quantity + price fallback — only used when neither hash nor
        order_id is available (e.g. manually entered transactions).
     """
@@ -271,7 +266,7 @@ def _check_event_dup(conn, dedup_hash: str) -> bool:
 
 
 def _stage_transactions(parse_result, account_id: int, conn) -> list[tuple]:
-    from ..importers.degiro_transactions import get_or_create_instrument
+    from ..importers.generic import _get_or_create_instrument
     staged = []
     seen_keys: set = set()  # dedup within this upload session
     for txn in parse_result.rows:
@@ -285,7 +280,7 @@ def _stage_transactions(parse_result, account_id: int, conn) -> list[tuple]:
             dedup_hash=getattr(txn, 'dedup_hash', None),
         )
         status = "duplicate" if is_dup else "new"
-        instrument_id = get_or_create_instrument(conn, txn.isin, txn.product, txn.exchange)
+        instrument_id = _get_or_create_instrument(conn, txn.isin or txn.product)
         direction = "Koop" if txn.quantity > 0 else "Verkoop"
         desc = f"{txn.ts[:10]}  {txn.product}  {direction} {abs(txn.quantity)}x  @{txn.price} {txn.price_currency}"
         row_json = json.dumps({
@@ -312,7 +307,7 @@ def _stage_transactions(parse_result, account_id: int, conn) -> list[tuple]:
 
 def _stage_account_events(parse_result, account_id: int, conn) -> list[tuple]:
     from ..importers.degiro_account import _get_instrument_id
-    from ..importers.degiro_transactions import get_or_create_instrument
+    from ..importers.generic import _get_or_create_instrument
     staged = []
     seen_txn_keys: set = set()  # dedup within this upload session
 
@@ -330,7 +325,7 @@ def _stage_account_events(parse_result, account_id: int, conn) -> list[tuple]:
             dedup_hash=txn.dedup_hash,
         )
         status = "duplicate" if is_dup else "new"
-        instrument_id = get_or_create_instrument(conn, txn.isin, txn.product, txn.exchange)
+        instrument_id = _get_or_create_instrument(conn, txn.isin or txn.product)
         direction = "Koop" if txn.quantity > 0 else "Verkoop"
         desc = (f"{txn.ts[:10]}  {txn.product}  {direction} {abs(txn.quantity)}x"
                 f"  @{txn.price} {txn.price_currency}")
@@ -369,7 +364,7 @@ def _stage_account_events(parse_result, account_id: int, conn) -> list[tuple]:
             bought_isins.add(r["isin"])
 
     for ca in parse_result.corporate_actions:
-        instrument_id = get_or_create_instrument(conn, ca.isin, ca.product, "")
+        instrument_id = _get_or_create_instrument(conn, ca.isin or ca.product)
 
         has_position = bool(ca.isin and ca.isin in bought_isins)
         if has_position:
