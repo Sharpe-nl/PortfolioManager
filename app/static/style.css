@@ -355,6 +355,8 @@ input[type="button"] {
 /* Import: a compact DEGIRO tutorial and a keyboard-accessible drop target. */
 .import-upload-header { display: flex; align-items: center; gap: .75rem; }
 .import-upload-header > button { margin: 0 0 0 auto; white-space: nowrap; }
+.import-account-add { display: inline-block; margin-top: .3rem; color: var(--text-muted); font-size: .78rem; text-decoration: none; }
+.import-account-add:hover { color: var(--primary); text-decoration: underline; }
 .import-dropzone {
   display: grid;
   gap: .2rem;
