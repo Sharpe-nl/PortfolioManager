@@ -509,3 +509,57 @@ def _get_instrument_id(conn: sqlite3.Connection, isin: str | None,
         "INSERT INTO instruments(isin, name) VALUES (?,?)", (isin, name)
     )
     return cur.lastrowid  # type: ignore[return-value]
+
+
+def commit_account_events(
+    conn: sqlite3.Connection, result: AccountParseResult, account_id: int,
+) -> tuple[int, int, list[str]]:
+    """Commit a parsed Account.csv result without the UI staging step.
+
+    The web flow deliberately stages imports for preview first.  This small
+    helper keeps the parser independently usable and makes idempotency
+    testable: both transaction and cash-event rows use their raw-row hash.
+    """
+    imported = skipped = 0
+    errors: list[str] = []
+
+    for txn in result.txn_rows:
+        try:
+            instrument_id = _get_instrument_id(conn, txn.isin, txn.product)
+            if instrument_id is None:
+                raise ValueError("transaction has no ISIN")
+            cur = conn.execute(
+                """INSERT OR IGNORE INTO transactions
+                   (account_id, instrument_id, ts, quantity, price, local_currency,
+                    fx_rate, value_eur, fees_eur, order_id, source, dedup_hash)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (account_id, instrument_id, txn.ts, str(txn.quantity), str(txn.price),
+                 txn.local_currency, str(txn.fx_rate) if txn.fx_rate else None,
+                 str(txn.value_eur), str(txn.fees_eur), txn.order_id,
+                 "degiro_account_csv", txn.dedup_hash),
+            )
+            if cur.rowcount:
+                imported += 1
+            else:
+                skipped += 1
+        except Exception as exc:
+            errors.append(f"transaction {txn.ts}: {exc}")
+
+    for row in result.rows:
+        try:
+            instrument_id = _get_instrument_id(conn, row.isin, row.product)
+            cur = conn.execute(
+                """INSERT OR IGNORE INTO cash_events
+                   (account_id, instrument_id, ts, type, amount_eur, description, dedup_hash)
+                   VALUES (?,?,?,?,?,?,?)""",
+                (account_id, instrument_id, row.ts, row.event_type, str(row.amount_eur),
+                 row.description, row.dedup_hash),
+            )
+            if cur.rowcount:
+                imported += 1
+            else:
+                skipped += 1
+        except Exception as exc:
+            errors.append(f"cash event {row.ts}: {exc}")
+
+    return imported, skipped, errors
