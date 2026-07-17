@@ -274,6 +274,7 @@ def get_realized_pl_events(
 def get_cash_balances(
     conn: sqlite3.Connection,
     account_id: int | None = None,
+    include_savings: bool = True,
 ) -> list[dict]:
     """Return each account's latest known uninvested cash balance (EUR).
 
@@ -292,9 +293,10 @@ def get_cash_balances(
         ) latest
         JOIN accounts a ON a.id = latest.account_id
         WHERE latest.rn = 1
+          AND (a.type != 'savings' OR :include_savings = 1)
         ORDER BY a.name
     """
-    rows = conn.execute(sql, {"acct": account_id}).fetchall()
+    rows = conn.execute(sql, {"acct": account_id, "include_savings": int(include_savings)}).fetchall()
     return [
         {
             "account_id": r["account_id"],
@@ -311,8 +313,7 @@ def get_cash_balance(
     account_id: int | None = None,
 ) -> Decimal:
     """Return uninvested cash (EUR), summed across accounts' latest known balance."""
-    total = sum((b["balance_eur"] for b in get_cash_balances(conn, account_id)), _ZERO)
-    return total
+    return sum((b["balance_eur"] for b in get_cash_balances(conn, account_id, include_savings=False)), _ZERO)
 
 
 # ---------------------------------------------------------------------------
@@ -666,7 +667,7 @@ def get_portfolio_value_series(
             if price_row:
                 total += Decimal(str(h["qty"])) * _d(price_row["close"])
 
-        # Add savings account snapshots
+        # Add ordinary cash snapshots; savings are shown separately on the dashboard.
         if account_id is None:
             snap_sql = """
                 SELECT SUM(CAST(balance_eur AS REAL)) AS total_balance
@@ -674,7 +675,9 @@ def get_portfolio_value_series(
                     SELECT account_id,
                            balance_eur,
                            ROW_NUMBER() OVER (PARTITION BY account_id ORDER BY date DESC) AS rn
-                    FROM balance_snapshots WHERE date <= ?
+                    FROM balance_snapshots bs
+                    JOIN accounts a ON a.id=bs.account_id
+                    WHERE date <= ? AND a.type != 'savings'
                 ) WHERE rn = 1
             """
             snap = conn.execute(snap_sql, (d,)).fetchone()

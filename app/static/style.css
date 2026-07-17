@@ -1095,6 +1095,17 @@ td.num, th.num {
   margin-bottom: 0;
 }
 
+.savings-summary { display: flex; gap: 2rem; margin-bottom: .8rem; }
+.savings-summary div { display: grid; gap: .15rem; }
+.savings-summary small { color: var(--text-muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; }
+.savings-summary strong { font-size: 1.25rem; }
+.savings-card details { margin-top: .65rem; }
+.dashboard-savings-card { margin-top: 1rem; }
+.dashboard-savings-total { font-size: 1.65rem; font-weight: 700; }
+.dashboard-savings-interest { margin-top: .15rem; font-size: .85rem; }
+.dashboard-savings-list { display: flex; gap: .6rem 1rem; flex-wrap: wrap; margin-top: .85rem; color: var(--text-muted); font-size: .82rem; }
+.dashboard-savings-list strong { color: var(--text); margin-left: .25rem; }
+
 /* ── 18. Badges ──────────────────────────────────────────────────────────── */
 .badge {
   display: inline-flex;

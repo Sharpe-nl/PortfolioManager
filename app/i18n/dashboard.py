@@ -50,6 +50,8 @@ NL = {
     "dashboard.selected_period": "Gekozen periode: {range}",
     "dashboard.value_dataset_label": "Waarde (€)",
     "dashboard.view_instrument_aria": "Bekijk {name}",
+    "dashboard.savings_title": "Opgebouwd vermogen met rente",
+    "dashboard.savings_interest": "Verdiende rente",
 }
 
 EN = {
@@ -102,4 +104,6 @@ EN = {
     "dashboard.selected_period": "Selected period: {range}",
     "dashboard.value_dataset_label": "Value (€)",
     "dashboard.view_instrument_aria": "View {name}",
+    "dashboard.savings_title": "Accumulated savings with interest",
+    "dashboard.savings_interest": "Interest earned",
 }

@@ -26,6 +26,7 @@ from . import (
     imports,
     instrument,
     misc,
+    savings,
     settings,
 )
 
@@ -35,7 +36,7 @@ SUPPORTED_LANGS = ("nl", "en")
 
 _MODULES = (
     common, dashboard, holdings, dividends, benchmark, actions,
-    accounts, settings, instrument, imports, auth, misc,
+    accounts, settings, instrument, imports, auth, misc, savings,
 )
 
 TRANSLATIONS: dict[str, dict[str, str]] = {

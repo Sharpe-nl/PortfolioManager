@@ -160,6 +160,17 @@
   </div>
 </div>
 
+{% if dashboard_savings %}
+<article class="dashboard-savings-card">
+  <header>{{ t(request, 'dashboard.savings_title') }} <a href="/savings" class="secondary btn-sm">{{ t(request, 'dashboard.view_all') }}</a></header>
+  <div class="dashboard-savings-total">{{ savings_balance | eur }}</div>
+  <div class="dashboard-savings-interest pl-positive">{{ t(request, 'dashboard.savings_interest') }} · {{ savings_interest | eur }}</div>
+  <div class="dashboard-savings-list">
+  {% for saving in dashboard_savings %}<span>{{ saving.name }} <strong>{{ saving.balance | eur }}</strong></span>{% endfor %}
+  </div>
+</article>
+{% endif %}
+
 <!-- ── Portfolio value chart ──────────────────────────────────────────── -->
 <div class="chart-grid">
 <article class="chart-card">

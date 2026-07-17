@@ -166,6 +166,10 @@ async def dashboard(request: Request, conn=Depends(get_db), _=Depends(require_au
     # the "Ongerealiseerd" stat — naturally immune to deposits/cash-snapshot
     # jumps and to simply buying more (see get_unrealized_pl_series docstring).
     unrealized_series = svc_portfolio.get_unrealized_pl_series(conn)
+    from ..services.savings import savings_accounts
+    dashboard_savings = savings_accounts(conn, include_hidden=False)
+    savings_balance = sum((item["balance"] for item in dashboard_savings), Decimal("0"))
+    savings_interest = sum((item["interest"] for item in dashboard_savings), Decimal("0"))
 
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
@@ -181,6 +185,9 @@ async def dashboard(request: Request, conn=Depends(get_db), _=Depends(require_au
         "unrealized_series": unrealized_series,
         "holdings_value_series": holdings_value_series,
         "accounts": svc_portfolio.list_accounts(conn),
+        "dashboard_savings": dashboard_savings,
+        "savings_balance": savings_balance,
+        "savings_interest": savings_interest,
     })
 
 

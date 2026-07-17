@@ -29,6 +29,7 @@
       <a href="/dividends" class="{% if '/dividends' in request.url.path %}active{% endif %}">{{ t(request, 'nav.dividends') }}</a>
       <a href="/benchmark" class="{% if '/benchmark' in request.url.path %}active{% endif %}">{{ t(request, 'nav.benchmark') }}</a>
       <a href="/actions"   class="{% if '/actions' in request.url.path %}active{% endif %}">{{ t(request, 'nav.actions') }}</a>
+      <a href="/savings"   class="{% if '/savings' in request.url.path %}active{% endif %}">{{ t(request, 'nav.savings') }}</a>
       <a href="/settings"  class="{% if '/settings' in request.url.path or '/accounts' in request.url.path or '/import' in request.url.path %}active{% endif %}">{{ t(request, 'nav.settings') }}</a>
     </nav>
     <div class="topnav-actions">
@@ -66,6 +67,7 @@
   <a href="/dividends" class="{% if '/dividends' in request.url.path %}active{% endif %}">💶 {{ t(request, 'nav.dividends') }}</a>
   <a href="/benchmark" class="{% if '/benchmark' in request.url.path %}active{% endif %}">📈 {{ t(request, 'nav.benchmark') }}</a>
   <a href="/actions"   class="{% if '/actions' in request.url.path %}active{% endif %}">⚡ {{ t(request, 'nav.actions') }}</a>
+  <a href="/savings"   class="{% if '/savings' in request.url.path %}active{% endif %}">💰 {{ t(request, 'nav.savings') }}</a>
   <a href="/settings"  class="{% if '/settings' in request.url.path or '/accounts' in request.url.path or '/import' in request.url.path %}active{% endif %}">⚙ {{ t(request, 'nav.settings') }}</a>
   <div class="drawer-divider"></div>
   <div class="drawer-footer">
