@@ -35,6 +35,16 @@ The app stores all persistent state in `data/portfolio.db`. Do not commit or sha
 
 In production, place the application behind a reverse proxy such as Caddy, Nginx Proxy Manager, Traefik, or nginx. Terminate TLS there and forward requests to the application. Do not expose the internal HTTP port directly to the internet.
 
+### Choose a TLS setup
+
+| Setup | Best choice when | Trade-off |
+|---|---|---|
+| Reverse proxy with a trusted certificate | You use a domain, or access the app from several devices | Recommended: browsers trust it automatically and WebAuthn works smoothly |
+| nginx with your existing certificate | Your home server already runs nginx | One small proxy configuration is required |
+| Self-signed certificate | A private LAN, one or a few devices, and no proxy | Fast to start, but every device must trust or accept the certificate |
+
+For most home servers, use your existing Nginx Proxy Manager/nginx setup. A self-signed certificate is simpler on the server, but the browser warning and device trust step make it less convenient in daily use.
+
 ## Option 1: Docker Compose
 
 ```bash
@@ -128,7 +138,27 @@ proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 
 Keep `PM_HTTPS_ONLY=true` behind HTTPS. Set it to `false` only for local HTTP development.
 
-For a closed home network, you can also run Uvicorn with a self-signed certificate. Create `data/server.key` and `data/server.crt` with `openssl req -x509 -newkey rsa:4096 -nodes -days 3650`, then add `--ssl-keyfile data/server.key --ssl-certfile data/server.crt` to the Uvicorn command. Your browser must trust or explicitly accept that certificate before WebAuthn can work.
+## Self-signed TLS without a reverse proxy
+
+This option is useful on a trusted LAN. Pick a hostname you will keep using (for example `portfolio.home`) and create a certificate on the Docker host:
+
+```bash
+mkdir -p /srv/portfoliomanager/data/tls
+openssl req -x509 -newkey rsa:4096 -nodes -days 3650 \
+  -keyout /srv/portfoliomanager/data/tls/server.key \
+  -out /srv/portfoliomanager/data/tls/server.crt \
+  -subj "/CN=portfolio.home" \
+  -addext "subjectAltName=DNS:portfolio.home"
+chmod 600 /srv/portfoliomanager/data/tls/server.key
+```
+
+Then run the included self-signed Compose configuration:
+
+```bash
+docker compose -f compose.selfsigned.yml up -d --build
+```
+
+Open `https://portfolio.home:8443`. Add a local DNS entry for that hostname if necessary, then trust the certificate on each device before registering a security key. The certificate and database live in `/srv/portfoliomanager/data`; keep that directory private and back it up.
 
 ## First run and settings
 
