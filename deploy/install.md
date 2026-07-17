@@ -61,15 +61,9 @@ sudo -u service_portfolio_manager .venv/bin/pip install -r requirements.txt
 
 ---
 
-## Step 6 — Download vendor assets (Chart.js, Pico.css)
+## Step 6 — Configure the reverse proxy (Nginx Proxy Manager)
 
-```bash
-sudo -u service_portfolio_manager .venv/bin/python scripts/download_vendors.py
-```
-
----
-
-## Step 7 — Configure the reverse proxy (Nginx Proxy Manager)
+Chart.js and Pico.css are committed in `app/static/vendor`, so no frontend asset download is required after cloning.
 
 TLS is terminated at the proxy; uvicorn runs plain HTTP on port 8443 and
 is never exposed directly to the internet.
@@ -108,7 +102,7 @@ cookie (`Secure` flag) and for WebAuthn to construct the correct origin.
 
 ---
 
-## Step 8 — Install and start the systemd service
+## Step 7 — Install and start the systemd service
 
 ```bash
 cp /opt/portfoliomanager/deploy/portfoliomanager.service \
@@ -121,7 +115,7 @@ systemctl status portfoliomanager
 
 ---
 
-## Step 9 — First login (YubiKey registration)
+## Step 8 — First login (YubiKey registration)
 
 1. Open the URL configured in your proxy manager (e.g. `https://portfolio.lan`).
 2. The app redirects to the **YubiKey registration** page (only shown when

@@ -6,9 +6,8 @@
 #
 # Wat het doet:
 #   1. Python-dependencies bijwerken (pip install -r requirements.txt)
-#   2. Vendor assets downloaden als ze ontbreken
-#   3. Bestandsrechten corrigeren
-#   4. Systemd-service herstarten
+#   2. Bestandsrechten corrigeren
+#   3. Systemd-service herstarten
 
 set -euo pipefail
 
@@ -65,19 +64,14 @@ sudo -u "$SERVICE_USER" "$VENV/bin/pip" install --quiet --upgrade pip
 sudo -u "$SERVICE_USER" "$VENV/bin/pip" install --quiet -r "$APP_DIR/requirements.txt"
 ok "Dependencies bijgewerkt."
 
-# ── 3. Vendor assets ─────────────────────────────────────────────────────────
-info "Vendor assets controleren…"
-sudo -u "$SERVICE_USER" "$VENV/bin/python" "$APP_DIR/scripts/download_vendors.py"
-ok "Vendor assets gereed."
-
-# ── 4. Bestandsrechten ───────────────────────────────────────────────────────
+# ── 3. Bestandsrechten ───────────────────────────────────────────────────────
 info "Bestandsrechten corrigeren…"
 chown -R "$SERVICE_USER:$SERVICE_USER" "$APP_DIR"
 # Data-map leesbaar/schrijfbaar voor de service, niet voor anderen
 chmod 750 "$APP_DIR/data" 2>/dev/null || true
 ok "Rechten gecorrigeerd."
 
-# ── 5. Service herstarten ────────────────────────────────────────────────────
+# ── 4. Service herstarten ────────────────────────────────────────────────────
 info "Service herstarten…"
 systemctl restart "$SERVICE_NAME"
 
