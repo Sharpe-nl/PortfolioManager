@@ -1,0 +1,43 @@
+"""dividends.html translations."""
+
+NL = {
+    "dividends.page_title": "Dividenden",
+    "dividends.chart_title": "Dividendgeschiedenis (maandelijks)",
+    "dividends.chart_hint": "klik op een balk voor details",
+    "dividends.stat_period": "Dividend (geselecteerde periode)",
+    "dividends.dividend_label": "Dividend",
+    "dividends.dividend_tax_label": "Dividendbelasting",
+    "dividends.amount_tooltip_aria": "Uitleg over bedrag",
+    "dividends.amount_tooltip": "Dividend-uitkeringen zijn positief, ingehouden dividendbelasting is negatief.",
+    "dividends.no_dividend_month": "Geen dividend in deze maand.",
+    "dividends.per_year_title": "Per jaar",
+    "dividends.col_year": "Jaar",
+    "dividends.col_gross": "Bruto",
+    "dividends.col_tax": "Belasting",
+    "dividends.col_net": "Netto",
+    "dividends.per_instrument_title": "Per instrument",
+    "dividends.col_last_received": "Laatst ontvangen",
+    "dividends.dataset_label": "Werkelijk (netto)",
+    "dividends.view_instrument_aria": "Bekijk {name}",
+}
+
+EN = {
+    "dividends.page_title": "Dividends",
+    "dividends.chart_title": "Dividend history (monthly)",
+    "dividends.chart_hint": "click a bar for details",
+    "dividends.stat_period": "Dividend (selected period)",
+    "dividends.dividend_label": "Dividend",
+    "dividends.dividend_tax_label": "Dividend tax",
+    "dividends.amount_tooltip_aria": "About amount",
+    "dividends.amount_tooltip": "Dividend payouts are positive, withheld dividend tax is negative.",
+    "dividends.no_dividend_month": "No dividend in this month.",
+    "dividends.per_year_title": "Per year",
+    "dividends.col_year": "Year",
+    "dividends.col_gross": "Gross",
+    "dividends.col_tax": "Tax",
+    "dividends.col_net": "Net",
+    "dividends.per_instrument_title": "Per instrument",
+    "dividends.col_last_received": "Last received",
+    "dividends.dataset_label": "Actual (net)",
+    "dividends.view_instrument_aria": "View {name}",
+}

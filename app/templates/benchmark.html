@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+{% block title %}Benchmark – PortfolioManager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ t(request, 'benchmark.page_title') }}</h1>
+  {% if portfolio_series %}
+  <span class="range-selector">
+    <button onclick="setRange(this,'1M')" data-range="1M">{{ t(request, 'range.1m') }}</button>
+    <button onclick="setRange(this,'YTD')" data-range="YTD">{{ t(request, 'range.ytd') }}</button>
+    <button onclick="setRange(this,'1Y')" class="active" data-range="1Y">{{ t(request, 'range.1y') }}</button>
+    <button onclick="openCustomRange(this)" data-range="CUSTOM">{{ t(request, 'range.custom') }}</button>
+    <button onclick="setRange(this,'ALL')" data-range="ALL">{{ t(request, 'range.all') }}</button>
+  </span>
+  {% endif %}
+</div>
+
+<!-- ── Benchmark selection (tick as many as you want) + account filter ─── -->
+<form method="get" id="benchmarkForm" class="inline-form" autocomplete="off"
+      style="flex-wrap:wrap; gap:1rem 1.5rem; margin-bottom:1.125rem;">
+  <input type="hidden" name="submitted" value="1">
+  <span style="display:flex; flex-wrap:wrap; gap:.25rem 1rem;">
+    {% for ticker, label in presets %}
+    <label style="display:inline-flex; align-items:center; gap:.35rem; font-weight:normal;">
+      <input type="checkbox" name="tickers" value="{{ ticker }}"
+             {% if ticker in active_tickers %}checked{% endif %}
+             onchange="submitBenchmarkForm()">
+      <span class="instrument-name-with-logo">
+        <span data-instrument-logo data-symbol="{{ ticker }}" data-name="{{ label }}"></span>
+        <span>{{ label }}</span>
+      </span>
+    </label>
+    {% endfor %}
+  </span>
+  <select name="account" onchange="submitBenchmarkForm()">
+    <option value="">{{ t(request, 'common.all_accounts') }}</option>
+    {% for acc in accounts %}
+    <option value="{{ acc.id }}" {% if selected_account == acc.id %}selected{% endif %}>{{ acc.name }}</option>
+    {% endfor %}
+  </select>
+</form>
+
+<script>
+// Defined unconditionally (unlike the range-selector/chart JS below, which
+// only exists once there's data) so the checkboxes/account select always
+// work, even before any deposits have ever been imported.
+function submitBenchmarkForm() {
+  showPageLoadingOverlay();
+  document.getElementById('benchmarkForm').submit();
+}
+</script>
+
+{% if portfolio_series %}
+<dialog id="customRangeDialog">
+  <article style="margin:0;">
+    <header>{{ t(request, 'range.custom_period') }}</header>
+    <label>{{ t(request, 'range.from') }}
+      <input type="date" id="customStart">
+    </label>
+    <label>{{ t(request, 'range.to') }}
+      <input type="date" id="customEnd">
+    </label>
+    <footer style="display:flex; gap:.5rem; justify-content:flex-end; margin-top:.75rem;">
+      <button class="secondary btn-sm" type="button" onclick="document.getElementById('customRangeDialog').close()">{{ t(request, 'common.cancel') }}</button>
+      <button class="btn-sm" type="button" onclick="applyCustomRange()">{{ t(request, 'common.apply') }}</button>
+    </footer>
+  </article>
+</dialog>
+{% endif %}
+
+{% if not portfolio_series %}
+<p class="notice">{{ t(request, 'benchmark.no_data_prefix') }} <a href="/import">{{ t(request, 'benchmark.import_transactions_link') }}</a> {{ t(request, 'benchmark.no_data_middle') }} <a href="/import">deposit</a> {{ t(request, 'benchmark.no_data_suffix') }}</p>
+{% else %}
+
+{% if not active_tickers %}
+<p class="notice">{{ t(request, 'benchmark.no_benchmark_selected') }}</p>
+{% endif %}
+
+<!-- ── Summary stats (follow the range selector above) ─────────────────── -->
+<div class="stat-grid">
+  <article class="stat-card">
+    <header>{{ t(request, 'benchmark.portfolio_return') }}</header>
+    <div class="stat-value" id="stat-port-return"></div>
+    <div class="muted" id="stat-port-xirr"></div>
+  </article>
+  <article class="stat-card">
+    <header>{{ t(request, 'benchmark.portfolio_value') }}</header>
+    <div class="stat-value" id="stat-port-value"></div>
+  </article>
+  {% for ticker, comp in comparisons.items() %}
+  <article class="stat-card">
+    <header class="instrument-name-with-logo">
+      <span data-instrument-logo data-symbol="{{ ticker }}" data-name="{{ ticker }}"></span>
+      <span>{{ t(request, 'benchmark.ticker_return', ticker=ticker) }}</span>
+    </header>
+    <div class="stat-value" data-bench-return="{{ ticker }}"></div>
+    <div class="muted" data-bench-xirr="{{ ticker }}"></div>
+  </article>
+  <article class="stat-card">
+    <header class="instrument-name-with-logo">
+      <span data-instrument-logo data-symbol="{{ ticker }}" data-name="{{ ticker }}"></span>
+      <span>{{ t(request, 'benchmark.ticker_value', ticker=ticker) }}</span>
+    </header>
+    <div class="stat-value" data-bench-value="{{ ticker }}"></div>
+    {% if comp.stale %}<div class="muted">{{ t(request, 'benchmark.stale_prices') }}</div>{% endif %}
+  </article>
+  {% endfor %}
+</div>
+
+<!-- ── Comparison chart ───────────────────────────────────────────────── -->
+<article class="chart-card">
+  <header>{{ t(request, 'benchmark.chart_title') }}</header>
+  <canvas id="benchChart" height="320"></canvas>
+</article>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if portfolio_series %}
+<script>
+// portSeries and each ticker's benchSeries share the same date points
+// (built together server-side), so all can be filtered by the same date
+// range. deposits are the same real cash flows that feed every side (same
+// dates/amounts) — each benchmark is just "what if this money had bought
+// that index instead", so a single deposits list covers all of them.
+const portSeriesAll = {{ portfolio_series | tojson }};
+const depositsAll   = {{ deposits | tojson }};
+const benchSeriesByTicker = {
+  {% for ticker, comp in comparisons.items() %}
+  {{ ticker | tojson }}: {{ comp.benchmark_series | tojson }},
+  {% endfor %}
+};
+
+// UI strings needed inside JS (not just static markup) — see app/i18n/.
+const I18N = {
+  rangeInvalid: {{ t(request, 'range.invalid_alert') | tojson }},
+  portfolioLabel: {{ t(request, 'benchmark.dataset_label') | tojson }},
+  xirrLabel: {{ t(request, 'benchmark.xirr_label') | tojson }},  // contains a literal "{pct}" placeholder, filled in via .replace() in JS
+};
+
+let benchChart;
+let customRange = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  const saved = loadRangePreference('benchmark');
+  if (saved && saved.range === 'CUSTOM' && saved.customRange) customRange = saved.customRange;
+  updateBenchChart(restoreRangeSelection('benchmark'));
+  document.querySelectorAll('dialog').forEach(dialog => {
+    dialog.addEventListener('click', event => {
+      if (event.target === dialog) dialog.close();
+    });
+  });
+  onChartThemeChange(() => updateBenchChart(selectedRangeForTheme()));
+});
+
+// updateBenchChart takes a range name, but the current selection only lives
+// on the active .range-selector button — read it back for the theme-change
+// re-render instead of tracking a second copy of the same state.
+function selectedRangeForTheme() {
+  const active = document.querySelector('.range-selector button.active');
+  return active ? active.dataset.range : '1Y';
+}
+
+// Newton-Raphson XIRR (ported 1:1 from services/benchmark.py::xirr so the
+// client can recompute an annualized return for an arbitrary sub-period).
+// cashFlows: [{date: 'yyyy-mm-dd', amount: number}] — negative = outflow.
+function xirr(cashFlows, guess = 0.1) {
+  if (!cashFlows.length) return null;
+  const t0 = new Date(cashFlows[0].date + 'T00:00:00');
+  const t = cashFlows.map(cf => (new Date(cf.date + 'T00:00:00') - t0) / (365 * 86400000));
+  const amounts = cashFlows.map(cf => cf.amount);
+
+  const npv = r => amounts.reduce((sum, c, i) => sum + c / Math.pow(1 + r, t[i]), 0);
+  const dNpv = r => amounts.reduce((sum, c, i) => sum - t[i] * c / Math.pow(1 + r, t[i] + 1), 0);
+
+  let rate = guess;
+  for (let i = 0; i < 200; i++) {
+    const npvVal = npv(rate);
+    const dVal = dNpv(rate);
+    if (Math.abs(dVal) < 1e-14) break;
+    const newRate = rate - npvVal / dVal;
+    if (Math.abs(newRate - rate) < 1e-7) return newRate;
+    rate = newRate;
+    if (rate <= -1) rate = -0.999;
+  }
+  return null;
+}
+
+// Return% + annualized XIRR for `series` over [start, end], using the same
+// "same cash flows into X" methodology as the full-history calc: a synthetic
+// starting outflow (what was already invested going into the period), each
+// real deposit within the period as its own dated outflow, and the ending
+// value as the final inflow.
+function periodStats(series, start, end) {
+  const inWindow = series.filter(pt => inDateRange(pt.date, start, end));
+  if (inWindow.length < 1) return null;
+  const before = series.filter(pt => start && new Date(pt.date) < start);
+  const valueStart = before.length ? parseFloat(before[before.length - 1].value) : 0;
+  const endPoint = inWindow[inWindow.length - 1];
+  const valueEnd = parseFloat(endPoint.value);
+
+  const depositsInWindow = depositsAll.filter(d => inDateRange(d.date, start, end));
+  const depositsSum = depositsInWindow.reduce((sum, d) => sum + parseFloat(d.amount_eur), 0);
+
+  const gainEur = (valueEnd - valueStart) - depositsSum;
+  const denom = valueStart || depositsSum;
+  const pct = denom ? (gainEur / denom * 100) : 0;
+
+  const flows = [];
+  if (start && valueStart > 0) flows.push({ date: start.toISOString().slice(0, 10), amount: -valueStart });
+  depositsInWindow.forEach(d => flows.push({ date: d.date, amount: -parseFloat(d.amount_eur) }));
+  if (valueEnd > 0) flows.push({ date: endPoint.date, amount: valueEnd });
+  const rate = flows.length >= 2 ? xirr(flows) : null;
+
+  return { valueEnd, gainEur, pct, xirrPct: rate !== null ? rate * 100 : null };
+}
+
+function plClass(value) {
+  if (value > 0) return 'pl-positive';
+  if (value < 0) return 'pl-negative';
+  return '';
+}
+
+function setPlText(el, value, text) {
+  el.classList.remove('pl-positive', 'pl-negative');
+  const cls = plClass(value);
+  if (cls) el.classList.add(cls);
+  el.textContent = text;
+}
+
+function updatePeriodStats(start, end) {
+  const port = periodStats(portSeriesAll, start, end);
+  if (port) {
+    setPlText(document.getElementById('stat-port-return'), port.pct, formatPct(port.pct));
+    document.getElementById('stat-port-xirr').textContent = port.xirrPct !== null ? I18N.xirrLabel.replace('{pct}', port.xirrPct.toFixed(2)) : '';
+    document.getElementById('stat-port-value').textContent = formatEur(port.valueEnd);
+  }
+  Object.keys(benchSeriesByTicker).forEach(ticker => {
+    const bench = periodStats(benchSeriesByTicker[ticker], start, end);
+    if (!bench) return;
+    const retEl = document.querySelector(`[data-bench-return="${ticker}"]`);
+    const xirrEl = document.querySelector(`[data-bench-xirr="${ticker}"]`);
+    const valEl = document.querySelector(`[data-bench-value="${ticker}"]`);
+    if (retEl) setPlText(retEl, bench.pct, formatPct(bench.pct));
+    if (xirrEl) xirrEl.textContent = bench.xirrPct !== null ? I18N.xirrLabel.replace('{pct}', bench.xirrPct.toFixed(2)) : '';
+    if (valEl) valEl.textContent = formatEur(bench.valueEnd);
+  });
+}
+
+function updateBenchChart(range) {
+  const { start, end } = getRangeBounds(range, customRange);
+  const portSeries = portSeriesAll.filter(p => inDateRange(p.date, start, end));
+  updatePeriodStats(start, end);
+
+  const t = chartTokens();
+  // Blue (palette slot 1) is reserved for "my portfolio" everywhere else on
+  // the dashboard, so it stays the hero line here too; benchmarks take the
+  // remaining fixed-order slots, never blue, so a ticker is never mistaken
+  // for the portfolio's own line.
+  const benchColors = chartPalette().slice(1);
+
+  const datasets = [{
+    label: I18N.portfolioLabel,
+    data: portSeries.map(p => parseFloat(p.value)),
+    borderColor: t.primary,
+    backgroundColor: chartCtx => glassGradient(chartCtx.chart.ctx, chartCtx.chart.chartArea, t.primary),
+    borderWidth: 2.5,
+    borderCapStyle: 'round',
+    fill: true,
+    tension: 0.3,
+    pointRadius: portSeries.length > 60 ? 0 : 3,
+    pointBackgroundColor: t.primary,
+    order: 0,
+  }];
+
+  Object.keys(benchSeriesByTicker).forEach((ticker, i) => {
+    const series = benchSeriesByTicker[ticker].filter(p => inDateRange(p.date, start, end));
+    datasets.push({
+      label: ticker,
+      data: series.map(p => parseFloat(p.value)),
+      borderColor: benchColors[i % benchColors.length],
+      fill: false,
+      tension: 0.3,
+      pointRadius: series.length > 60 ? 0 : 3,
+      borderDash: [5, 3],
+      order: i + 1,
+    });
+  });
+
+  const ctx = document.getElementById('benchChart').getContext('2d');
+  if (benchChart) benchChart.destroy();
+  benchChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: portSeries.map(p => p.date), datasets },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top', labels: { color: chartTickColor() } },
+        hoverGuideLine: hoverGuideLineOptions(),
+        tooltip: { ...glassTooltipOptions(), callbacks: { label: c => ` ${c.dataset.label}: ${formatEur(c.parsed.y)}` } },
+      },
+      scales: {
+        x: { grid: { color: chartGridColor() }, ticks: { color: chartTickColor(), maxTicksLimit: 8 } },
+        y: { grid: { color: chartGridColor() }, ticks: { color: chartTickColor(), callback: v => '€' + v.toLocaleString('nl-NL') } }
+      }
+    }
+  });
+}
+
+function setRange(btn, range) {
+  customRange = null;
+  document.querySelectorAll('.range-selector button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  saveRangePreference('benchmark', range, null);
+  updateBenchChart(range);
+}
+
+function openCustomRange() {
+  openCustomRangeDialog();
+}
+
+function applyCustomRange() {
+  const start = document.getElementById('customStart').value;
+  const end = document.getElementById('customEnd').value;
+  if (!start || !end || start > end) {
+    alert(I18N.rangeInvalid);
+    return;
+  }
+  customRange = { start, end };
+  document.querySelectorAll('.range-selector button').forEach(b => b.classList.remove('active'));
+  document.querySelector('.range-selector button[data-range="CUSTOM"]').classList.add('active');
+  document.getElementById('customRangeDialog').close();
+  saveRangePreference('benchmark', 'CUSTOM', customRange);
+  updateBenchChart('CUSTOM');
+}
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}{{ t(request, 'actions.page_title') }} – PortfolioManager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ t(request, 'actions.page_title') }}</h1>
+  <form method="get" class="inline-form">
+    <select name="account" onchange="this.form.submit()">
+      <option value="">{{ t(request, 'common.all_accounts') }}</option>
+      {% for acc in accounts %}
+      <option value="{{ acc.id }}" {% if selected_account == acc.id %}selected{% endif %}>{{ acc.name }}</option>
+      {% endfor %}
+    </select>
+    {% if filter != 'all' %}<input type="hidden" name="filter" value="{{ filter }}">{% endif %}
+  </form>
+</div>
+
+<!-- Filter tabs -->
+<div class="filter-tabs">
+  <a href="?filter=all{% if selected_account %}&account={{ selected_account }}{% endif %}"
+     class="filter-tab {% if filter == 'all' %}active{% endif %}">{{ t(request, 'actions.tab_all') }}</a>
+  <a href="?filter=transactions{% if selected_account %}&account={{ selected_account }}{% endif %}"
+     class="filter-tab {% if filter == 'transactions' %}active{% endif %}">{{ t(request, 'actions.tab_transactions') }}</a>
+  <a href="?filter=cash{% if selected_account %}&account={{ selected_account }}{% endif %}"
+     class="filter-tab {% if filter == 'cash' %}active{% endif %}">{{ t(request, 'actions.tab_cash') }}</a>
+  <a href="?filter=flagged{% if selected_account %}&account={{ selected_account }}{% endif %}"
+     class="filter-tab {% if filter == 'flagged' %}active{% endif %}">
+    {{ t(request, 'actions.tab_flagged') }}
+    {% if flagged_count > 0 %}
+    <span class="count-badge">{{ flagged_count }}</span>
+    {% endif %}
+  </a>
+</div>
+
+<article>
+  {% if not events %}
+  <p class="muted" style="padding:1rem 0">{{ t(request, 'actions.empty') }}</p>
+  {% else %}
+  <div class="table-scroll">
+  <table>
+    <thead><tr>
+      <th>{{ t(request, 'common.date') }}</th>
+      <th>{{ t(request, 'common.account') }}</th>
+      <th>{{ t(request, 'common.instrument') }}</th>
+      <th>Type</th>
+      <th class="num">{{ t(request, 'actions.col_qty') }}</th>
+      <th class="num">{{ t(request, 'actions.col_price') }}</th>
+      <th class="num">{{ t(request, 'actions.col_amount_eur') }}</th>
+      <th>{{ t(request, 'common.description') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for ev in events %}
+    {% set is_flagged = (ev.category == 'transaction' and ev.price is not none and ev.price|float == 0) or
+                        (ev.category == 'cash_event' and ev.action_type == 'other') %}
+    <tr class="{% if is_flagged %}row-flagged{% endif %}">
+      <td class="nowrap">{{ ev.ts[:10] if ev.ts else '—' }}</td>
+      <td class="muted small">{{ ev.account_name }}</td>
+      <td>
+        {% if ev.instrument_id %}
+        <a href="/instrument/{{ ev.instrument_id }}" class="instrument-name-with-logo">
+          <span data-instrument-logo data-isin="{{ ev.isin or '' }}" data-name="{{ ev.instrument_name }}"></span>
+          <span>{{ ev.instrument_name }}</span>
+        </a>
+        {% if ev.isin %}<br><span class="muted small">{{ ev.isin }}</span>{% endif %}
+        {% else %}
+        <span class="muted">—</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if ev.action_type == 'buy' %}
+          <span class="type-badge buy">{{ t(request, 'actions.badge_buy') }}</span>
+        {% elif ev.action_type == 'sell' %}
+          <span class="type-badge sell">{{ t(request, 'actions.badge_sell') }}</span>
+        {% elif ev.action_type == 'corporate' %}
+          <span class="type-badge corporate">{{ t(request, 'actions.badge_corporate') }}</span>
+        {% elif ev.action_type == 'dividend' %}
+          <span class="type-badge dividend">{{ t(request, 'actions.badge_dividend') }}</span>
+        {% elif ev.action_type == 'dividend_tax' %}
+          <span class="type-badge tax">{{ t(request, 'actions.badge_dividend_tax') }}</span>
+        {% elif ev.action_type == 'deposit' %}
+          <span class="type-badge deposit">{{ t(request, 'actions.badge_deposit') }}</span>
+        {% elif ev.action_type == 'withdrawal' %}
+          <span class="type-badge withdrawal">{{ t(request, 'actions.badge_withdrawal') }}</span>
+        {% elif ev.action_type == 'fee' %}
+          <span class="type-badge fee">{{ t(request, 'actions.badge_fee') }}</span>
+        {% elif ev.action_type == 'interest' %}
+          <span class="type-badge interest">{{ t(request, 'actions.badge_interest') }}</span>
+        {% else %}
+          <span class="type-badge other">{{ ev.action_type or '—' }}</span>
+        {% endif %}
+        {% if is_flagged %}<span class="flag-icon" title="{{ t(request, 'actions.flag_tooltip') }}">⚠</span>{% endif %}
+      </td>
+      <td class="num">
+        {% if ev.quantity is not none %}{{ ev.quantity | qty }}{% else %}—{% endif %}
+      </td>
+      <td class="num">
+        {% if ev.price is not none and ev.price|float != 0 %}
+          {{ ev.price | eur }} {{ ev.local_currency or '' }}
+        {% elif ev.price is not none %}
+          <span class="muted">0</span>
+        {% else %}—{% endif %}
+      </td>
+      <td class="num {% if ev.value_eur %}{{ ev.value_eur | pl_class }}{% endif %}">
+        {{ ev.value_eur | eur if ev.value_eur is not none else '—' }}
+      </td>
+      <td class="muted small">{{ ev.description or '—' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if events|length >= 500 %}
+  <p class="muted small" style="padding:.5rem 0">{{ t(request, 'actions.max_rows_notice') }}</p>
+  {% endif %}
+  {% endif %}
+</article>
+{% endblock %}

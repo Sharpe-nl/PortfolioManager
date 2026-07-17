@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}{{ t(request, 'holdings.page_title') }} – PortfolioManager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ t(request, 'holdings.page_title') }}</h1>
+  <form method="get" class="filter-form inline-form">
+    <select name="account" onchange="this.form.submit()">
+      <option value="">{{ t(request, 'common.all_accounts') }}</option>
+      {% for acc in accounts %}
+      <option value="{{ acc.id }}" {% if selected_account == acc.id %}selected{% endif %}>
+        {{ acc.name }}
+      </option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<!-- Summary -->
+<div class="stat-grid">
+  <article class="stat-card">
+    <header>{{ t(request, 'holdings.stat_total_account') }}</header>
+    <div class="stat-value">{{ total_account | eur }}</div>
+  </article>
+  <article class="stat-card">
+    <header>{{ t(request, 'holdings.stat_portfolio') }} <small class="muted">(excl. cash)</small></header>
+    <div class="stat-value">{{ portfolio_value | eur }}</div>
+  </article>
+</div>
+
+{% macro holdings_table(title, rows) %}
+{% if rows %}
+<article>
+  <header>{{ title }}</header>
+  <div class="table-scroll desktop-only">
+  <table class="sortable-table">
+    <thead>
+      <tr>
+        <th><a href="?sort=name{% if selected_account %}&account={{ selected_account }}{% endif %}">{{ t(request, 'holdings.col_name') }}</a></th>
+        <th>{{ t(request, 'common.account') }}</th>
+        <th class="num"><a href="?sort=qty{% if selected_account %}&account={{ selected_account }}{% endif %}">{{ t(request, 'holdings.col_qty') }}</a></th>
+        <th class="num">{{ t(request, 'holdings.col_avg_cost') }} <small class="muted">{{ t(request, 'holdings.unit_per_share') }}</small></th>
+        <th class="num">{{ t(request, 'holdings.col_current_price') }} <small class="muted">(€)</small></th>
+        <th class="num"><a href="?sort=value{% if selected_account %}&account={{ selected_account }}{% endif %}">{{ t(request, 'holdings.col_value_eur') }}</a></th>
+        <th class="num"><a href="?sort=pl{% if selected_account %}&account={{ selected_account }}{% endif %}">{{ t(request, 'holdings.col_result_short') }}</a></th>
+        <th class="num"><a href="?sort=pl_pct{% if selected_account %}&account={{ selected_account }}{% endif %}">{{ t(request, 'holdings.col_result_pct_short') }}</a></th>
+        <th class="num">{{ t(request, 'holdings.col_weight') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for h in rows %}
+    <tr onclick="window.location='/instrument/{{ h.instrument.id }}'" class="clickable">
+      <td>
+        <a href="/instrument/{{ h.instrument.id }}" class="instrument-name-with-logo">
+          <span data-instrument-logo data-isin="{{ h.instrument.isin or '' }}" data-symbol="{{ h.instrument.symbol or '' }}" data-name="{{ h.instrument.name }}"></span>
+          <span>{{ h.instrument.name }}</span>
+        </a>
+        {% if h.instrument.isin %}<br><small class="muted">{{ h.instrument.isin }}</small>{% endif %}
+        {% if h.instrument.currency and h.instrument.currency != 'EUR' %}
+        <br><small class="muted badge-currency">{{ h.instrument.currency }}</small>
+        {% endif %}
+      </td>
+      <td>{{ h.account_name }}</td>
+      <td class="num">{{ h.quantity | qty }}</td>
+      <td class="num">{{ h.avg_cost | eur }}</td>
+      <td class="num">
+        {% if h.current_price %}{{ h.current_price | eur }}
+        {% else %}<span class="muted">—</span>{% endif %}
+      </td>
+      <td class="num">{{ h.current_value | eur }}</td>
+      <td class="num {{ h.unrealized_pl | pl_class }}">{{ h.unrealized_pl | eur }}</td>
+      <td class="num {{ h.unrealized_pl_pct | pl_class }}">{{ h.unrealized_pl_pct | pct }}</td>
+      <td class="num">{{ h.weight | pct(sign=False) if h.weight else '—' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  <!-- Mobile card list -->
+  <div class="card-list mobile-only">
+  {% for h in rows %}
+  <a href="/instrument/{{ h.instrument.id }}" class="holding-card">
+    <div class="holding-name instrument-name-with-logo">
+      <span data-instrument-logo data-isin="{{ h.instrument.isin or '' }}" data-symbol="{{ h.instrument.symbol or '' }}" data-name="{{ h.instrument.name }}"></span>
+      <span>{{ h.instrument.name }}</span>
+    </div>
+    <div class="holding-sub">{{ h.account_name }} · {{ h.quantity | qty }} {{ t(request, 'holdings.units_suffix') }}</div>
+    <div class="holding-row">
+      <span class="holding-value">{{ h.current_value | eur }}</span>
+      <span class="{{ h.unrealized_pl_pct | pl_class }}">{{ h.unrealized_pl_pct | pct }}</span>
+    </div>
+  </a>
+  {% endfor %}
+  </div>
+</article>
+{% endif %}
+{% endmacro %}
+
+{% set stocks = holdings | selectattr('instrument.asset_type', 'equalto', 'stock') | list %}
+{% set etfs = holdings | selectattr('instrument.asset_type', 'equalto', 'etf') | list %}
+{% set other = holdings | rejectattr('instrument.asset_type', 'equalto', 'stock') | rejectattr('instrument.asset_type', 'equalto', 'etf') | list %}
+
+{% if not holdings %}
+<p>{{ t(request, 'holdings.no_holdings_prefix') }} <a href="/import">{{ t(request, 'holdings.import_transactions_link') }}</a></p>
+{% endif %}
+
+{{ holdings_table(t(request, 'holdings.section_stocks'), stocks) }}
+{{ holdings_table(t(request, 'holdings.section_etfs'), etfs) }}
+{{ holdings_table(t(request, 'holdings.section_other'), other) }}
+
+{% if cash_balances %}
+<article>
+  <header>💰 Cash</header>
+  <div class="table-scroll desktop-only">
+  <table>
+    <thead><tr><th>{{ t(request, 'common.account') }}</th><th class="num">{{ t(request, 'holdings.col_balance_eur') }}</th></tr></thead>
+    <tbody>
+    {% for c in cash_balances %}
+    <tr><td>{{ c.account_name }}</td><td class="num">{{ c.balance_eur | eur }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div class="card-list mobile-only">
+  {% for c in cash_balances %}
+  <div class="holding-card">
+    <div class="holding-name">💰 Cash</div>
+    <div class="holding-sub">{{ c.account_name }}</div>
+    <div class="holding-row"><span class="holding-value">{{ c.balance_eur | eur }}</span></div>
+  </div>
+  {% endfor %}
+  </div>
+</article>
+{% endif %}
+
+{% if closed_positions %}
+<!-- Closed positions (collapsible) -->
+<details class="closed-positions-details">
+  <summary>
+    <span class="closed-positions-title">
+      {{ t(request, 'holdings.closed_positions_title') }}
+      <span class="count-badge">{{ closed_positions | length }}</span>
+    </span>
+  </summary>
+  <div class="table-scroll" style="margin-top:.75rem">
+  <table>
+    <thead><tr>
+      <th>{{ t(request, 'holdings.col_name') }}</th>
+      <th>{{ t(request, 'common.account') }}</th>
+      <th class="num">{{ t(request, 'holdings.col_buy_eur') }}</th>
+      <th class="num">{{ t(request, 'holdings.col_sell_eur') }}</th>
+      <th class="num">{{ t(request, 'holdings.col_realized_pl') }}</th>
+      <th class="num">{{ t(request, 'holdings.col_realized_pl_pct') }}</th>
+      <th>{{ t(request, 'holdings.col_opened') }}</th>
+      <th>{{ t(request, 'holdings.col_closed') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for cp in closed_positions %}
+    <tr onclick="window.location='/instrument/{{ cp.instrument.id }}'" class="clickable">
+      <td>
+        <a href="/instrument/{{ cp.instrument.id }}" class="instrument-name-with-logo">
+          <span data-instrument-logo data-isin="{{ cp.instrument.isin or '' }}" data-symbol="{{ cp.instrument.symbol or '' }}" data-name="{{ cp.instrument.name }}"></span>
+          <span>{{ cp.instrument.name }}</span>
+        </a>
+        {% if cp.instrument.isin %}<br><small class="muted">{{ cp.instrument.isin }}</small>{% endif %}
+      </td>
+      <td>{{ cp.account_name }}</td>
+      <td class="num">{{ cp.buy_eur | eur }}</td>
+      <td class="num">{{ cp.sell_eur | eur }}</td>
+      <td class="num {{ cp.realized_pl | pl_class }}">{{ cp.realized_pl | eur }}</td>
+      <td class="num {{ cp.realized_pl_pct | pl_class }}">{{ cp.realized_pl_pct | pct }}</td>
+      <td class="muted small">{{ cp.opened or '—' }}</td>
+      <td class="muted small">{{ cp.closed or '—' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</details>
+{% endif %}
+{% endblock %}

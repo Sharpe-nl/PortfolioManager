@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+{% block title %}{{ t(request, 'settings.title') }} – PortfolioManager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ t(request, 'settings.title') }}</h1>
+</div>
+
+<div class="settings-page">
+
+{% if request.query_params.get('saved') %}
+<div class="notice success">{{ t(request, 'settings.notice_saved') }}</div>
+{% endif %}
+{% if request.query_params.get('deleted') == 'transactions' %}
+<div class="notice success">{{ t(request, 'settings.notice_deleted_transactions') }}</div>
+{% elif request.query_params.get('deleted') == 'all' %}
+<div class="notice success">{{ t(request, 'settings.notice_deleted_all') }}</div>
+{% endif %}
+{% if request.query_params.get('classified') is not none %}
+<div class="notice success">{{ t(request, 'settings.notice_classified', count=request.query_params.get('classified')) }}</div>
+{% endif %}
+
+<!-- Quick links -->
+<div class="settings-quicklinks">
+  <a href="/accounts" class="quicklink-card">
+    <span class="quicklink-icon">🏦</span>
+    <span class="quicklink-label">{{ t(request, 'settings.quicklink_accounts') }}</span>
+    <span class="quicklink-count">{{ db_counts.accounts }}</span>
+  </a>
+  <a href="/import" class="quicklink-card">
+    <span class="quicklink-icon">⬆</span>
+    <span class="quicklink-label">{{ t(request, 'settings.quicklink_import') }}</span>
+    <span class="quicklink-count">{{ db_counts.transactions }} txn</span>
+  </a>
+</div>
+
+<!-- ── Logo settings ─────────────────────────────────────────────────── -->
+<article class="logo-settings-card">
+  <form method="post" action="/settings/save" class="logo-key-row">
+    <span class="logo-key-title">
+      {{ t(request, 'settings.section_logo') }}
+      <button type="button" class="info-tooltip" aria-label="{{ t(request, 'settings.label_logo_dev_key') }}"
+              aria-describedby="logo-key-info">ⓘ</button>
+      <span id="logo-key-info" class="info-popover" role="tooltip">{{ t(request, 'settings.logo_dev_key_info') }}</span>
+    </span>
+    <label class="sr-only" for="logo-dev-token">{{ t(request, 'settings.label_logo_dev_key') }}</label>
+    <input id="logo-dev-token" type="password" name="logo_dev_token" autocomplete="off"
+           placeholder="{% if logo_dev_token_configured %}••••••••••••{% else %}pk_…{% endif %}">
+    <button type="submit" class="logo-key-save">{{ t(request, 'common.save') }}</button>
+    {% if logo_dev_token_configured %}
+    <span class="badge">{{ t(request, 'settings.logo_dev_key_configured') }}</span>
+    <button type="submit" formaction="/settings/clear-logo-key" class="outline secondary logo-key-remove"
+            aria-label="{{ t(request, 'settings.clear_logo_dev_key') }}" title="{{ t(request, 'settings.clear_logo_dev_key') }}">×</button>
+    {% endif %}
+  </form>
+</article>
+
+<!-- ── YubiKeys / beveiligingssleutels ─────────────────────────────────── -->
+<article>
+  <header>{{ t(request, 'settings.section_yubikeys') }}</header>
+  {% if request.query_params.get('cred_error') %}
+  <div class="notice error">✗ {{ request.query_params.get('cred_error') }}</div>
+  {% endif %}
+  <p class="muted">
+    {{ t(request, 'settings.yubikeys_intro') }}
+  </p>
+  {% if webauthn_credentials %}
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>{{ t(request, 'settings.col_name') }}</th><th>{{ t(request, 'settings.col_added') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for cred in webauthn_credentials %}
+    <tr>
+      <td>
+        <form method="post" action="/auth/credentials/{{ cred.id }}/rename" class="credential-rename-form">
+          <input type="text" name="name" value="{{ cred.name or '' }}"
+                 placeholder="{{ t(request, 'settings.key_default_name', id=cred.id) }}"
+                 aria-label="{{ t(request, 'settings.rename_key_aria', id=cred.id) }}">
+          <button type="submit" class="outline secondary btn-sm">{{ t(request, 'settings.btn_rename') }}</button>
+        </form>
+      </td>
+      <td class="muted">{{ cred.created_at[:10] }}</td>
+      <td>
+        <form method="post" action="/auth/credentials/{{ cred.id }}/delete" style="display:inline"
+              onsubmit="return confirm('{{ t(request, 'settings.confirm_delete_key') }}')">
+          <button type="submit" class="outline secondary small"
+                  {% if webauthn_credentials | length <= 1 %}
+                  disabled title="{{ t(request, 'settings.last_key_hint') }}"
+                  {% endif %}>
+            {{ t(request, 'settings.btn_delete') }}
+          </button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+
+  <div id="yk-status" class="status-msg" hidden style="margin-top:.75rem"></div>
+  <div class="form-grid" style="margin-top:.75rem; align-items:end;">
+    <label>{{ t(request, 'settings.yk_name_label') }}
+      <input type="text" id="yk-name" placeholder="{{ t(request, 'settings.yk_name_placeholder') }}">
+    </label>
+    <button type="button" id="yk-add-btn" onclick="addYubikey()">{{ t(request, 'settings.yk_add_btn') }}</button>
+  </div>
+</article>
+
+<!-- ── Database info & backup ─────────────────────────────────────────── -->
+<article>
+  <header>{{ t(request, 'settings.section_database') }}</header>
+  <p>
+    <strong>{{ db_counts.transactions }}</strong> {{ t(request, 'settings.db_transactions') }} ·
+    <strong>{{ db_counts.instruments }}</strong> {{ t(request, 'settings.db_instruments') }} ·
+    <strong>{{ db_counts.accounts }}</strong> {{ t(request, 'settings.db_accounts') }}
+  </p>
+  <a href="/settings/backup" role="button" class="outline" download>{{ t(request, 'settings.download_backup') }}</a>
+</article>
+
+<!-- ── Danger zone ────────────────────────────────────────────────────── -->
+<article>
+  <header>{{ t(request, 'settings.section_danger') }}</header>
+  <p class="muted">
+    {{ t(request, 'settings.danger_intro') }}
+  </p>
+  <div style="display:flex;gap:1rem;flex-wrap:wrap">
+    <form method="post" action="/settings/delete-transactions"
+          onsubmit="return confirm('{{ t(request, 'settings.confirm_delete_txn') }}')">
+      <button type="submit" class="outline secondary">
+        {{ t(request, 'settings.btn_delete_txn') }}
+      </button>
+    </form>
+    <form method="post" action="/settings/delete-all"
+          onsubmit="return confirm('{{ t(request, 'settings.confirm_delete_all') }}')">
+      <button type="submit" class="outline contrast">
+        {{ t(request, 'settings.btn_delete_all') }}
+      </button>
+    </form>
+  </div>
+</article>
+
+<!-- ── Ticker mapping overview ───────────────────────────────────────── -->
+<article>
+  <header>{{ t(request, 'settings.section_ticker_mapping', count=mapped_instruments | length) }}</header>
+  <p class="muted">
+    {{ t(request, 'settings.ticker_mapping_intro1') }} <code>ULVRUSD</code>{{ t(request, 'settings.ticker_mapping_intro2') }}
+    <a href="/import">{{ t(request, 'settings.import_page_link') }}</a>.
+  </p>
+  {% if mapped_instruments %}
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>{{ t(request, 'settings.col_name') }}</th><th>{{ t(request, 'settings.col_isin') }}</th><th>{{ t(request, 'settings.col_ticker') }}</th><th></th></tr></thead>
+    <tbody>
+    {% for inst in mapped_instruments %}
+    <tr>
+      <td><a href="/instrument/{{ inst.id }}" class="instrument-name-with-logo">
+        <span data-instrument-logo data-isin="{{ inst.isin or '' }}" data-symbol="{{ inst.symbol or '' }}" data-name="{{ inst.name }}"></span><span>{{ inst.name }}</span>
+      </a></td>
+      <td class="muted">{{ inst.isin or '—' }}</td>
+      <td><code>{{ inst.symbol }}</code></td>
+      <td>
+        <form method="post" action="/settings/reset-one-ticker/{{ inst.id }}" style="display:inline">
+          <button type="submit" class="outline secondary small"
+                  onclick="return confirm('{{ t(request, 'settings.confirm_reset_one_ticker', symbol=inst.symbol, name=inst.name) }}')">
+            {{ t(request, 'settings.btn_reset') }}
+          </button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <div style="margin-top:1rem; display:flex; gap:.75rem; flex-wrap:wrap;">
+    <form method="post" action="/settings/reset-all-tickers"
+          onsubmit="return confirm('{{ t(request, 'settings.confirm_reset_all_tickers', count=mapped_instruments | length) }}')">
+      <button type="submit" class="outline contrast">
+        {{ t(request, 'settings.btn_reset_all_tickers', count=mapped_instruments | length) }}
+      </button>
+    </form>
+    <form method="post" action="/settings/refresh-classifications" onsubmit="showPageLoadingOverlay()">
+      <button type="submit" class="outline secondary">
+        {{ t(request, 'settings.btn_refresh_classifications') }}
+      </button>
+    </form>
+  </div>
+  <p class="muted" style="margin-top:.5rem;">
+    {{ t(request, 'settings.refresh_classifications_hint') }}
+  </p>
+  {% else %}
+  <p class="muted">{{ t(request, 'settings.no_tickers_mapped') }} <a href="/import">{{ t(request, 'settings.auto_map_link') }}</a>.</p>
+  {% endif %}
+</article>
+
+<!-- ── Unmapped instruments ──────────────────────────────────────────── -->
+{% if unmapped_instruments %}
+<article>
+  <header>{{ t(request, 'settings.section_unmapped', count=unmapped_instruments | length) }}</header>
+  <p class="muted">
+    {{ t(request, 'settings.unmapped_intro1') }}
+    <a href="/import">{{ t(request, 'settings.import_page_link') }}</a> {{ t(request, 'settings.unmapped_intro2') }}
+  </p>
+  <ul>
+  {% for inst in unmapped_instruments[:20] %}
+    <li><a href="/instrument/{{ inst.id }}">{{ inst.name }}</a>
+        {% if inst.isin %}<span class="muted">({{ inst.isin }})</span>{% endif %}
+    </li>
+  {% endfor %}
+  {% if unmapped_instruments | length > 20 %}
+  <li class="muted">{{ t(request, 'settings.more_prefix', count=(unmapped_instruments | length) - 20) }} <a href="/import">{{ t(request, 'settings.import_page_link') }}</a>)</li>
+  {% endif %}
+  </ul>
+</article>
+{% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const I18N = {
+  httpsRequired: {{ t(request, 'settings.js_https_required') | tojson }},
+  connecting: {{ t(request, 'settings.js_connecting') | tojson }},
+  touchKey: {{ t(request, 'settings.js_touch_key') | tojson }},
+  keyAdded: {{ t(request, 'settings.js_key_added') | tojson }},
+  errorPrefix: {{ t(request, 'settings.js_error_prefix') | tojson }},
+};
+
+async function addYubikey() {
+  const btn = document.getElementById('yk-add-btn');
+  const status = document.getElementById('yk-status');
+  const name = document.getElementById('yk-name').value.trim();
+
+  if (!window.isSecureContext || !navigator.credentials) {
+    status.hidden = false;
+    status.className = 'status-msg error';
+    status.textContent = I18N.httpsRequired;
+    return;
+  }
+
+  btn.disabled = true;
+  status.hidden = false;
+  status.className = 'status-msg';
+  status.textContent = I18N.connecting;
+
+  try {
+    const optResp = await fetch('/auth/credentials/options', { method: 'POST' });
+    if (!optResp.ok) throw new Error(await optResp.text());
+    const opts = await optResp.json();
+
+    opts.challenge = b64ToBuffer(opts.challenge);
+    opts.user.id = b64ToBuffer(opts.user.id);
+    if (opts.excludeCredentials) {
+      opts.excludeCredentials = opts.excludeCredentials.map(c => ({ ...c, id: b64ToBuffer(c.id) }));
+    }
+
+    status.textContent = I18N.touchKey;
+    const cred = await navigator.credentials.create({ publicKey: opts });
+
+    const credJson = JSON.stringify({
+      id: cred.id,
+      rawId: bufferToB64(cred.rawId),
+      type: cred.type,
+      response: {
+        attestationObject: bufferToB64(cred.response.attestationObject),
+        clientDataJSON: bufferToB64(cred.response.clientDataJSON),
+      }
+    });
+
+    const verResp = await fetch('/auth/credentials/verify?name=' + encodeURIComponent(name), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: credJson,
+    });
+    if (!verResp.ok) throw new Error(await verResp.text());
+
+    status.className = 'status-msg success';
+    status.textContent = I18N.keyAdded;
+    setTimeout(() => window.location.reload(), 1000);
+  } catch (err) {
+    status.className = 'status-msg error';
+    status.textContent = I18N.errorPrefix + err.message;
+    btn.disabled = false;
+  }
+}
+</script>
+{% endblock %}

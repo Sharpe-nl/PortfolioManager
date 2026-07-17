@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+{% block title %}{{ t(request, 'dividends.page_title') }} – PortfolioManager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ t(request, 'dividends.page_title') }}</h1>
+  <span class="range-selector">
+    <button onclick="setRange(this,'1M')" data-range="1M">{{ t(request, 'range.1m') }}</button>
+    <button onclick="setRange(this,'YTD')" data-range="YTD">{{ t(request, 'range.ytd') }}</button>
+    <button onclick="setRange(this,'1Y')" class="active" data-range="1Y">{{ t(request, 'range.1y') }}</button>
+    <button onclick="openCustomRange(this)" data-range="CUSTOM">{{ t(request, 'range.custom') }}</button>
+    <button onclick="setRange(this,'ALL')" data-range="ALL">{{ t(request, 'range.all') }}</button>
+  </span>
+  <form method="get" class="inline-form">
+    <select name="account" onchange="this.form.submit()">
+      <option value="">{{ t(request, 'common.all_accounts') }}</option>
+      {% for acc in accounts %}
+      <option value="{{ acc.id }}" {% if selected_account == acc.id %}selected{% endif %}>
+        {{ acc.name }}
+      </option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<dialog id="customRangeDialog">
+  <article style="margin:0;">
+    <header>{{ t(request, 'range.custom_period') }}</header>
+    <label>{{ t(request, 'range.from') }}
+      <input type="date" id="customStart">
+    </label>
+    <label>{{ t(request, 'range.to') }}
+      <input type="date" id="customEnd">
+    </label>
+    <footer style="display:flex; gap:.5rem; justify-content:flex-end; margin-top:.75rem;">
+      <button class="secondary btn-sm" type="button" onclick="document.getElementById('customRangeDialog').close()">{{ t(request, 'common.cancel') }}</button>
+      <button class="btn-sm" type="button" onclick="applyCustomRange()">{{ t(request, 'common.apply') }}</button>
+    </footer>
+  </article>
+</dialog>
+
+<!-- ── Summary ───────────────────────────────────────────────────────── -->
+<div class="stat-grid">
+  <article class="stat-card">
+    <header>{{ t(request, 'dividends.stat_period') }}</header>
+    <div class="stat-value" id="stat-period-dividend">{{ trailing_12m | eur }}</div>
+  </article>
+</div>
+
+<!-- ── History chart ─────────────────────────────────────────────────── -->
+<article class="chart-card">
+  <header>{{ t(request, 'dividends.chart_title') }} <small class="muted">— {{ t(request, 'dividends.chart_hint') }}</small></header>
+  <canvas id="divChart" height="140"></canvas>
+</article>
+
+<dialog id="dividendDetailDialog" class="realized-actions-dialog">
+  <article style="margin:0;">
+    <header>
+      <button aria-label="{{ t(request, 'common.close') }}" rel="prev" type="button" onclick="document.getElementById('dividendDetailDialog').close()"></button>
+      <strong>{{ t(request, 'dividends.dividend_label') }}</strong>
+      <small id="dividendDetailPeriod" class="muted"></small>
+    </header>
+    <div class="table-scroll">
+      <table>
+        <thead><tr>
+          <th>{{ t(request, 'common.date') }}</th><th>{{ t(request, 'common.instrument') }}</th><th>{{ t(request, 'common.account') }}</th>
+          <th class="num">{{ t(request, 'common.amount') }}
+            <span class="info-tooltip" tabindex="0" aria-label="{{ t(request, 'dividends.amount_tooltip_aria') }}"
+                  title="{{ t(request, 'dividends.amount_tooltip') }}">ⓘ</span>
+          </th>
+        </tr></thead>
+        <tbody id="dividendDetailBody"></tbody>
+      </table>
+    </div>
+    <p id="dividendDetailEmpty" class="muted" hidden>{{ t(request, 'dividends.no_dividend_month') }}</p>
+  </article>
+</dialog>
+
+<!-- ── Per-year table ────────────────────────────────────────────────── -->
+<article>
+  <header>{{ t(request, 'dividends.per_year_title') }}</header>
+  <div class="table-scroll">
+  <table>
+    <thead><tr>
+      <th>{{ t(request, 'dividends.col_year') }}</th><th class="num">{{ t(request, 'dividends.col_gross') }}</th><th class="num">{{ t(request, 'dividends.col_tax') }}</th>
+      <th class="num">{{ t(request, 'dividends.col_net') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for y in history_yearly %}
+    <tr>
+      <td>{{ y.year }}</td>
+      <td class="num">{{ y.gross | eur }}</td>
+      <td class="num pl-negative">{{ y.tax | eur }}</td>
+      <td class="num pl-positive">{{ y.net | eur }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</article>
+
+<!-- ── Per-instrument table ──────────────────────────────────────────── -->
+<article>
+  <header>{{ t(request, 'dividends.per_instrument_title') }}</header>
+  <div class="table-scroll">
+  <table>
+    <thead><tr>
+      <th>{{ t(request, 'common.instrument') }}</th><th class="num">{{ t(request, 'dividends.col_gross') }}</th><th class="num">{{ t(request, 'dividends.col_tax') }}</th>
+      <th class="num">{{ t(request, 'dividends.col_net') }}</th><th>{{ t(request, 'dividends.col_last_received') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for r in by_instrument %}
+    <tr>
+      <td>
+        {% if r.instrument_id %}
+        <a href="/instrument/{{ r.instrument_id }}" class="instrument-name-with-logo">
+          <span data-instrument-logo data-isin="{{ r.isin or '' }}" data-name="{{ r.name or r.isin }}"></span>
+          <span>{{ r.name or r.isin }}</span>
+        </a>
+        {% else %}{{ r.name or t(request, 'common.none_dash') }}{% endif %}
+      </td>
+      <td class="num">{{ r.gross | eur }}</td>
+      <td class="num pl-negative">{{ r.tax | eur }}</td>
+      <td class="num pl-positive">{{ r.net | eur }}</td>
+      <td>{{ r.last_received[:10] if r.last_received else t(request, 'common.none_dash') }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</article>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Raw dividend events (ts, amount_eur) — the range selector re-buckets
+// these into months for the chart and sums them for the stat, so any
+// period (including custom, or beyond the old fixed 24-month window) works.
+const dividendEventsAll = {{ dividend_events | tojson }};
+const dividendEventsDetailAll = {{ dividend_events_detail | tojson }};
+
+// UI strings needed inside JS (not just static markup) — see app/i18n/.
+const I18N = {
+  rangeInvalid: {{ t(request, 'range.invalid_alert') | tojson }},
+  datasetLabel: {{ t(request, 'dividends.dataset_label') | tojson }},
+  dividend: {{ t(request, 'dividends.dividend_label') | tojson }},
+  dividendTax: {{ t(request, 'dividends.dividend_tax_label') | tojson }},
+  viewInstrumentAria: {{ t(request, 'dividends.view_instrument_aria') | tojson }},  // contains a literal "{name}" placeholder, filled in via .replace() in JS
+};
+
+let divChart;
+let customRange = null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  const saved = loadRangePreference('dividends');
+  if (saved && saved.range === 'CUSTOM' && saved.customRange) customRange = saved.customRange;
+  updateDividends(restoreRangeSelection('dividends'));
+  document.querySelectorAll('dialog').forEach(dialog => {
+    dialog.addEventListener('click', event => {
+      if (event.target === dialog) dialog.close();
+    });
+  });
+  onChartThemeChange(() => updateDividends(restoreRangeSelection('dividends')));
+});
+
+function updateDividends(range) {
+  const { start, end } = getRangeBounds(range, customRange);
+  const inWindow = dividendEventsAll.filter(e => inDateRange(e.ts, start, end));
+
+  // Total for the stat card
+  const total = inWindow.reduce((sum, e) => sum + parseFloat(e.amount_eur), 0);
+  document.getElementById('stat-period-dividend').textContent = formatEur(total);
+
+  // Bucket by year-month for the chart
+  const byMonth = {};
+  inWindow.forEach(e => {
+    const month = e.ts.slice(0, 7); // 'yyyy-mm'
+    byMonth[month] = (byMonth[month] || 0) + parseFloat(e.amount_eur);
+  });
+  const months = Object.keys(byMonth).sort();
+
+  const ctx = document.getElementById('divChart').getContext('2d');
+  if (divChart) divChart.destroy();
+  const t = chartTokens();
+  // A single series (net dividend received) reads as magnitude, not identity —
+  // status green/red, not a categorical hue (a month with heavy withheld tax
+  // can dip net-negative, which should read as a loss, not "series 2").
+  const barColor = v => v >= 0 ? hexToRgba(t.green, 0.55) : hexToRgba(t.red, 0.55);
+  const barBorder = v => v >= 0 ? t.green : t.red;
+  divChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: months,
+      datasets: [{
+        label: I18N.datasetLabel,
+        data: months.map(m => byMonth[m]),
+        backgroundColor: months.map(m => barColor(byMonth[m])),
+        borderColor: months.map(m => barBorder(byMonth[m])),
+        borderWidth: 1.5,
+        borderRadius: 6,
+        maxBarThickness: 42,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          ...glassTooltipOptions(),
+          callbacks: {
+            label: ctx => ` €${ctx.parsed.y !== null ? ctx.parsed.y.toLocaleString('nl-NL',{minimumFractionDigits:2}) : '—'}`
+          }
+        }
+      },
+      scales: {
+        y: { grid: { color: chartGridColor() }, ticks: { color: chartTickColor(), callback: v => '€' + v.toLocaleString('nl-NL') } },
+        x: { grid: { display: false }, ticks: { color: chartTickColor(), maxRotation: 45 } }
+      },
+      onClick: (_event, elements) => {
+        if (elements.length) openDividendDetailForMonth(months[elements[0].index]);
+      },
+      onHover: (event, elements) => {
+        if (event.native?.target) event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+      },
+    }
+  });
+}
+
+// ── Dividend detail popup: per-event breakdown for a clicked month ──────
+function plClass(value) {
+  if (value > 0) return 'pl-positive';
+  if (value < 0) return 'pl-negative';
+  return '';
+}
+
+function openDividendDetailForMonth(month) {
+  const events = dividendEventsDetailAll.filter(e => e.ts.slice(0, 7) === month);
+  const body = document.getElementById('dividendDetailBody');
+  body.replaceChildren();
+  events.forEach(e => {
+    const tr = document.createElement('tr');
+    const amount = parseFloat(e.amount_eur);
+    const label = e.type === 'dividend_tax' ? I18N.dividendTax : I18N.dividend;
+    if (e.instrument_id) {
+      tr.className = 'clickable realized-action-row';
+      tr.tabIndex = 0;
+      tr.setAttribute('role', 'link');
+      tr.setAttribute('aria-label', I18N.viewInstrumentAria.replace('{name}', e.instrument_name));
+      const openInstrument = () => { window.location = `/instrument/${e.instrument_id}`; };
+      tr.addEventListener('click', () => openInstrument());
+      tr.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openInstrument(); }
+      });
+    }
+    tr.innerHTML = `<td class="nowrap">${e.ts.slice(0, 10)}</td>
+      <td>${e.instrument_id ? `<a href="/instrument/${e.instrument_id}"></a>` : ''}</td>
+      <td class="muted small"></td>
+      <td class="num ${plClass(amount)}">${formatEur(amount)}</td>`;
+    const instrumentCell = tr.children[1];
+    if (e.instrument_id) {
+      instrumentCell.firstChild.textContent = `${e.instrument_name} · ${label}`;
+      instrumentCell.firstChild.className = 'instrument-name-with-logo';
+      instrumentCell.firstChild.prepend(createInstrumentLogo(e));
+    } else {
+      instrumentCell.textContent = label;
+    }
+    tr.children[2].textContent = e.account_name;
+    body.appendChild(tr);
+  });
+  document.getElementById('dividendDetailEmpty').hidden = events.length > 0;
+  const monthLabel = new Intl.DateTimeFormat('nl-NL', { year: 'numeric', month: 'long' })
+    .format(new Date(`${month}-01T00:00:00`));
+  document.getElementById('dividendDetailPeriod').textContent = monthLabel;
+  document.getElementById('dividendDetailDialog').showModal();
+}
+
+function setRange(btn, range) {
+  customRange = null;
+  document.querySelectorAll('.range-selector button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  saveRangePreference('dividends', range, null);
+  updateDividends(range);
+}
+
+function openCustomRange() {
+  openCustomRangeDialog();
+}
+
+function applyCustomRange() {
+  const start = document.getElementById('customStart').value;
+  const end = document.getElementById('customEnd').value;
+  if (!start || !end || start > end) {
+    alert(I18N.rangeInvalid);
+    return;
+  }
+  customRange = { start, end };
+  document.querySelectorAll('.range-selector button').forEach(b => b.classList.remove('active'));
+  document.querySelector('.range-selector button[data-range="CUSTOM"]').classList.add('active');
+  document.getElementById('customRangeDialog').close();
+  saveRangePreference('dividends', 'CUSTOM', customRange);
+  updateDividends('CUSTOM');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,141 @@
+"""import.html / import_preview.html translations."""
+
+NL = {
+    # ── import.html: header + result notice ─────────────────────────────
+    "imports.page_title": "Importeren",
+    "imports.no_rows_alert": "⚠ Geen rijen verwerkt — mogelijk was de sessie verlopen. Upload het bestand opnieuw.",
+    "imports.account_statement_prefix": "✓ Rekeningoverzicht verwerkt:",
+    "imports.account_statement_mid": "rijen toegevoegd (transacties, dividenden, stortingen, kosten),",
+    "imports.duplicates_skipped_word": "duplicaten overgeslagen",
+    "imports.import_failed_prefix": "✗ Import mislukt: 0 rijen toegevoegd",
+    "imports.errors_word": "fouten",
+    "imports.import_done_prefix": "✓ Import klaar:",
+    "imports.rows_added_word": "rijen toegevoegd",
+    "imports.error_details_summary": "Foutdetails",
+
+    # ── import.html: upload form ─────────────────────────────────────────
+    "imports.upload_header": "CSV uploaden",
+    "imports.no_accounts_warning": "⚠ Er zijn nog geen accounts aangemaakt.",
+    "imports.create_account_first": "Maak eerst een account aan",
+    "imports.create_account_before": "voordat je kunt importeren.",
+    "imports.account_choose_option": "— kies account —",
+    "imports.csv_file_label": "CSV-bestand",
+    "imports.hint_account_statement": "alle transacties (koop/verkoop), dividenden, stortingen en kosten.",
+    "imports.hint_transactions": "alternatief bestand met alleen transacties (ook ondersteund).",
+    "imports.upload_button": "Uploaden & bekijken →",
+
+    # ── import.html: ticker mapping ──────────────────────────────────────
+    "imports.mapping_header": "Ticker mapping nodig",
+    "imports.mapping_hint_pre": "Instrumenten zonder ticker krijgen geen live koersen. Klik op ",
+    "imports.auto_map_label": "Auto-koppel tickers",
+    "imports.mapping_hint_mid": " om ze automatisch op te zoeken via ISIN, of voer een yfinance ticker handmatig in (bijv. ",
+    "imports.mapping_hint_post": ").",
+    "imports.col_name": "Naam",
+    "imports.symbol_placeholder": "bijv. VWRL.AS",
+
+    # ── import.html: unclassified rows / history ─────────────────────────
+    "imports.unclassified_header": "Niet-geclassificeerde rijen",
+    "imports.unclassified_hint_pre": "Geïmporteerd als type ",
+    "imports.unclassified_hint_post": ". Controleer handmatig.",
+    "imports.col_amount_eur": "Bedrag (€)",
+    "imports.history_header": "Importgeschiedenis",
+    "imports.col_file": "Bestand",
+    "imports.col_type": "Type",
+    "imports.col_imported": "Ingevoerd",
+    "imports.col_duplicates": "Dupl.",
+    "imports.col_errors": "Fouten",
+
+    # ── import.html: JS (auto-map tickers polling) ───────────────────────
+    "imports.js_lookup_started": "⏳ Tickers opzoeken gestart… Dit kan enkele minuten duren.",
+    "imports.js_start_failed": "✗ Kon niet starten: ",
+    "imports.js_unknown": "onbekend",
+    "imports.js_busy": "Bezig…",
+    "imports.js_fetch_error": "✗ Fout tijdens ophalen: ",
+    "imports.js_mapped_result": "✓ {count} ticker(s) automatisch gekoppeld.",
+    "imports.js_not_found": "Niet gevonden",
+    "imports.js_refresh_page": "Pagina vernieuwen →",
+    "imports.js_error_prefix": "✗ Fout: ",
+
+    # ── import_preview.html ──────────────────────────────────────────────
+    "imports.preview_title": "Import voorvertoning",
+    "imports.preview_heading": "Importeer voorvertoning",
+    "imports.stat_new": "Nieuw",
+    "imports.stat_duplicate": "Duplicaat",
+    "imports.stat_errors": "Fouten",
+    "imports.stat_informational": "Informatief/overgeslagen",
+    "imports.error_notice": "⚠ {count} rijen bevatten fouten en worden niet geïmporteerd. Rijen zonder fout worden wel verwerkt.",
+    "imports.col_status": "Status",
+    "imports.col_errors_single": "Fout",
+    "imports.confirm_button": "✓ Bevestigen — {count} rijen importeren",
+    "imports.no_new_rows": "Geen nieuwe rijen om te importeren.",
+}
+
+EN = {
+    # ── import.html: header + result notice ─────────────────────────────
+    "imports.page_title": "Import",
+    "imports.no_rows_alert": "⚠ No rows processed — the session may have expired. Please upload the file again.",
+    "imports.account_statement_prefix": "✓ Account statement processed:",
+    "imports.account_statement_mid": "rows added (transactions, dividends, deposits, fees),",
+    "imports.duplicates_skipped_word": "duplicates skipped",
+    "imports.import_failed_prefix": "✗ Import failed: 0 rows added",
+    "imports.errors_word": "errors",
+    "imports.import_done_prefix": "✓ Import done:",
+    "imports.rows_added_word": "rows added",
+    "imports.error_details_summary": "Error details",
+
+    # ── import.html: upload form ─────────────────────────────────────────
+    "imports.upload_header": "Upload CSV",
+    "imports.no_accounts_warning": "⚠ No accounts have been created yet.",
+    "imports.create_account_first": "Create an account first",
+    "imports.create_account_before": "before you can import.",
+    "imports.account_choose_option": "— choose account —",
+    "imports.csv_file_label": "CSV file",
+    "imports.hint_account_statement": "all transactions (buy/sell), dividends, deposits and fees.",
+    "imports.hint_transactions": "alternative file with transactions only (also supported).",
+    "imports.upload_button": "Upload & preview →",
+
+    # ── import.html: ticker mapping ──────────────────────────────────────
+    "imports.mapping_header": "Ticker mapping needed",
+    "imports.mapping_hint_pre": "Instruments without a ticker won't get live prices. Click ",
+    "imports.auto_map_label": "Auto-map tickers",
+    "imports.mapping_hint_mid": " to look them up automatically via ISIN, or enter a yfinance ticker manually (e.g. ",
+    "imports.mapping_hint_post": ").",
+    "imports.col_name": "Name",
+    "imports.symbol_placeholder": "e.g. VWRL.AS",
+
+    # ── import.html: unclassified rows / history ─────────────────────────
+    "imports.unclassified_header": "Unclassified rows",
+    "imports.unclassified_hint_pre": "Imported as type ",
+    "imports.unclassified_hint_post": ". Please review manually.",
+    "imports.col_amount_eur": "Amount (€)",
+    "imports.history_header": "Import history",
+    "imports.col_file": "File",
+    "imports.col_type": "Type",
+    "imports.col_imported": "Imported",
+    "imports.col_duplicates": "Dupl.",
+    "imports.col_errors": "Errors",
+
+    # ── import.html: JS (auto-map tickers polling) ───────────────────────
+    "imports.js_lookup_started": "⏳ Ticker lookup started… This can take a few minutes.",
+    "imports.js_start_failed": "✗ Could not start: ",
+    "imports.js_unknown": "unknown",
+    "imports.js_busy": "Busy…",
+    "imports.js_fetch_error": "✗ Error during lookup: ",
+    "imports.js_mapped_result": "✓ {count} ticker(s) mapped automatically.",
+    "imports.js_not_found": "Not found",
+    "imports.js_refresh_page": "Refresh page →",
+    "imports.js_error_prefix": "✗ Error: ",
+
+    # ── import_preview.html ──────────────────────────────────────────────
+    "imports.preview_title": "Import preview",
+    "imports.preview_heading": "Import preview",
+    "imports.stat_new": "New",
+    "imports.stat_duplicate": "Duplicate",
+    "imports.stat_errors": "Errors",
+    "imports.stat_informational": "Informational/skipped",
+    "imports.error_notice": "⚠ {count} rows contain errors and will not be imported. Rows without errors will still be processed.",
+    "imports.col_status": "Status",
+    "imports.col_errors_single": "Error",
+    "imports.confirm_button": "✓ Confirm — import {count} rows",
+    "imports.no_new_rows": "No new rows to import.",
+}

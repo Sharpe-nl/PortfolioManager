@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}{{ t(request, 'accounts.title') }} – PortfolioManager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ t(request, 'accounts.title') }}</h1>
+</div>
+
+{% if editing %}
+<!-- ── Edit account form ───────────────────────────────────────────── -->
+<article>
+  <header>{{ t(request, 'accounts.section_edit') }}</header>
+  <form method="post" action="/accounts/{{ editing.id }}/edit">
+    <div class="form-grid">
+      <label>{{ t(request, 'accounts.label_name') }} <input type="text" name="name" value="{{ editing.name }}" required></label>
+      <label>{{ t(request, 'accounts.label_type') }}
+        <select name="type">
+          {% for t in ['broker','pension','savings','other'] %}
+          <option value="{{ t }}" {% if editing.type == t %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>{{ t(request, 'accounts.label_currency') }} <input type="text" name="currency" value="{{ editing.currency }}" maxlength="3"></label>
+    </div>
+    <button type="submit">{{ t(request, 'common.save') }}</button>
+    <a href="/accounts" role="button" class="outline secondary">{{ t(request, 'common.cancel') }}</a>
+  </form>
+</article>
+{% else %}
+
+<!-- ── Account list ────────────────────────────────────────────────── -->
+{% for item in account_data %}
+<article>
+  <header>
+    {{ item.account.name }}
+    <span class="badge">{{ item.account.type }}</span>
+    <span class="badge secondary">{{ item.account.currency }}</span>
+    <a href="/accounts/{{ item.account.id }}/edit" class="btn-sm outline secondary">{{ t(request, 'accounts.btn_edit') }}</a>
+  </header>
+  {% if item.total_value %}
+  <div>{{ t(request, 'accounts.estimated_value') }} <strong>{{ item.total_value | eur }}</strong></div>
+  {% endif %}
+  {% if item.last_transaction %}
+  <div class="muted">{{ t(request, 'accounts.last_transaction') }} {{ item.last_transaction[:10] }}</div>
+  {% endif %}
+  {% if item.latest_snapshot %}
+  <div class="muted">
+    {{ t(request, 'accounts.balance_snapshot') }} {{ item.latest_snapshot.balance_eur | eur }}
+    ({{ item.latest_snapshot.date }})
+  </div>
+  {% endif %}
+
+  {% if item.account.type in ['savings','other'] %}
+  <details>
+    <summary>{{ t(request, 'accounts.add_balance_snapshot') }}</summary>
+    <form method="post" action="/accounts/{{ item.account.id }}/snapshot">
+      <div class="form-grid">
+        <label>{{ t(request, 'common.date') }} <input type="date" name="date" required></label>
+        <label>{{ t(request, 'accounts.label_balance_eur') }} <input type="text" name="balance_eur" placeholder="1234.56" required></label>
+      </div>
+      <button type="submit">{{ t(request, 'common.save') }}</button>
+    </form>
+  </details>
+  {% endif %}
+</article>
+{% else %}
+<p>{{ t(request, 'accounts.no_accounts') }}</p>
+{% endfor %}
+
+<!-- ── Add account form ────────────────────────────────────────────── -->
+<article>
+  <header>{{ t(request, 'accounts.section_add') }}</header>
+  <form method="post" action="/accounts/add">
+    <div class="form-grid">
+      <label>{{ t(request, 'accounts.label_name') }} <input type="text" name="name" placeholder="{{ t(request, 'accounts.name_placeholder') }}" required></label>
+      <label>{{ t(request, 'accounts.label_type') }}
+        <select name="type">
+          <option value="broker">broker</option>
+          <option value="pension">pension</option>
+          <option value="savings">savings</option>
+          <option value="other">other</option>
+        </select>
+      </label>
+      <label>{{ t(request, 'accounts.label_currency') }} <input type="text" name="currency" value="EUR" maxlength="3"></label>
+    </div>
+    <button type="submit">{{ t(request, 'accounts.btn_add') }}</button>
+  </form>
+</article>
+{% endif %}
+{% endblock %}

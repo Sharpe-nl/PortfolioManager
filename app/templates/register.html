@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="nl" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ t(request, 'auth.register_page_title') }}</title>
+  <link rel="stylesheet" href="/static/vendor/pico.min.css">
+  <link rel="stylesheet" href="/static/style.css">
+  <script>(function(){ var t=localStorage.getItem('pm-theme')||'dark'; document.documentElement.setAttribute('data-theme',t); })();</script>
+</head>
+<body class="auth-page">
+<main class="auth-card">
+  <h1>PortfolioManager</h1>
+  <h2>{{ t(request, 'auth.register_heading') }}</h2>
+  <p>{{ t(request, 'auth.register_instructions_line1') }}<br>
+     {{ t(request, 'auth.login_instructions') }}</p>
+
+  <div id="status" class="status-msg" hidden></div>
+
+  <button id="register-btn" onclick="doRegister()">
+    {{ t(request, 'auth.register_button') }}
+  </button>
+
+  <details>
+    <summary>{{ t(request, 'auth.no_yubikey_summary') }}</summary>
+    <p>{{ t(request, 'auth.no_yubikey_detail') }}</p>
+  </details>
+</main>
+
+<script src="/static/app.js"></script>
+<script>
+const I18N = {
+  httpsRequired: {{ t(request, 'auth.https_required_html') | tojson }},
+  connecting: {{ t(request, 'auth.connecting') | tojson }},
+  touchKey: {{ t(request, 'auth.touch_key') | tojson }},
+  registerSuccess: {{ t(request, 'auth.register_success') | tojson }},
+  errorPrefix: {{ t(request, 'auth.error_prefix') | tojson }},
+};
+async function doRegister() {
+  const btn = document.getElementById('register-btn');
+  const status = document.getElementById('status');
+  btn.disabled = true;
+  status.hidden = false;
+
+  // WebAuthn vereist een secure context (HTTPS of localhost)
+  if (!window.isSecureContext || !navigator.credentials) {
+    status.className = 'status-msg error';
+    status.innerHTML = I18N.httpsRequired;
+    btn.disabled = false;
+    return;
+  }
+
+  status.textContent = I18N.connecting;
+
+  try {
+    // 1 – Get options
+    const optResp = await fetch('/auth/register/options', { method: 'POST' });
+    if (!optResp.ok) throw new Error(await optResp.text());
+    const opts = await optResp.json();
+
+    // 2 – Convert base64url to ArrayBuffer
+    opts.challenge = b64ToBuffer(opts.challenge);
+    opts.user.id   = b64ToBuffer(opts.user.id);
+    if (opts.excludeCredentials) {
+      opts.excludeCredentials = opts.excludeCredentials.map(c => ({
+        ...c, id: b64ToBuffer(c.id)
+      }));
+    }
+
+    status.textContent = I18N.touchKey;
+
+    // 3 – Create credential
+    const cred = await navigator.credentials.create({ publicKey: opts });
+
+    // 4 – Serialize
+    const credJson = JSON.stringify({
+      id:       cred.id,
+      rawId:    bufferToB64(cred.rawId),
+      type:     cred.type,
+      response: {
+        attestationObject: bufferToB64(cred.response.attestationObject),
+        clientDataJSON:    bufferToB64(cred.response.clientDataJSON),
+      }
+    });
+
+    // 5 – Verify
+    const verResp = await fetch('/auth/register/verify', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    credJson,
+    });
+    if (!verResp.ok) throw new Error(await verResp.text());
+
+    status.textContent = I18N.registerSuccess;
+    setTimeout(() => window.location.href = '/auth/login', 1500);
+
+  } catch (err) {
+    status.textContent = I18N.errorPrefix + err.message;
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>

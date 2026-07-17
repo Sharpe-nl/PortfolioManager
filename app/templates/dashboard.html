@@ -1,0 +1,748 @@
+{% extends "base.html" %}
+{% block title %}{{ t(request, 'dashboard.page_title') }} – PortfolioManager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ t(request, 'dashboard.page_title') }}</h1>
+  <span class="range-selector">
+    <button onclick="setRange(this,'1M')" data-range="1M">{{ t(request, 'range.1m') }}</button>
+    <button onclick="setRange(this,'YTD')" data-range="YTD">{{ t(request, 'range.ytd') }}</button>
+    <button onclick="setRange(this,'1Y')" class="active" data-range="1Y">{{ t(request, 'range.1y') }}</button>
+    <button onclick="openCustomRange(this)" data-range="CUSTOM">{{ t(request, 'range.custom') }}</button>
+    <button onclick="setRange(this,'ALL')" data-range="ALL">{{ t(request, 'range.all') }}</button>
+  </span>
+</div>
+
+<dialog id="customRangeDialog">
+  <article style="margin:0;">
+    <header>{{ t(request, 'range.custom_period') }}</header>
+    <label>{{ t(request, 'range.from') }}
+      <input type="date" id="customStart">
+    </label>
+    <label>{{ t(request, 'range.to') }}
+      <input type="date" id="customEnd">
+    </label>
+    <footer style="display:flex; gap:.5rem; justify-content:flex-end; margin-top:.75rem;">
+      <button class="secondary btn-sm" type="button" onclick="document.getElementById('customRangeDialog').close()">{{ t(request, 'common.cancel') }}</button>
+      <button class="btn-sm" type="button" onclick="applyCustomRange()">{{ t(request, 'common.apply') }}</button>
+    </footer>
+  </article>
+</dialog>
+
+<dialog id="allocationDetailDialog" class="realized-actions-dialog">
+  <article style="margin:0;">
+    <header>
+      <button aria-label="{{ t(request, 'common.close') }}" rel="prev" type="button" onclick="document.getElementById('allocationDetailDialog').close()"></button>
+      <strong id="allocationDetailTitle">{{ t(request, 'dashboard.allocation') }}</strong>
+      <small id="allocationDetailTotal" class="muted"></small>
+    </header>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>{{ t(request, 'dashboard.col_position') }}</th><th>{{ t(request, 'common.account') }}</th><th>{{ t(request, 'dashboard.col_note') }}</th><th class="num">{{ t(request, 'dashboard.col_value') }}</th></tr></thead>
+        <tbody id="allocationDetailBody"></tbody>
+      </table>
+    </div>
+  </article>
+</dialog>
+
+<dialog id="realizedActionsDialog" class="realized-actions-dialog">
+  <article style="margin:0;">
+    <header>
+      <button aria-label="{{ t(request, 'common.close') }}" rel="prev" type="button" onclick="closeRealizedActions()"></button>
+      <strong>{{ t(request, 'dashboard.realized_title') }}</strong>
+      <small id="realizedActionsPeriod" class="muted"></small>
+    </header>
+    <div class="table-scroll">
+      <table>
+        <thead><tr>
+          <th>{{ t(request, 'common.date') }}</th><th>{{ t(request, 'common.instrument') }}</th><th>{{ t(request, 'common.account') }}</th><th class="num">{{ t(request, 'dashboard.col_quantity') }}</th>
+          <th class="num">{{ t(request, 'dashboard.col_proceeds') }}
+            <span class="info-tooltip" tabindex="0" aria-label="{{ t(request, 'dashboard.proceeds_tooltip_aria') }}"
+                  title="{{ t(request, 'dashboard.proceeds_tooltip') }}">ⓘ</span>
+          </th>
+          <th class="num">{{ t(request, 'dashboard.col_result') }}
+            <span class="info-tooltip" tabindex="0" aria-label="{{ t(request, 'dashboard.result_tooltip_aria') }}"
+                  title="{{ t(request, 'dashboard.result_tooltip') }}">ⓘ</span>
+          </th>
+        </tr></thead>
+        <tbody id="realizedActionsBody"></tbody>
+      </table>
+    </div>
+    <p id="realizedActionsEmpty" class="muted" hidden>{{ t(request, 'dashboard.no_sales_period') }}</p>
+  </article>
+</dialog>
+
+<dialog id="unrealizedDetailDialog" class="realized-actions-dialog">
+  <article style="margin:0;">
+    <header>
+      <button aria-label="{{ t(request, 'common.close') }}" rel="prev" type="button" onclick="document.getElementById('unrealizedDetailDialog').close()"></button>
+      <strong>{{ t(request, 'dashboard.unrealized_title') }}</strong>
+      <small id="unrealizedDetailPeriod" class="muted"></small>
+    </header>
+    <div class="table-scroll">
+      <table>
+        <thead><tr>
+          <th>{{ t(request, 'common.instrument') }}</th><th>{{ t(request, 'common.account') }}</th><th class="num">{{ t(request, 'dashboard.col_value') }}</th>
+          <th class="num">{{ t(request, 'dashboard.col_result') }}</th><th class="num">{{ t(request, 'dashboard.col_result_pct') }}</th>
+        </tr></thead>
+        <tbody id="unrealizedDetailBody"></tbody>
+      </table>
+    </div>
+    <p id="unrealizedDetailEmpty" class="muted" hidden>{{ t(request, 'dashboard.no_price_history') }}</p>
+  </article>
+</dialog>
+
+<dialog id="dividendDetailDialog" class="realized-actions-dialog">
+  <article style="margin:0;">
+    <header>
+      <button aria-label="{{ t(request, 'common.close') }}" rel="prev" type="button" onclick="document.getElementById('dividendDetailDialog').close()"></button>
+      <strong>{{ t(request, 'dashboard.dividend') }}</strong>
+      <small id="dividendDetailPeriod" class="muted"></small>
+    </header>
+    <div class="table-scroll">
+      <table>
+        <thead><tr>
+          <th>{{ t(request, 'common.date') }}</th><th>{{ t(request, 'common.instrument') }}</th><th>{{ t(request, 'common.account') }}</th>
+          <th class="num">{{ t(request, 'common.amount') }}
+            <span class="info-tooltip" tabindex="0" aria-label="{{ t(request, 'dashboard.amount_tooltip_aria') }}"
+                  title="{{ t(request, 'dashboard.amount_tooltip') }}">ⓘ</span>
+          </th>
+        </tr></thead>
+        <tbody id="dividendDetailBody"></tbody>
+      </table>
+    </div>
+    <p id="dividendDetailEmpty" class="muted" hidden>{{ t(request, 'dashboard.no_dividend_period') }}</p>
+  </article>
+</dialog>
+
+<!-- Portfolio hero — left = static totals (don't move with the period selector) -->
+<div class="portfolio-hero">
+  <div class="portfolio-hero-left">
+    <div class="portfolio-hero-label">{{ t(request, 'dashboard.total_value_label') }}</div>
+    <div class="portfolio-hero-value">{{ summary.total_value | eur }}</div>
+    <div class="portfolio-hero-row">
+      <span class="portfolio-hero-badge {{ summary.total_pl | pl_class }}"
+            title="{{ t(request, 'dashboard.total_pl_tooltip') }}">
+        {{ summary.total_pl | eur }}&nbsp;&middot;&nbsp;{{ summary.total_pl_pct | pct }}
+      </span>
+      <small class="muted">{{ t(request, 'dashboard.total_result_label') }}</small>
+      {% if summary.price_as_of %}
+      <span class="price-badge {% if summary.has_stale_prices %}stale{% endif %}">
+        {{ t(request, 'dashboard.prices_as_of', date=summary.price_as_of) }}
+      </span>
+      {% endif %}
+      <button class="outline secondary btn-sm" onclick="refreshPrices(this)">{{ t(request, 'dashboard.refresh_btn') }}</button>
+    </div>
+  </div>
+  <!-- right = follows the selected period -->
+  <div class="portfolio-hero-right">
+    <div class="portfolio-hero-stat">
+      <div class="portfolio-hero-stat-label">{{ t(request, 'dashboard.unrealized_label') }}</div>
+      <button class="portfolio-hero-stat-value stat-action" id="stat-unrealized" type="button"
+              onclick="openUnrealizedDetail()" title="{{ t(request, 'dashboard.unrealized_tooltip') }}">
+        {{ summary.unrealized_pl | eur }}
+      </button>
+    </div>
+    <div class="portfolio-hero-stat">
+      <div class="portfolio-hero-stat-label">{{ t(request, 'dashboard.realized_label') }}</div>
+      <button class="portfolio-hero-stat-value stat-action" id="stat-realized" type="button"
+              onclick="openRealizedActions()" title="{{ t(request, 'dashboard.realized_tooltip') }}">
+        {{ summary.realized_pl | eur }}
+      </button>
+    </div>
+    <div class="portfolio-hero-stat">
+      <div class="portfolio-hero-stat-label">{{ t(request, 'dashboard.dividend') }}</div>
+      <button class="portfolio-hero-stat-value stat-action" id="stat-dividend" type="button"
+              onclick="openDividendDetail()" title="{{ t(request, 'dashboard.dividend_tooltip') }}">
+        {{ trailing_12m_income | eur }}
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Portfolio value chart ──────────────────────────────────────────── -->
+<div class="chart-grid">
+<article class="chart-card">
+  <header>
+    <span>{{ t(request, 'dashboard.value_chart_title') }}</span>
+  </header>
+  <canvas id="valueChart" height="260"></canvas>
+</article>
+
+<!-- ── Allocation charts ──────────────────────────────────────────────── -->
+<article class="chart-card">
+  <header>
+    <span>{{ t(request, 'dashboard.allocation') }}</span>
+    <span class="tab-selector">
+      <button onclick="showAlloc(this,'sector')"    class="active" data-tab="sector">{{ t(request, 'dashboard.tab_sector') }}</button>
+      <button onclick="showAlloc(this,'region')"    data-tab="region">{{ t(request, 'dashboard.tab_region') }}</button>
+      <button onclick="showAlloc(this,'asset_type')" data-tab="asset_type">{{ t(request, 'dashboard.tab_type') }}</button>
+    </span>
+  </header>
+  <div class="alloc-container">
+    <div id="alloc-sector"    class="alloc-panel active">
+      <canvas id="sectorChart" height="260"></canvas>
+    </div>
+    <div id="alloc-region"    class="alloc-panel">
+      <canvas id="regionChart" height="260"></canvas>
+    </div>
+    <div id="alloc-asset_type" class="alloc-panel">
+      <canvas id="assetChart" height="260"></canvas>
+    </div>
+  </div>
+</article>
+</div><!-- /.chart-grid -->
+
+<!-- ── Holdings (aandelen / ETF's), values follow the selected period ──── -->
+{% macro dash_holdings_table(title, rows) %}
+{% if rows %}
+<article>
+  <header>{{ title }} <a href="/holdings" class="secondary btn-sm">{{ t(request, 'dashboard.view_all') }}</a></header>
+  <div class="table-scroll">
+  <table>
+    <thead><tr>
+      <th>{{ t(request, 'dashboard.col_name') }}</th><th>{{ t(request, 'common.account') }}</th><th class="num">{{ t(request, 'dashboard.col_value') }}</th><th class="num">{{ t(request, 'dashboard.col_result_short') }}</th><th class="num">{{ t(request, 'dashboard.col_result_pct_short') }}</th>
+    </tr></thead>
+    <tbody>
+    {% for h in rows %}
+    <tr class="clickable holding-row-js" data-key="{{ h.account_id }}:{{ h.instrument.id }}"
+        data-cost-basis="{{ h.cost_basis }}" data-instrument-id="{{ h.instrument.id }}"
+        data-instrument-name="{{ h.instrument.name }}" data-instrument-isin="{{ h.instrument.isin or '' }}" data-instrument-symbol="{{ h.instrument.symbol or '' }}" data-account-name="{{ h.account_name }}"
+        data-pl="{{ h.unrealized_pl }}"
+        onclick="window.location='/instrument/{{ h.instrument.id }}'">
+      <td><a href="/instrument/{{ h.instrument.id }}" class="instrument-name-with-logo">
+        <span data-instrument-logo data-isin="{{ h.instrument.isin or '' }}" data-symbol="{{ h.instrument.symbol or '' }}" data-name="{{ h.instrument.name }}"></span>
+        <span>{{ h.instrument.name }}</span>
+      </a></td>
+      <td>{{ h.account_name }}</td>
+      <td class="num hv-value">{{ h.current_value | eur }}</td>
+      <td class="num hv-pl {{ h.unrealized_pl | pl_class }}">{{ h.unrealized_pl | eur }}</td>
+      <td class="num hv-pl-pct {{ h.unrealized_pl_pct | pl_class }}">{{ h.unrealized_pl_pct | pct }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</article>
+{% endif %}
+{% endmacro %}
+
+{% set stocks = holdings | selectattr('instrument.asset_type', 'equalto', 'stock') | list %}
+{% set etfs = holdings | selectattr('instrument.asset_type', 'equalto', 'etf') | list %}
+{% set other = holdings | rejectattr('instrument.asset_type', 'equalto', 'stock') | rejectattr('instrument.asset_type', 'equalto', 'etf') | list %}
+
+{% if not holdings %}
+<article><p>{{ t(request, 'dashboard.no_holdings_prefix') }} <a href="/import">{{ t(request, 'dashboard.import_transactions_link') }}</a></p></article>
+{% endif %}
+
+{{ dash_holdings_table(t(request, 'dashboard.section_stocks'), stocks) }}
+{{ dash_holdings_table(t(request, 'dashboard.section_etfs'), etfs) }}
+{{ dash_holdings_table(t(request, 'dashboard.section_other'), other) }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Raw data passed from server — the range selector (1M/YTD/1J/Custom/Alles)
+// filters all of this client-side so the whole dashboard (not just the
+// chart) follows the selected period without a server round-trip.
+const valueSeriesAll = {{ value_series | tojson }};
+const realizedEventsAll = {{ realized_events | tojson }};
+const dividendEventsAll = {{ dividend_events | tojson }};
+const dividendEventsDetailAll = {{ dividend_events_detail | tojson }};
+const holdingsValueSeriesAll = {{ holdings_value_series | tojson }};
+const unrealizedSeriesAll = {{ unrealized_series | tojson }};
+const totalCostBasis = {{ summary.total_cost | tojson }};
+
+// UI strings needed inside JS (not just static markup) — see app/i18n/.
+const I18N = {
+  allPeriods: {{ t(request, 'dashboard.all_periods') | tojson }},
+  selectedPeriod: {{ t(request, 'dashboard.selected_period') | tojson }},  // contains a literal "{range}" placeholder, filled in via .replace() in JS
+  dividend: {{ t(request, 'dashboard.dividend') | tojson }},
+  dividendTax: {{ t(request, 'dashboard.dividend_tax_label') | tojson }},
+  tabSector: {{ t(request, 'dashboard.tab_sector') | tojson }},
+  tabRegion: {{ t(request, 'dashboard.tab_region') | tojson }},
+  tabType: {{ t(request, 'dashboard.tab_type') | tojson }},
+  valueDatasetLabel: {{ t(request, 'dashboard.value_dataset_label') | tojson }},
+  total: {{ t(request, 'common.total') | tojson }},
+  noneDash: {{ t(request, 'common.none_dash') | tojson }},
+  viewInstrumentAria: {{ t(request, 'dashboard.view_instrument_aria') | tojson }},  // contains a literal "{name}" placeholder
+};
+
+// Allocation data
+const allocData = {
+  sector:     {{ allocation.sector    | tojson }},
+  region:     {{ allocation.region    | tojson }},
+  asset_type: {{ allocation.asset_type | tojson }},
+};
+const allocationDetails = {{ allocation_details | tojson }};
+
+let valueChart, sectorChart, regionChart, assetChart;
+let customRange = null;  // {start: 'yyyy-mm-dd', end: 'yyyy-mm-dd'} when range === 'CUSTOM'
+let selectedRange = '1Y';
+
+document.addEventListener('DOMContentLoaded', () => {
+  const saved = loadRangePreference('dashboard');
+  if (saved && saved.range === 'CUSTOM' && saved.customRange) customRange = saved.customRange;
+  updateDashboard(restoreRangeSelection('dashboard'));
+  initAllocCharts();
+  document.querySelectorAll('dialog').forEach(dialog => {
+    dialog.addEventListener('click', event => {
+      if (event.target === dialog) dialog.close();
+    });
+  });
+  onChartThemeChange(() => {
+    updateValueChart(getRangeBounds(selectedRange).start, getRangeBounds(selectedRange).end);
+    initAllocCharts();
+  });
+});
+
+// ── Dutch-locale formatting (mirrors app/helpers.py filters) ────────────
+function fmtEur(value) {
+  const negative = value < 0;
+  const abs = Math.abs(value);
+  const s = abs.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (negative ? '-' : '') + '€ ' + s;
+}
+
+function fmtPct(value) {
+  const s = Math.abs(value).toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (value >= 0 ? '+' : '-') + s + '%';
+}
+
+function plClass(value) {
+  if (value > 0) return 'pl-positive';
+  if (value < 0) return 'pl-negative';
+  return '';
+}
+
+function setPlText(el, value, text) {
+  el.classList.remove('pl-positive', 'pl-negative');
+  const cls = plClass(value);
+  if (cls) el.classList.add(cls);
+  el.textContent = text;
+}
+
+// ── Range bounds ─────────────────────────────────────────────────────────
+function getRangeBounds(range) {
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  let start = null;
+  if (range === '1M') { start = new Date(today); start.setDate(start.getDate() - 31); }
+  else if (range === 'YTD') { start = new Date(today.getFullYear(), 0, 1); }
+  else if (range === '1Y') { start = new Date(today); start.setDate(start.getDate() - 366); }
+  else if (range === 'CUSTOM' && customRange) {
+    start = new Date(customRange.start + 'T00:00:00');
+    const end = new Date(customRange.end + 'T23:59:59');
+    return { start, end };
+  }
+  return { start, end: today }; // ALL -> start stays null
+}
+
+// ── Master update: everything on the dashboard follows the range ───────
+function updateDashboard(range) {
+  selectedRange = range;
+  const { start, end } = getRangeBounds(range);
+
+  updateValueChart(start, end);
+  updateUnrealized(start, end);
+  updateRealized(start, end);
+  updateDividend(start, end);
+  updateHoldings(start, end);
+}
+
+function inRange(dateStr, start, end) {
+  const d = new Date(dateStr);
+  if (start && d < start) return false;
+  if (end && d > end) return false;
+  return true;
+}
+
+// ── Realized P/L detail ─────────────────────────────────────────────────
+function openRealizedActions() {
+  const { start, end } = getRangeBounds(selectedRange);
+  const events = realizedEventsAll.filter(e => inRange(e.ts, start, end));
+  const body = document.getElementById('realizedActionsBody');
+  const empty = document.getElementById('realizedActionsEmpty');
+  const period = document.getElementById('realizedActionsPeriod');
+
+  body.replaceChildren();
+  events.slice().reverse().forEach(e => {
+    const row = document.createElement('tr');
+    row.className = 'clickable realized-action-row';
+    row.tabIndex = 0;
+    row.setAttribute('role', 'link');
+    row.setAttribute('aria-label', I18N.viewInstrumentAria.replace('{name}', e.instrument_name));
+    const openInstrument = () => { window.location = `/instrument/${e.instrument_id}`; };
+    row.addEventListener('click', event => {
+      if (!event.target.closest('a')) openInstrument();
+    });
+    row.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openInstrument();
+      }
+    });
+    const result = parseFloat(e.realized_pl);
+    row.innerHTML = `<td class="nowrap">${e.ts.slice(0, 10)}</td>
+      <td><a href="/instrument/${e.instrument_id}"></a></td>
+      <td class="muted small"></td>
+      <td class="num">${Number(e.quantity).toLocaleString('nl-NL')}</td>
+      <td class="num">${fmtEur(parseFloat(e.proceeds))}</td>
+      <td class="num ${plClass(result)}">${fmtEur(result)}</td>`;
+    const instrumentLink = row.children[1].firstChild;
+    instrumentLink.textContent = e.instrument_name;
+    instrumentLink.className = 'instrument-name-with-logo';
+    instrumentLink.prepend(createInstrumentLogo(e));
+    row.children[2].textContent = e.account_name;
+    body.appendChild(row);
+  });
+  empty.hidden = events.length > 0;
+  period.textContent = selectedRange === 'ALL' ? I18N.allPeriods : I18N.selectedPeriod.replace('{range}', selectedRange);
+  document.getElementById('realizedActionsDialog').showModal();
+}
+
+function closeRealizedActions() {
+  document.getElementById('realizedActionsDialog').close();
+}
+
+// ── Value chart ────────────────────────────────────────────────────────
+function updateValueChart(start, end) {
+  const series = valueSeriesAll.filter(pt => inRange(pt.date, start, end));
+  const ctx = document.getElementById('valueChart').getContext('2d');
+  if (valueChart) valueChart.destroy();
+  const accent = chartTokens().primary;
+  valueChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: series.map(p => p.date),
+      datasets: [{
+        label: I18N.valueDatasetLabel,
+        data: series.map(p => parseFloat(p.value)),
+        borderColor: accent,
+        backgroundColor: chartCtx => glassGradient(chartCtx.chart.ctx, chartCtx.chart.chartArea, accent),
+        borderWidth: 2.5,
+        borderCapStyle: 'round',
+        borderJoinStyle: 'round',
+        fill: true,
+        tension: 0.3,
+        pointRadius: series.length > 60 ? 0 : 3,
+        pointBackgroundColor: accent,
+        pointBorderColor: hexToRgba('#ffffff', 0.9),
+        pointHoverRadius: 5,
+      }]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        hoverGuideLine: hoverGuideLineOptions(),
+        tooltip: { ...glassTooltipOptions(), callbacks: { label: c => ` ${formatEur(c.parsed.y)}` } },
+      },
+      scales: {
+        x: { grid: { color: chartGridColor() }, ticks: { color: chartTickColor(), maxTicksLimit: 8 } },
+        y: { grid: { color: chartGridColor() }, ticks: { color: chartTickColor(), callback: v => '€' + v.toLocaleString('nl-NL') } }
+      }
+    }
+  });
+}
+
+// Unrealized P/L (value minus running avg-cost) at the end of a window,
+// minus what it was right before the window started — 0 if the position
+// (or the whole portfolio) simply didn't exist yet. Because buying more
+// adds equally to value and cost basis, this delta is naturally unaffected
+// by deposits or by having bought more during the period; no flow-stripping
+// needed (unlike a raw value delta, which would need TWR for that).
+function unrealizedDelta(series, start, end) {
+  const inWindow = series.filter(pt => inRange(pt.date, start, end));
+  if (inWindow.length < 1) return null;
+  const before = series.filter(pt => start && new Date(pt.date) < start);
+  const startValue = before.length ? parseFloat(before[before.length - 1].value) : 0;
+  const endValue = parseFloat(inWindow[inWindow.length - 1].value);
+  return { startValue, endValue, delta: endValue - startValue };
+}
+
+// ── "Ongerealiseerd" stat: change in unrealized P/L over the period ─────
+// For "Alles", start has no prior data so startValue = 0, and the delta
+// reduces to today's total unrealized P/L — matching the always-current
+// "t.o.v. aankoopprijs" figure on the left exactly.
+function updateUnrealized(start, end) {
+  const el = document.getElementById('stat-unrealized');
+  const r = unrealizedDelta(unrealizedSeriesAll, start, end);
+  if (!r) { setPlText(el, 0, '—'); return; }
+  const pct = totalCostBasis ? (r.delta / totalCostBasis * 100) : 0;
+  setPlText(el, r.delta, `${fmtEur(r.delta)} · ${fmtPct(pct)}`);
+}
+
+// ── Realized P/L within period ──────────────────────────────────────────
+function updateRealized(start, end) {
+  const total = realizedEventsAll
+    .filter(e => inRange(e.ts, start, end))
+    .reduce((sum, e) => sum + parseFloat(e.realized_pl), 0);
+  setPlText(document.getElementById('stat-realized'), total, fmtEur(total));
+}
+
+// ── Dividend income within period ───────────────────────────────────────
+function updateDividend(start, end) {
+  const total = dividendEventsAll
+    .filter(e => inRange(e.ts, start, end))
+    .reduce((sum, e) => sum + parseFloat(e.amount_eur), 0);
+  document.getElementById('stat-dividend').textContent = fmtEur(total);
+}
+
+// ── Per-holding value + unrealized P/L change over the period ───────────
+// Same reasoning as updateUnrealized: unrealized_pl already nets out simply
+// buying more, so no flow-stripping is needed here either.
+function updateHoldings(start, end) {
+  document.querySelectorAll('.holding-row-js').forEach(row => {
+    const series = holdingsValueSeriesAll[row.dataset.key];
+    const valueCell = row.querySelector('.hv-value');
+    const plCell = row.querySelector('.hv-pl');
+    const plPctCell = row.querySelector('.hv-pl-pct');
+    if (!series) return;  // no cached price history for this holding — leave server-rendered values
+    const inWindow = series.filter(pt => inRange(pt.date, start, end));
+    if (inWindow.length < 1) return;
+    const before = series.filter(pt => start && new Date(pt.date) < start);
+    const startUnrealized = before.length ? parseFloat(before[before.length - 1].unrealized_pl) : 0;
+    const endPoint = inWindow[inWindow.length - 1];
+    const delta = parseFloat(endPoint.unrealized_pl) - startUnrealized;
+    const costBasis = parseFloat(row.dataset.costBasis);
+    const pct = costBasis ? (delta / costBasis * 100) : 0;
+
+    valueCell.textContent = fmtEur(parseFloat(endPoint.value));
+    setPlText(plCell, delta, fmtEur(delta));
+    setPlText(plPctCell, delta, fmtPct(pct));
+    row.dataset.pl = delta;
+  });
+}
+
+// ── Ongerealiseerd resultaat: per-holding breakdown ──────────────────────
+// Reads the already period-adjusted holdings table (updateHoldings() has
+// just run as part of updateDashboard()) instead of recomputing the same
+// per-holding delta logic a second time.
+function openUnrealizedDetail() {
+  const rows = Array.from(document.querySelectorAll('.holding-row-js'))
+    .map(row => ({
+      instrumentId: row.dataset.instrumentId,
+      instrumentName: row.dataset.instrumentName,
+      isin: row.dataset.instrumentIsin,
+      symbol: row.dataset.instrumentSymbol,
+      accountName: row.dataset.accountName,
+      value: row.querySelector('.hv-value').textContent,
+      plText: row.querySelector('.hv-pl').textContent,
+      plPctText: row.querySelector('.hv-pl-pct').textContent,
+      pl: parseFloat(row.dataset.pl) || 0,
+    }))
+    .sort((a, b) => Math.abs(b.pl) - Math.abs(a.pl));
+
+  const body = document.getElementById('unrealizedDetailBody');
+  body.replaceChildren();
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.className = 'clickable realized-action-row';
+    tr.tabIndex = 0;
+    tr.setAttribute('role', 'link');
+    tr.setAttribute('aria-label', I18N.viewInstrumentAria.replace('{name}', r.instrumentName));
+    const openInstrument = () => { window.location = `/instrument/${r.instrumentId}`; };
+    tr.addEventListener('click', () => openInstrument());
+    tr.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openInstrument(); }
+    });
+    tr.innerHTML = `<td><a href="/instrument/${r.instrumentId}"></a></td>
+      <td class="muted small"></td>
+      <td class="num">${r.value}</td>
+      <td class="num ${plClass(r.pl)}">${r.plText}</td>
+      <td class="num ${plClass(r.pl)}">${r.plPctText}</td>`;
+    tr.children[0].firstChild.textContent = r.instrumentName;
+    tr.children[0].firstChild.className = 'instrument-name-with-logo';
+    tr.children[0].firstChild.prepend(createInstrumentLogo(r));
+    tr.children[1].textContent = r.accountName;
+    body.appendChild(tr);
+  });
+  document.getElementById('unrealizedDetailEmpty').hidden = rows.length > 0;
+  document.getElementById('unrealizedDetailPeriod').textContent =
+    selectedRange === 'ALL' ? I18N.allPeriods : I18N.selectedPeriod.replace('{range}', selectedRange);
+  document.getElementById('unrealizedDetailDialog').showModal();
+}
+
+// ── Dividend: per-uitkering breakdown (bruto + ingehouden belasting) ─────
+function openDividendDetail() {
+  const { start, end } = getRangeBounds(selectedRange);
+  const events = dividendEventsDetailAll.filter(e => inRange(e.ts, start, end));
+  const body = document.getElementById('dividendDetailBody');
+  body.replaceChildren();
+  events.forEach(e => {
+    const tr = document.createElement('tr');
+    const amount = parseFloat(e.amount_eur);
+    const label = e.type === 'dividend_tax' ? I18N.dividendTax : I18N.dividend;
+    if (e.instrument_id) {
+      tr.className = 'clickable realized-action-row';
+      tr.tabIndex = 0;
+      tr.setAttribute('role', 'link');
+      tr.setAttribute('aria-label', I18N.viewInstrumentAria.replace('{name}', e.instrument_name));
+      const openInstrument = () => { window.location = `/instrument/${e.instrument_id}`; };
+      tr.addEventListener('click', () => openInstrument());
+      tr.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openInstrument(); }
+      });
+    }
+    tr.innerHTML = `<td class="nowrap">${e.ts.slice(0, 10)}</td>
+      <td>${e.instrument_id ? `<a href="/instrument/${e.instrument_id}"></a>` : ''}</td>
+      <td class="muted small"></td>
+      <td class="num ${plClass(amount)}">${fmtEur(amount)}</td>`;
+    const instrumentCell = tr.children[1];
+    if (e.instrument_id) {
+      instrumentCell.firstChild.textContent = `${e.instrument_name} · ${label}`;
+      instrumentCell.firstChild.className = 'instrument-name-with-logo';
+      instrumentCell.firstChild.prepend(createInstrumentLogo(e));
+    } else {
+      instrumentCell.textContent = label;
+    }
+    tr.children[2].textContent = e.account_name;
+    body.appendChild(tr);
+  });
+  document.getElementById('dividendDetailEmpty').hidden = events.length > 0;
+  document.getElementById('dividendDetailPeriod').textContent =
+    selectedRange === 'ALL' ? I18N.allPeriods : I18N.selectedPeriod.replace('{range}', selectedRange);
+  document.getElementById('dividendDetailDialog').showModal();
+}
+
+function setRange(btn, range) {
+  customRange = null;
+  document.querySelectorAll('.range-selector button')
+          .forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  saveRangePreference('dashboard', range, null);
+  updateDashboard(range);
+}
+
+// ── Custom range popup ───────────────────────────────────────────────────
+function openCustomRange(btn) {
+  const dialog = document.getElementById('customRangeDialog');
+  const today = new Date().toISOString().slice(0, 10);
+  if (!document.getElementById('customStart').value) {
+    document.getElementById('customStart').value = today;
+  }
+  if (!document.getElementById('customEnd').value) {
+    document.getElementById('customEnd').value = today;
+  }
+  dialog.showModal();
+}
+
+function applyCustomRange() {
+  const start = document.getElementById('customStart').value;
+  const end = document.getElementById('customEnd').value;
+  if (!start || !end || start > end) {
+    alert('Kies een geldige periode (van ≤ tot).');
+    return;
+  }
+  customRange = { start, end };
+  document.querySelectorAll('.range-selector button').forEach(b => b.classList.remove('active'));
+  document.querySelector('.range-selector button[data-range="CUSTOM"]').classList.add('active');
+  document.getElementById('customRangeDialog').close();
+  saveRangePreference('dashboard', 'CUSTOM', customRange);
+  updateDashboard('CUSTOM');
+}
+
+// ── Allocation charts ──────────────────────────────────────────────────
+// Fixed-order categorical palette (chartPalette()), assigned by rank since
+// buckets already arrive sorted by descending value — this keeps neighboring
+// wedges on the palette's validated adjacent-contrast slots. A chart never
+// needs more than 12 slots: portfolio.py folds any smaller tail buckets into
+// "Overig" before this data reaches the page.
+function makeDonut(id, data, kind) {
+  const labels = Object.keys(data);
+  const values = labels.map(k => parseFloat(data[k]));
+  const ctx = document.getElementById(id).getContext('2d');
+  const t = chartTokens();
+  return new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        backgroundColor: chartPalette(),
+        borderColor: t.surface || 'transparent',
+        borderWidth: 2,
+        spacing: 2,
+        hoverOffset: 6,
+        hoverBorderColor: t.surface || 'transparent',
+      }]
+    },
+    options: {
+      responsive: true,
+      cutout: '62%',
+      plugins: {
+        legend: {
+          position: 'right',
+          labels: { color: chartTickColor() },
+          onClick: (_event, item) => openAllocationDetail(kind, item.text),
+          onHover: event => { event.native.target.style.cursor = 'pointer'; },
+          onLeave: event => { event.native.target.style.cursor = 'default'; },
+        },
+        tooltip: {
+          ...glassTooltipOptions(),
+          callbacks: {
+            label: ctx => {
+              const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+              const pct = total ? (ctx.parsed/total*100).toFixed(2) : 0;
+              return ` ${ctx.label}: €${ctx.parsed.toLocaleString('nl-NL',{minimumFractionDigits:2})} (${pct}%)`;
+            }
+          }
+        }
+      },
+      onClick: (_event, elements) => {
+        if (elements.length) openAllocationDetail(kind, labels[elements[0].index]);
+      },
+      onHover: (event, elements) => {
+        if (event.native?.target) event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+      },
+    }
+  });
+}
+
+function initAllocCharts() {
+  [sectorChart, regionChart, assetChart].forEach(c => c && c.destroy());
+  sectorChart = makeDonut('sectorChart',  allocData.sector, 'sector');
+  regionChart = makeDonut('regionChart',  allocData.region, 'region');
+  assetChart  = makeDonut('assetChart',   allocData.asset_type, 'asset_type');
+}
+
+function openAllocationDetail(kind, bucket) {
+  const rows = (allocationDetails[kind] || {})[bucket] || [];
+  const labels = { sector: I18N.tabSector, region: I18N.tabRegion, asset_type: I18N.tabType };
+  const total = rows.reduce((sum, row) => sum + parseFloat(row.value), 0);
+  document.getElementById('allocationDetailTitle').textContent = `${labels[kind]}: ${bucket}`;
+  document.getElementById('allocationDetailTotal').textContent = `${I18N.total}: ${fmtEur(total)}`;
+  const body = document.getElementById('allocationDetailBody');
+  body.replaceChildren();
+  rows.forEach(row => {
+    const tr = document.createElement('tr');
+    const position = row.instrument_id
+      ? `<a href="/instrument/${row.instrument_id}"></a>`
+      : '<span></span>';
+    tr.innerHTML = `<td>${position}</td><td class="muted small"></td><td class="muted small"></td><td class="num">${fmtEur(parseFloat(row.value))}</td>`;
+    tr.children[0].firstChild.textContent = row.instrument_name;
+    if (row.instrument_id) {
+      tr.children[0].firstChild.className = 'instrument-name-with-logo';
+      tr.children[0].firstChild.prepend(createInstrumentLogo(row));
+    }
+    tr.children[1].textContent = row.account_name;
+    tr.children[2].textContent = row.note || '—';
+    body.appendChild(tr);
+  });
+  document.getElementById('allocationDetailDialog').showModal();
+}
+
+function showAlloc(btn, tab) {
+  document.querySelectorAll('.tab-selector button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.alloc-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('alloc-' + tab).classList.add('active');
+}
+
+// ── Price refresh ──────────────────────────────────────────────────────
+// refreshPrices() is defined in app.js (available on all pages)
+
+</script>
+{% endblock %}

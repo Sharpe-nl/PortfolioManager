@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ t(request, 'misc.error_page_title') }}{% endblock %}
+{% block content %}
+<article>
+  <h2>{{ t(request, 'misc.error_heading') }}</h2>
+  <p>{{ msg | default(t(request, 'misc.error_default_message')) }}</p>
+  <a href="/">{{ t(request, 'misc.back_to_dashboard') }}</a>
+</article>
+{% endblock %}
