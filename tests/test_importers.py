@@ -18,10 +18,20 @@ class TestAccountParser:
     def test_parses_english_account_csv(self, account_en_csv):
         result = acc_parser.parse(account_en_csv)
         assert acc_parser.is_account_csv(account_en_csv)
-        assert len(result.txn_rows) == 2
+        assert len(result.txn_rows) == 3
         assert result.txn_rows[0].quantity == Decimal("8")
         assert result.txn_rows[1].quantity == Decimal("-2")
         assert any(row.event_type == "deposit" for row in result.rows)
+
+    @pytest.mark.parametrize("fixture_name", ["account_csv", "account_en_csv"])
+    def test_spin_off_and_split_adjustments(self, request, fixture_name):
+        result = acc_parser.parse(request.getfixturevalue(fixture_name))
+        spin_off = next(row for row in result.txn_rows if row.isin == "IE00SPINOFF01")
+        assert (spin_off.quantity, spin_off.price) == (Decimal("2"), Decimal("0"))
+        assert [(action.isin, action.quantity, action.price) for action in result.corporate_actions] == [
+            ("GB00B10RZP78", Decimal("10"), Decimal("47.73")),
+            ("GB00BVZK7T90", Decimal("8"), Decimal("53.6962")),
+        ]
 
     def test_skips_koop_verkoop_valuta_rows(self, account_csv):
         result = acc_parser.parse(account_csv)

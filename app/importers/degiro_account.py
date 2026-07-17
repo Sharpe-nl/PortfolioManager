@@ -68,7 +68,7 @@ _TXN_SEARCH_RE = re.compile(
 
 # Matches: "SPLIT AANPASSING: 10 Unilever PLC @ 47,73 EUR (GB00B10RZP78)"
 _SPLIT_RE = re.compile(
-    r'^split aanpassing:\s*([\d.,]+)\s+.+?@\s*([\d.,]+)\s*([A-Z]{3})',
+    r'^(?:split aanpassing|split adjustment):\s*([\d.,]+)\s+.+?@\s*([\d.,]+)\s*([A-Z]{3})',
     re.IGNORECASE,
 )
 
@@ -112,6 +112,7 @@ _SKIP_KEYWORDS = (
 )
 
 _TYPE_KEYWORDS: list[tuple[str, str]] = [
+    ("dividend tax",        "dividend_tax"),
     ("dividendbelasting",    "dividend_tax"),
     ("dividend",             "dividend"),
     ("terugstorting",        "withdrawal"),
@@ -123,6 +124,7 @@ _TYPE_KEYWORDS: list[tuple[str, str]] = [
     ("withdrawal",           "withdrawal"),
     ("aansluiting",          "fee"),
     ("transactiekosten",     "fee"),
+    ("transaction fee",      "fee"),
     ("kosten",               "fee"),
     ("adr",                  "fee"),
     ("flatex interest",      "interest"),
@@ -137,10 +139,10 @@ def classify_row(description: str) -> str | None:
     """Return cash_event type, 'transaction', 'corporate_action', or None to skip."""
     d = description.lower().strip()
     # Plain buy/sell at start of description
-    if d.startswith("koop ") or d.startswith("verkoop "):
+    if d.startswith(("koop ", "verkoop ", "buy ", "sell ")):
         return "transaction"
     # Corporate actions → need manual review
-    if d.startswith("split aanpassing"):
+    if d.startswith(("split aanpassing", "split adjustment")):
         return "corporate_action"
     # Embedded koop/verkoop (e.g. "SPIN-OFF: Koop 2 @ 0 EUR", "DRIP: Koop 1 @ ...")
     if _TXN_SEARCH_RE.search(description):
