@@ -8,6 +8,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from bisect import bisect_right
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 
@@ -94,6 +95,61 @@ def _history(client: BitvavoClient) -> list[dict]:
     return result
 
 
+def _transfer_history(client: BitvavoClient, endpoint: str, kind: str) -> list[dict]:
+    """Load the complete transfer history and map it to account-history rows."""
+    result: list[dict] = []
+    end: int | None = None
+    seen: set[str] = set()
+    while True:
+        params = {"limit": 1000}
+        if end is not None:
+            params["end"] = end
+        payload = client.private_get(endpoint, params)
+        rows = payload if isinstance(payload, list) else []
+        for row in rows:
+            status = str(row.get("status") or "").lower()
+            if kind == "deposit" and status and status != "completed":
+                continue
+            if kind == "withdrawal" and status and status not in {"completed", "processed"}:
+                continue
+            timestamp = int(row.get("timestamp") or 0)
+            if timestamp <= 0:
+                continue
+            symbol = row.get("symbol")
+            amount = row.get("amount")
+            fingerprint = "|".join(str(value or "") for value in (
+                kind, timestamp, symbol, amount, row.get("txId"),
+                row.get("paymentId"), row.get("address"),
+            ))
+            transaction_id = f"transfer-{hashlib.sha256(fingerprint.encode('utf-8')).hexdigest()}"
+            if transaction_id in seen:
+                continue
+            seen.add(transaction_id)
+            normalized = {
+                "transactionId": transaction_id,
+                "executedAt": datetime.fromtimestamp(timestamp / 1000, timezone.utc).isoformat(),
+                "type": kind,
+                "feesCurrency": symbol,
+                "feesAmount": row.get("fee"),
+                "address": row.get("address"),
+            }
+            if kind == "deposit":
+                normalized.update({"receivedCurrency": symbol, "receivedAmount": amount})
+            else:
+                normalized.update({"sentCurrency": symbol, "sentAmount": amount})
+            result.append(normalized)
+        if len(rows) < 1000:
+            break
+        timestamps = [int(row.get("timestamp") or 0) for row in rows if row.get("timestamp") is not None]
+        if not timestamps:
+            break
+        next_end = min(timestamps) - 1
+        if end is not None and next_end >= end:
+            break
+        end = next_end
+    return result
+
+
 def _euro_price(symbol: str, prices: dict[str, Decimal]) -> Decimal | None:
     if symbol == "EUR":
         return Decimal("1")
@@ -112,7 +168,12 @@ def sync_bitvavo(conn, api_key: str, api_secret: str, client: BitvavoClient | No
     client = client or BitvavoClient(api_key, api_secret)
     balances = client.private_get("/balance")
     staking = client.private_get("/stakingBalance")
-    transactions = _history(client)
+    transactions = [
+        row for row in _history(client)
+        if row.get("type") not in {"deposit", "withdrawal", "withdrawal_cancelled"}
+    ]
+    transactions.extend(_transfer_history(client, "/depositHistory", "deposit"))
+    transactions.extend(_transfer_history(client, "/withdrawalHistory", "withdrawal"))
     assets = client.public_get("/assets")
     ticker_rows = client.public_get("/ticker/price")
 
@@ -158,6 +219,7 @@ def sync_bitvavo(conn, api_key: str, api_secret: str, client: BitvavoClient | No
             (symbol, (asset or {}).get("name") or symbol, (asset or {}).get("decimals")),
         )
 
+    conn.execute("DELETE FROM crypto_transactions WHERE type IN ('deposit','withdrawal','withdrawal_cancelled')")
     for row in transactions:
         transaction_id = row.get("transactionId")
         if not transaction_id:
@@ -203,11 +265,16 @@ def crypto_overview(conn, activity_page: int = 1, activity_page_size: int = 100)
         return ledger.setdefault(symbol, {"quantity": ZERO, "cost": ZERO, "complete": True})
 
     realized = ZERO
+    net_deposits = ZERO
     for row in transaction_rows:
         kind = row["type"]
         sent_symbol, received_symbol = row.get("sent_currency"), row.get("received_currency")
         sent_amount, received_amount = _decimal(row.get("sent_amount")), _decimal(row.get("received_amount"))
         fee_eur = _decimal(row.get("fees_amount")) if row.get("fees_currency") == "EUR" else ZERO
+        if kind == "deposit" and received_symbol == "EUR":
+            net_deposits += received_amount
+        elif kind == "withdrawal" and sent_symbol == "EUR":
+            net_deposits -= sent_amount
         if kind == "buy" and received_symbol and received_symbol != "EUR":
             item = position(received_symbol)
             spent = sent_amount if sent_symbol == "EUR" else ZERO
@@ -271,37 +338,92 @@ def crypto_overview(conn, activity_page: int = 1, activity_page_size: int = 100)
     activity = activity_desc[activity_start:activity_start + activity_page_size]
     snapshots = [dict(row) for row in conn.execute("SELECT * FROM crypto_portfolio_snapshots ORDER BY captured_at")]
     price_rows = [dict(row) for row in conn.execute("SELECT symbol,date,close_eur FROM crypto_prices ORDER BY date,symbol")]
+    price_history: dict[str, list[tuple[str, Decimal]]] = {}
+    for row in price_rows:
+        price_history.setdefault(row["symbol"], []).append((row["date"], _decimal(row["close_eur"])))
+    price_dates = {symbol: [entry[0] for entry in history] for symbol, history in price_history.items()}
+
+    def historical_eur_value(symbol: str | None, amount: Decimal, day: str) -> Decimal | None:
+        if not symbol or amount <= 0:
+            return None
+        if symbol == "EUR":
+            return amount
+        history = price_history.get(symbol, [])
+        price_index = bisect_right(price_dates.get(symbol, []), day) - 1
+        return amount * history[price_index][1] if price_index >= 0 else None
+
+    for row in activity:
+        row["received_eur"] = historical_eur_value(
+            row.get("received_currency"),
+            _decimal(row.get("received_amount")),
+            row["executed_at"][:10],
+        )
+
+    earn_rewards = ZERO
+    for row in transaction_rows:
+        if row["type"] not in {"staking", "fixed_staking", "loan"}:
+            continue
+        if row.get("price_currency") == "EUR" and _decimal(row.get("price_amount")) > 0:
+            earn_rewards += _decimal(row["price_amount"])
+            continue
+        symbol = row.get("received_currency")
+        amount = _decimal(row.get("received_amount"))
+        if symbol == "EUR":
+            earn_rewards += amount
+            continue
+        reward_day = row["executed_at"][:10]
+        reward_value = historical_eur_value(symbol, amount, reward_day)
+        if reward_value is not None:
+            earn_rewards += reward_value
     quantity_events: list[tuple[str, str, Decimal]] = []
     for row in transaction_rows:
         day = row["executed_at"][:10]
-        if row.get("received_currency") and row["received_currency"] != "EUR":
+        if row.get("received_currency"):
             quantity_events.append((day, row["received_currency"], _decimal(row.get("received_amount"))))
-        if row.get("sent_currency") and row["sent_currency"] != "EUR":
+        if row.get("sent_currency"):
             quantity_events.append((day, row["sent_currency"], -_decimal(row.get("sent_amount"))))
     quantity_events.sort(key=lambda event: event[0])
-    quantities: dict[str, Decimal] = {}
-    latest_prices: dict[str, Decimal] = {}
-    value_series = []
-    event_index = 0
+    current_quantities = {
+        row["symbol"]: _decimal(row["available"]) + _decimal(row["in_order"]) + _decimal(row["staked"])
+        for row in balances
+    }
     prices_by_day: dict[str, list[dict]] = {}
     for row in price_rows:
         prices_by_day.setdefault(row["date"], []).append(row)
-    for day, daily_prices in prices_by_day.items():
-        while event_index < len(quantity_events) and quantity_events[event_index][0] <= day:
+    today = datetime.now(timezone.utc).date().isoformat()
+    series_days = set(prices_by_day) | {event[0] for event in quantity_events} | {today}
+    quantities = dict(current_quantities)
+    quantities_by_day: dict[str, dict[str, Decimal]] = {}
+    event_index = len(quantity_events) - 1
+    for day in sorted(series_days, reverse=True):
+        while event_index >= 0 and quantity_events[event_index][0] > day:
             _event_day, symbol, delta = quantity_events[event_index]
-            quantities[symbol] = quantities.get(symbol, ZERO) + delta
-            event_index += 1
+            quantities[symbol] = quantities.get(symbol, ZERO) - delta
+            event_index -= 1
+        quantities_by_day[day] = dict(quantities)
+
+    latest_prices: dict[str, Decimal] = {"EUR": Decimal("1")}
+    snapshot_by_day = {row["captured_at"][:10]: _decimal(row["total_eur"]) for row in snapshots}
+    value_series = []
+    for day in sorted(series_days):
+        daily_prices = prices_by_day.get(day, [])
         for row in daily_prices:
             latest_prices[row["symbol"]] = _decimal(row["close_eur"])
-        value = sum(max(ZERO, quantity) * latest_prices.get(symbol, ZERO) for symbol, quantity in quantities.items())
+        value = sum(
+            max(ZERO, quantity) * latest_prices.get(symbol, ZERO)
+            for symbol, quantity in quantities_by_day[day].items()
+        )
+        if day in snapshot_by_day:
+            value = snapshot_by_day[day]
         value_series.append({"date": day, "value": str(value)})
-    today = datetime.now(timezone.utc).date().isoformat()
     if value_series and value_series[-1]["date"] == today:
-        value_series[-1]["value"] = str(crypto_total)
+        value_series[-1]["value"] = str(crypto_total + cash_total)
     else:
-        value_series.append({"date": today, "value": str(crypto_total)})
+        value_series.append({"date": today, "value": str(crypto_total + cash_total)})
     if len(value_series) < 2 and snapshots:
-        value_series = [{"date": row["captured_at"][:10], "value": row["crypto_eur"]} for row in snapshots]
+        value_series = [{"date": row["captured_at"][:10], "value": row["total_eur"]} for row in snapshots]
+    total = crypto_total + cash_total
+    unrealized_result = total - net_deposits
     return {
         "holdings": holdings,
         "chart_holdings": [{"symbol": row["symbol"], "value_eur": str(row["value_eur"])} for row in holdings],
@@ -313,8 +435,12 @@ def crypto_overview(conn, activity_page: int = 1, activity_page_size: int = 100)
         "value_series": value_series,
         "crypto_total": crypto_total,
         "cash_total": cash_total,
-        "total": crypto_total + cash_total,
+        "total": total,
+        "net_deposits": net_deposits,
+        "unrealized_result": unrealized_result,
+        "unrealized_pct": unrealized_result / net_deposits * Decimal("100") if net_deposits > 0 else None,
         "known_unrealized": known_unrealized,
         "realized": realized,
+        "earn_rewards": earn_rewards,
         "last_sync": get_setting(conn, "bitvavo_last_sync"),
     }

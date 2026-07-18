@@ -3,8 +3,31 @@
 {% block content %}
 <div class="page-header">
   <h1>{{ t(request, 'crypto.title') }}</h1>
+  {% if bitvavo_configured and crypto.holdings %}
+  <span class="range-selector crypto-range-selector">
+    <button type="button" onclick="setCryptoRange(this,'1M')" data-range="1M">{{ t(request, 'range.1m') }}</button>
+    <button type="button" onclick="setCryptoRange(this,'YTD')" data-range="YTD">{{ t(request, 'range.ytd') }}</button>
+    <button type="button" onclick="setCryptoRange(this,'1Y')" class="active" data-range="1Y">{{ t(request, 'range.1y') }}</button>
+    <button type="button" onclick="openCryptoCustomRange()" data-range="CUSTOM">{{ t(request, 'range.custom') }}</button>
+    <button type="button" onclick="setCryptoRange(this,'ALL')" data-range="ALL">{{ t(request, 'range.all') }}</button>
+  </span>
+  {% endif %}
   {% if bitvavo_configured %}<form method="post" action="/crypto/sync" class="inline-form" onsubmit="showPageLoadingOverlay()"><button class="outline secondary btn-sm">{{ t(request, 'crypto.refresh') }}</button></form>{% endif %}
 </div>
+
+{% if bitvavo_configured and crypto.holdings %}
+<dialog id="cryptoCustomRangeDialog">
+  <article style="margin:0;">
+    <header>{{ t(request, 'range.custom_period') }}</header>
+    <label>{{ t(request, 'range.from') }}<input type="date" id="cryptoCustomStart"></label>
+    <label>{{ t(request, 'range.to') }}<input type="date" id="cryptoCustomEnd"></label>
+    <footer style="display:flex; gap:.5rem; justify-content:flex-end; margin-top:.75rem;">
+      <button class="secondary btn-sm" type="button" onclick="document.getElementById('cryptoCustomRangeDialog').close()">{{ t(request, 'common.cancel') }}</button>
+      <button class="btn-sm" type="button" onclick="applyCryptoCustomRange()">{{ t(request, 'common.apply') }}</button>
+    </footer>
+  </article>
+</dialog>
+{% endif %}
 
 {% if request.query_params.get('synced') %}<div class="notice success">{{ t(request, 'crypto.synced', count=request.query_params.get('synced')) }}</div>{% endif %}
 {% if request.query_params.get('error') %}<div class="notice error">{{ request.query_params.get('error') }}</div>{% endif %}
@@ -23,8 +46,9 @@
   <article class="stat-card"><header>{{ t(request, 'crypto.total_account') }}</header><div class="stat-value">{{ crypto.total | eur }}</div></article>
   <article class="stat-card"><header>{{ t(request, 'crypto.crypto_value') }}</header><div class="stat-value">{{ crypto.crypto_total | eur }}</div></article>
   <article class="stat-card"><header>{{ t(request, 'crypto.cash') }}</header><div class="stat-value">{{ crypto.cash_total | eur }}</div></article>
-  <article class="stat-card"><header>{{ t(request, 'crypto.known_result') }}</header><div class="stat-value {{ crypto.known_unrealized | pl_class }}">{{ crypto.known_unrealized | eur }}</div></article>
-  <article class="stat-card"><header>{{ t(request, 'crypto.realized') }}</header><div class="stat-value {{ crypto.realized | pl_class }}">{{ crypto.realized | eur }}</div></article>
+  <article class="stat-card"><header>{{ t(request, 'crypto.net_deposits') }}</header><div class="stat-value">{{ crypto.net_deposits | eur }}</div></article>
+  <article class="stat-card"><header>{{ t(request, 'crypto.unrealized') }}</header><div class="stat-value {{ crypto.unrealized_result | pl_class }}">{{ crypto.unrealized_result | eur }}{% if crypto.unrealized_pct is not none %} · {{ crypto.unrealized_pct | pct }}{% endif %}</div></article>
+  <article class="stat-card"><header>{{ t(request, 'crypto.earn_rewards') }}</header><div class="stat-value pl-positive">{{ crypto.earn_rewards | eur }}</div></article>
 </div>
 
 {% if crypto.holdings %}
@@ -39,7 +63,7 @@
     <table class="sortable-table crypto-holdings-table">
       <thead><tr><th>{{ t(request, 'crypto.asset') }}</th><th class="num">{{ t(request, 'crypto.available') }}</th><th class="num">{{ t(request, 'crypto.in_order') }}</th><th class="num">{{ t(request, 'crypto.staked') }}</th><th class="num">{{ t(request, 'crypto.price') }}</th><th class="num">{{ t(request, 'crypto.value') }}</th><th class="num">{{ t(request, 'crypto.avg_cost') }}</th><th class="num">{{ t(request, 'crypto.result') }}</th><th class="num">{{ t(request, 'crypto.weight') }}</th></tr></thead>
       <tbody>{% for holding in crypto.holdings %}<tr>
-        <td><span class="crypto-asset-name"><span class="crypto-symbol-icon">{{ holding.symbol[:1] }}</span><span><strong>{{ holding.name }}</strong><small>{{ holding.symbol }}</small></span></span></td>
+        <td><span class="crypto-asset-name"><span data-instrument-logo data-name="{{ holding.name }}"></span><span><strong>{{ holding.name }}</strong><small>{{ holding.symbol }}</small></span></span></td>
         <td class="num">{{ holding.available | qty }}</td><td class="num">{{ holding.in_order | qty }}</td><td class="num">{{ holding.staked | qty }}</td>
         <td class="num">{{ holding.price_eur | eur }}</td><td class="num">{{ holding.value_eur | eur }}</td>
         <td class="num" {% if holding.average_cost is none %}title="{{ t(request, 'crypto.unknown_cost') }}"{% endif %}>{{ holding.average_cost | eur }}</td>
@@ -49,7 +73,7 @@
     </table>
   </div>
   <div class="card-list mobile-only">{% for holding in crypto.holdings %}<div class="holding-card">
-    <div class="holding-name crypto-asset-name"><span class="crypto-symbol-icon">{{ holding.symbol[:1] }}</span><span>{{ holding.name }} <small>{{ holding.symbol }}</small></span></div>
+    <div class="holding-name crypto-asset-name"><span data-instrument-logo data-name="{{ holding.name }}"></span><span>{{ holding.name }} <small>{{ holding.symbol }}</small></span></div>
     <div class="holding-sub">{{ holding.quantity | qty }} · {{ holding.price_eur | eur }}</div>
     <div class="holding-row"><span class="holding-value">{{ holding.value_eur | eur }}</span><span class="{{ holding.result | pl_class }}">{{ holding.result_pct | pct }}</span></div>
   </div>{% endfor %}</div>
@@ -58,8 +82,8 @@
 
 <article>
   <header>{{ t(request, 'crypto.activity') }}</header>
-  {% if crypto.activity %}<div class="table-scroll"><table><thead><tr><th>{{ t(request, 'common.date') }}</th><th>{{ t(request, 'savings.movement_type') }}</th><th>{{ t(request, 'crypto.sent') }}</th><th>{{ t(request, 'crypto.received') }}</th><th>{{ t(request, 'crypto.fees') }}</th></tr></thead><tbody>
-  {% for row in crypto.activity %}<tr><td class="muted small">{{ row.executed_at[:19] | replace('T', ' ') }}</td><td><span class="badge">{{ t(request, 'crypto.type.' ~ row.type) }}</span></td><td>{% if row.sent_amount %}{{ row.sent_amount | qty }} {{ row.sent_currency or '' }}{% else %}—{% endif %}</td><td>{% if row.received_amount %}{{ row.received_amount | qty }} {{ row.received_currency or '' }}{% else %}—{% endif %}</td><td>{% if row.fees_amount %}{{ row.fees_amount | qty }} {{ row.fees_currency or '' }}{% else %}—{% endif %}</td></tr>{% endfor %}
+  {% if crypto.activity %}<div class="table-scroll"><table><thead><tr><th>{{ t(request, 'common.date') }}</th><th>{{ t(request, 'savings.movement_type') }}</th><th>{{ t(request, 'crypto.received') }}</th><th class="num">{{ t(request, 'crypto.received_eur') }}</th><th>{{ t(request, 'crypto.fees') }}</th></tr></thead><tbody>
+  {% for row in crypto.activity %}<tr><td class="muted small">{{ row.executed_at[:19] | replace('T', ' ') }}</td><td><span class="badge">{{ t(request, 'crypto.type.' ~ row.type) }}</span></td><td>{% if row.received_amount %}{{ row.received_amount | qty }} {{ row.received_currency or '' }}{% else %}—{% endif %}</td><td class="num">{% if row.received_eur is not none %}{{ row.received_eur | eur }}{% else %}—{% endif %}</td><td>{% if row.fees_amount %}{{ row.fees_amount | qty }} {{ row.fees_currency or '' }}{% else %}—{% endif %}</td></tr>{% endfor %}
   </tbody></table></div>{% if crypto.activity_pages > 1 %}<nav class="crypto-pagination" aria-label="{{ t(request, 'crypto.activity') }}"><span>{{ t(request, 'crypto.page', current=crypto.activity_page, total=crypto.activity_pages, count=crypto.activity_total) }}</span><span>{% if crypto.activity_page > 1 %}<a class="outline secondary btn-sm" href="/crypto?activity_page={{ crypto.activity_page - 1 }}">{{ t(request, 'crypto.previous') }}</a>{% endif %}{% if crypto.activity_page < crypto.activity_pages %}<a class="outline secondary btn-sm" href="/crypto?activity_page={{ crypto.activity_page + 1 }}">{{ t(request, 'crypto.next') }}</a>{% endif %}</span></nav>{% endif %}{% else %}<p class="muted">{{ t(request, 'crypto.no_activity') }}</p>{% endif %}
 </article>
 {% endif %}
@@ -69,17 +93,47 @@
 {% if bitvavo_configured and crypto.holdings %}<script>
 const cryptoValueSeries = {{ crypto.value_series | tojson }};
 const cryptoHoldings = {{ crypto.chart_holdings | tojson }};
+const cryptoInvalidRange = {{ t(request, 'range.invalid_alert') | tojson }};
 let cryptoValueChart;
 let cryptoAllocationChart;
+let cryptoRange = '1Y';
+let cryptoCustomRange = null;
+
+function cryptoDate(value) {
+  return new Date(`${value}T00:00:00`);
+}
+
+function filteredCryptoValueSeries() {
+  if (!cryptoValueSeries.length || cryptoRange === 'ALL') return cryptoValueSeries;
+  const lastDate = cryptoDate(cryptoValueSeries[cryptoValueSeries.length - 1].date);
+  let startDate;
+  let endDate = lastDate;
+  if (cryptoRange === 'CUSTOM' && cryptoCustomRange) {
+    startDate = cryptoDate(cryptoCustomRange.start);
+    endDate = cryptoDate(cryptoCustomRange.end);
+  } else if (cryptoRange === 'YTD') {
+    startDate = new Date(lastDate.getFullYear(), 0, 1);
+  } else {
+    startDate = new Date(lastDate);
+    if (cryptoRange === '1M') startDate.setMonth(startDate.getMonth() - 1);
+    else startDate.setFullYear(startDate.getFullYear() - 1);
+  }
+  const filtered = cryptoValueSeries.filter(row => {
+    const date = cryptoDate(row.date);
+    return date >= startDate && date <= endDate;
+  });
+  return filtered.length ? filtered : cryptoValueSeries.slice(-1);
+}
 
 function buildCryptoCharts() {
   if (cryptoValueChart) cryptoValueChart.destroy();
   if (cryptoAllocationChart) cryptoAllocationChart.destroy();
   const tokens = chartTokens();
+  const visibleValueSeries = filteredCryptoValueSeries();
   const valueContext = document.getElementById('cryptoValueChart').getContext('2d');
   cryptoValueChart = new Chart(valueContext, {
     type: 'line',
-    data: { labels: cryptoValueSeries.map(row => row.date), datasets: [{ label: {{ t(request, 'crypto.crypto_value') | tojson }}, data: cryptoValueSeries.map(row => Number(row.value)), borderColor: tokens.primary, backgroundColor: context => glassGradient(context.chart.ctx, context.chart.chartArea, tokens.primary), fill: true, tension: .25, pointRadius: cryptoValueSeries.length < 10 ? 3 : 0 }] },
+    data: { labels: visibleValueSeries.map(row => row.date), datasets: [{ label: {{ t(request, 'crypto.total_account') | tojson }}, data: visibleValueSeries.map(row => Number(row.value)), borderColor: tokens.primary, backgroundColor: context => glassGradient(context.chart.ctx, context.chart.chartArea, tokens.primary), fill: true, tension: .25, pointRadius: visibleValueSeries.length < 10 ? 3 : 0 }] },
     options: { responsive: true, interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: false }, tooltip: { ...glassTooltipOptions(), callbacks: { label: context => formatEur(context.parsed.y) } }, hoverGuideLine: hoverGuideLineOptions() }, scales: { x: { ticks: { color: tokens.muted }, grid: { display: false } }, y: { ticks: { color: tokens.muted, callback: value => formatEur(value) }, grid: { color: tokens.border } } } }
   });
   const allocationContext = document.getElementById('cryptoAllocationChart').getContext('2d');
@@ -88,6 +142,46 @@ function buildCryptoCharts() {
     data: { labels: cryptoHoldings.map(row => row.symbol), datasets: [{ data: cryptoHoldings.map(row => Number(row.value_eur)), backgroundColor: chartPalette(), borderColor: tokens.surface, borderWidth: 2 }] },
     options: { responsive: true, cutout: '64%', plugins: { legend: { position: 'bottom', labels: { color: tokens.text, boxWidth: 10, usePointStyle: true } }, tooltip: { ...glassTooltipOptions(), callbacks: { label: context => `${context.label}: ${formatEur(context.parsed)}` } } } }
   });
+}
+
+function setCryptoRange(button, range) {
+  cryptoRange = range;
+  cryptoCustomRange = null;
+  document.querySelectorAll('.crypto-range-selector button').forEach(item => item.classList.remove('active'));
+  button.classList.add('active');
+  saveRangePreference('crypto', range, null);
+  buildCryptoCharts();
+}
+
+function openCryptoCustomRange() {
+  const first = cryptoValueSeries[0]?.date || '';
+  const last = cryptoValueSeries[cryptoValueSeries.length - 1]?.date || '';
+  document.getElementById('cryptoCustomStart').value = cryptoCustomRange?.start || first;
+  document.getElementById('cryptoCustomEnd').value = cryptoCustomRange?.end || last;
+  document.getElementById('cryptoCustomRangeDialog').showModal();
+}
+
+function applyCryptoCustomRange() {
+  const start = document.getElementById('cryptoCustomStart').value;
+  const end = document.getElementById('cryptoCustomEnd').value;
+  if (!start || !end || start > end) {
+    alert(cryptoInvalidRange);
+    return;
+  }
+  cryptoRange = 'CUSTOM';
+  cryptoCustomRange = { start, end };
+  document.querySelectorAll('.crypto-range-selector button').forEach(item => item.classList.remove('active'));
+  document.querySelector('.crypto-range-selector button[data-range="CUSTOM"]').classList.add('active');
+  document.getElementById('cryptoCustomRangeDialog').close();
+  saveRangePreference('crypto', 'CUSTOM', cryptoCustomRange);
+  buildCryptoCharts();
+}
+
+const savedCryptoRange = loadRangePreference('crypto');
+if (savedCryptoRange) {
+  cryptoRange = savedCryptoRange.range || '1Y';
+  cryptoCustomRange = savedCryptoRange.customRange || null;
+  document.querySelectorAll('.crypto-range-selector button').forEach(item => item.classList.toggle('active', item.dataset.range === cryptoRange));
 }
 buildCryptoCharts();
 onChartThemeChange(buildCryptoCharts);

@@ -1,9 +1,11 @@
 """Read-only Bitvavo integration tests without network access."""
+from decimal import Decimal
+
 from cryptography.fernet import Fernet
 from starlette.requests import Request
 
 from app.helpers import templates
-from app.services.bitvavo import create_signature, crypto_overview, sync_bitvavo
+from app.services.bitvavo import _transfer_history, create_signature, crypto_overview, sync_bitvavo
 from app.services.credentials import decrypt_value, encrypt_value
 
 
@@ -19,6 +21,23 @@ def test_credentials_are_encrypted_at_rest():
     encrypted = encrypt_value("private-secret", key)
     assert encrypted != "private-secret"
     assert decrypt_value(encrypted, key) == "private-secret"
+
+
+def test_transfer_history_pages_back_beyond_first_thousand():
+    class TransferClient:
+        def private_get(self, endpoint, params=None):
+            assert endpoint == "/depositHistory"
+            if "end" not in params:
+                return [
+                    {"timestamp": timestamp, "symbol": "EUR", "amount": "1", "status": "completed"}
+                    for timestamp in range(2_000_000, 1_000_000, -1000)
+                ]
+            assert params["end"] == 1_000_999
+            return [{"timestamp": 1_000_000, "symbol": "EUR", "amount": "1", "status": "completed"}]
+
+    rows = _transfer_history(TransferClient(), "/depositHistory", "deposit")
+    assert len(rows) == 1001
+    assert rows[-1]["receivedAmount"] == "1"
 
 
 class FakeBitvavoClient:
@@ -55,6 +74,25 @@ class FakeBitvavoClient:
                 "currentPage": 1,
                 "totalPages": 1,
             }
+        if endpoint == "/depositHistory":
+            assert params == {"limit": 1000}
+            return [{
+                "timestamp": 1767175200000,
+                "symbol": "EUR",
+                "amount": "10200",
+                "fee": "0",
+                "status": "completed",
+                "address": "NL00TEST0123456789",
+            }]
+        if endpoint == "/withdrawalHistory":
+            assert params == {"limit": 1000}
+            return [{
+                "timestamp": 1767178800000,
+                "symbol": "EUR",
+                "amount": "100",
+                "fee": "0",
+                "status": "completed",
+            }]
         raise AssertionError(endpoint)
 
     def public_get(self, endpoint, params=None):
@@ -85,19 +123,26 @@ class FakeBitvavoClient:
 def test_sync_stores_balances_staking_prices_and_history(mem_db):
     result = sync_bitvavo(mem_db, "key", "secret", client=FakeBitvavoClient())
     assert result["balances"] == 3
-    assert result["transactions"] == 2
+    assert result["transactions"] == 4
     assert result["total_eur"] == 14100
     eth = mem_db.execute("SELECT * FROM crypto_balances WHERE symbol='ETH'").fetchone()
     assert eth["staked"] == "2"
     assert eth["value_eur"] == "4000"
-    assert mem_db.execute("SELECT COUNT(*) FROM crypto_transactions").fetchone()[0] == 2
+    assert mem_db.execute("SELECT COUNT(*) FROM crypto_transactions").fetchone()[0] == 4
 
     overview = crypto_overview(mem_db)
     assert overview["total"] == 14100
     assert overview["crypto_total"] == 14000
+    assert overview["net_deposits"] == 10100
+    assert overview["unrealized_result"] == 4000
+    assert overview["unrealized_pct"].quantize(Decimal("0.01")) == Decimal("39.60")
+    assert overview["earn_rewards"] == 4100
     assert {row["symbol"] for row in overview["holdings"]} == {"BTC", "ETH"}
-    assert len(overview["activity"]) == 2
+    assert len(overview["activity"]) == 4
+    assert next(row for row in overview["activity"] if row["type"] == "buy")["received_eur"] == 10000
     assert len(overview["value_series"]) >= 2
+    assert Decimal(overview["value_series"][0]["value"]) > 0
+    assert Decimal(overview["value_series"][-1]["value"]) == Decimal("14100")
 
     request = Request({
         "type": "http", "method": "GET", "path": "/crypto", "raw_path": b"/crypto",
@@ -108,4 +153,5 @@ def test_sync_stores_balances_staking_prices_and_history(mem_db):
         request=request, crypto=overview, bitvavo_configured=True,
     )
     assert "Bitcoin" in html
+    assert 'data-instrument-logo data-name="Bitcoin"' in html
     assert "cryptoValueChart" in html
