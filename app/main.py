@@ -12,7 +12,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from .db import get_db, get_setting, run_migrations, set_setting
 from .helpers import _AuthRedirect
-from .routers import auth, portfolio, imports, accounts, dividends, benchmark, settings, actions, savings
+from .routers import auth, portfolio, imports, accounts, dividends, benchmark, settings, actions, crypto, savings
 
 # ---------------------------------------------------------------------------
 # Logging — goes to stderr → visible in journalctl -u portfoliomanager
@@ -112,4 +112,5 @@ app.include_router(dividends.router)
 app.include_router(benchmark.router)
 app.include_router(settings.router)
 app.include_router(actions.router)
+app.include_router(crypto.router)
 app.include_router(savings.router)

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ t(request, 'crypto.title') }} – PortfolioManager{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t(request, 'crypto.title') }}</h1></div>
+<article class="empty-state">
+  <span class="empty-icon">₿</span>
+  <p>{{ t(request, 'crypto.coming_soon') }}</p>
+</article>
+{% endblock %}

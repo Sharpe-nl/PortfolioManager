@@ -604,12 +604,11 @@ input[type="button"] {
   align-items: stretch;
   flex: 1;
   height: 100%;
-  overflow-x: auto;
-  scrollbar-width: none;
+  overflow: visible;
 }
-.topnav-links::-webkit-scrollbar { display: none; }
 
-.topnav-links a {
+.topnav-links > a,
+.topnav-dropdown > summary {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -622,23 +621,54 @@ input[type="button"] {
   white-space: nowrap;
   transition: color 0.15s, border-color 0.15s;
 }
+.topnav-dropdown { position: relative; height: 100%; }
+.topnav-dropdown > summary { height: 100%; cursor: pointer; list-style: none; }
+.topnav-dropdown > summary::-webkit-details-marker { display: none; }
+.topnav-dropdown > summary span { margin-left: .3rem; font-size: .72rem; transition: transform .15s ease; }
+.topnav-dropdown[open] > summary span { transform: rotate(180deg); }
 
 /* Reserve the same navigation space in Dutch and English. This keeps the
    active item and right-hand controls from shifting on a language change. */
-.topnav-links a:nth-child(1) { flex: 0 0 6.5rem; }
-.topnav-links a:nth-child(2) { flex: 0 0 6rem; }
-.topnav-links a:nth-child(3) { flex: 0 0 6.75rem; }
-.topnav-links a:nth-child(4) { flex: 0 0 6.5rem; }
-.topnav-links a:nth-child(5) { flex: 0 0 5.75rem; }
-.topnav-links a:nth-child(6) { flex: 0 0 7rem; }
+.topnav-links > :nth-child(1) { flex: 0 0 6.5rem; }
+.topnav-links > :nth-child(2) { flex: 0 0 6rem; }
+.topnav-links > :nth-child(3) { flex: 0 0 5.5rem; }
+.topnav-links > :nth-child(4) { flex: 0 0 5.5rem; }
+.topnav-links > :nth-child(5) { flex: 0 0 6.5rem; }
 
-.topnav-links a:hover { color: var(--text) !important; }
+.topnav-links > a:hover,
+.topnav-dropdown > summary:hover { color: var(--text) !important; }
 
-.topnav-links a.active {
+.topnav-links > a.active,
+.topnav-dropdown.active > summary {
   color: var(--primary) !important;
   border-bottom-color: var(--primary);
   font-weight: 600;
 }
+
+.topnav-dropdown-menu {
+  position: absolute;
+  top: calc(100% - 1px);
+  left: 0;
+  z-index: 120;
+  display: grid;
+  min-width: 12rem;
+  padding: .45rem;
+  border: 1px solid var(--border);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: var(--shadow-sm);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  backdrop-filter: blur(22px) saturate(150%);
+}
+.topnav-dropdown-menu a {
+  padding: .55rem .7rem;
+  border-radius: .55rem;
+  color: var(--text-muted) !important;
+  font-size: .84rem;
+  text-decoration: none !important;
+}
+.topnav-dropdown-menu a:hover { color: var(--text) !important; background: var(--surface-2); }
+.topnav-dropdown-menu a.active { color: var(--primary) !important; background: var(--primary-bg); font-weight: 600; }
 
 .topnav-actions {
   display: flex;
@@ -722,6 +752,27 @@ input[type="button"] {
 
 .mobile-nav-drawer a:hover  { background: var(--surface-2); color: var(--text) !important; }
 .mobile-nav-drawer a.active { background: var(--primary-bg); color: var(--primary) !important; font-weight: 600; }
+
+.mobile-nav-group { margin: 0; }
+.mobile-nav-group > summary {
+  display: flex;
+  align-items: center;
+  gap: .625rem;
+  padding: .625rem .75rem;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: .9rem;
+  font-weight: 500;
+  cursor: pointer;
+  list-style: none;
+}
+.mobile-nav-group > summary::-webkit-details-marker { display: none; }
+.mobile-nav-group > summary > span:first-of-type { flex: 1; }
+.mobile-nav-group.active > summary { color: var(--primary); background: var(--primary-bg); font-weight: 600; }
+.mobile-nav-chevron { margin-left: auto; transition: transform .15s ease; }
+.mobile-nav-group[open] .mobile-nav-chevron { transform: rotate(180deg); }
+.mobile-nav-submenu { display: grid; gap: .15rem; padding: .25rem 0 .25rem 2rem; }
+.mobile-nav-submenu a { padding-top: .48rem; padding-bottom: .48rem; font-size: .84rem; }
 
 .drawer-divider {
   height: 1px;
@@ -816,14 +867,17 @@ input[type="button"] {
 }
 
 /* ── 9. Responsive breakpoints ───────────────────────────────────────────── */
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   .topnav { display: none !important; }
   .mobile-header { display: flex; }
+}
+
+@media (max-width: 768px) {
   .main-content { padding: 1.25rem 1rem 2rem; }
   .desktop-only { display: none !important; }
 }
 
-@media (min-width: 769px) {
+@media (min-width: 901px) {
   .mobile-only { display: none !important; }
   .mobile-header { display: none !important; }
   .mobile-nav-drawer { display: none !important; }

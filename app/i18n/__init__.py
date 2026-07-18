@@ -20,6 +20,7 @@ from . import (
     auth,
     benchmark,
     common,
+    crypto,
     dashboard,
     dividends,
     holdings,
@@ -35,7 +36,7 @@ DEFAULT_LANG = "nl"
 SUPPORTED_LANGS = ("nl", "en")
 
 _MODULES = (
-    common, dashboard, holdings, dividends, benchmark, actions,
+    common, dashboard, holdings, dividends, benchmark, actions, crypto,
     accounts, settings, instrument, imports, auth, misc, savings,
 )
 
