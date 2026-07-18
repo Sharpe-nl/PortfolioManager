@@ -242,5 +242,10 @@ async def backup_db(conn=Depends(get_db), _=Depends(require_auth)):
     return StreamingResponse(
         iter([data]),
         media_type="application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store, private",
+            "Pragma": "no-cache",
+            "X-Content-Type-Options": "nosniff",
+        },
     )

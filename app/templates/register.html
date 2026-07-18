@@ -15,6 +15,11 @@
   <p>{{ t(request, 'auth.register_instructions_line1') }}<br>
      {{ t(request, 'auth.login_instructions') }}</p>
 
+  <label for="setup-token">{{ t(request, 'auth.setup_token_label') }}
+    <input id="setup-token" type="password" autocomplete="one-time-code" required>
+  </label>
+  <small>{{ t(request, 'auth.setup_token_help') }}</small>
+
   <div id="status" class="status-msg" hidden></div>
 
   <button id="register-btn" onclick="doRegister()">
@@ -35,12 +40,21 @@ const I18N = {
   touchKey: {{ t(request, 'auth.touch_key') | tojson }},
   registerSuccess: {{ t(request, 'auth.register_success') | tojson }},
   errorPrefix: {{ t(request, 'auth.error_prefix') | tojson }},
+  setupTokenRequired: {{ t(request, 'auth.setup_token_required') | tojson }},
 };
 async function doRegister() {
   const btn = document.getElementById('register-btn');
   const status = document.getElementById('status');
+  const setupToken = document.getElementById('setup-token').value.trim();
   btn.disabled = true;
   status.hidden = false;
+
+  if (!setupToken) {
+    status.className = 'status-msg error';
+    status.textContent = I18N.setupTokenRequired;
+    btn.disabled = false;
+    return;
+  }
 
   // WebAuthn vereist een secure context (HTTPS of localhost)
   if (!window.isSecureContext || !navigator.credentials) {
@@ -54,7 +68,9 @@ async function doRegister() {
 
   try {
     // 1 – Get options
-    const optResp = await fetch('/auth/register/options', { method: 'POST' });
+    const optResp = await fetch('/auth/register/options', {
+      method: 'POST', headers: { 'X-Setup-Token': setupToken }
+    });
     if (!optResp.ok) throw new Error(await optResp.text());
     const opts = await optResp.json();
 
@@ -86,7 +102,7 @@ async function doRegister() {
     // 5 – Verify
     const verResp = await fetch('/auth/register/verify', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Setup-Token': setupToken },
       body:    credJson,
     });
     if (!verResp.ok) throw new Error(await verResp.text());

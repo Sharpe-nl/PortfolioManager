@@ -8,11 +8,11 @@ import asyncio
 from contextlib import suppress
 
 from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from .db import get_db, get_setting, run_migrations, set_setting
+from .db import _open, get_db, get_setting, run_migrations, set_setting
 from .helpers import _AuthRedirect
 from .routers import auth, portfolio, imports, accounts, dividends, benchmark, settings, actions, crypto, savings
 
@@ -34,6 +34,26 @@ app = FastAPI(
     docs_url=None,   # disable in production
     redoc_url=None,
 )
+
+
+@app.middleware("http")
+async def browser_security_middleware(request: Request, call_next):
+    """Reject cross-origin writes and apply browser-facing security headers."""
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        origin = request.headers.get("origin")
+        if origin:
+            scheme = request.headers.get("x-forwarded-proto", request.url.scheme).split(",", 1)[0].strip()
+            expected_origin = f"{scheme}://{request.headers.get('host', '')}"
+            if not secrets.compare_digest(origin, expected_origin):
+                return PlainTextResponse("Cross-origin request rejected", status_code=403)
+
+    response = await call_next(request)
+    response.headers.setdefault("Content-Security-Policy", "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://img.logo.dev; connect-src 'self'")
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "same-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()")
+    return response
 
 
 # ---------------------------------------------------------------------------
@@ -100,6 +120,16 @@ async def auth_redirect_handler(request: Request, exc: _AuthRedirect):
 @app.on_event("startup")
 async def startup():
     run_migrations()
+    from .auth import has_credentials, issue_initial_setup_token
+    conn = _open()
+    try:
+        setup_token = issue_initial_setup_token(conn)
+        if setup_token:
+            log.warning("No WebAuthn credential exists. Initial setup token: %s", setup_token)
+        elif not has_credentials(conn):
+            log.warning("No WebAuthn credential exists. Set PM_SETUP_TOKEN to choose a new initial setup token.")
+    finally:
+        conn.close()
     from .services.refresh_scheduler import scheduler_loop
     app.state.refresh_scheduler_task = asyncio.create_task(scheduler_loop())
 

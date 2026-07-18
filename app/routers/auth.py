@@ -23,16 +23,19 @@ from fastapi.templating import Jinja2Templates
 from ..auth import (
     begin_authentication,
     begin_registration,
+    complete_initial_setup,
     delete_credential,
     finish_authentication,
     finish_registration,
     get_rp_id,
     has_credentials,
+    verify_initial_setup_token,
 )
 from ..db import get_db
 from ..helpers import templates as _templates, require_auth
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+_SETUP_TOKEN_HEADER = "X-Setup-Token"
 
 
 def _origin(request: Request) -> str:
@@ -56,6 +59,8 @@ async def register_page(request: Request, conn=Depends(get_db)):
 async def register_options(request: Request, conn=Depends(get_db)):
     if has_credentials(conn):
         return JSONResponse({"error": "Already registered"}, status_code=400)
+    if not verify_initial_setup_token(conn, request.headers.get(_SETUP_TOKEN_HEADER)):
+        return JSONResponse({"error": "Invalid setup token"}, status_code=403)
     rp_id = get_rp_id(conn, request.headers.get("host", "localhost"))
     data = begin_registration(conn, rp_id)
     request.session["reg_challenge"] = data["challenge_b64"]
@@ -66,6 +71,8 @@ async def register_options(request: Request, conn=Depends(get_db)):
 async def register_verify(request: Request, conn=Depends(get_db)):
     if has_credentials(conn):
         return JSONResponse({"error": "Already registered"}, status_code=400)
+    if not verify_initial_setup_token(conn, request.headers.get(_SETUP_TOKEN_HEADER)):
+        return JSONResponse({"error": "Invalid setup token"}, status_code=403)
 
     challenge_b64 = request.session.pop("reg_challenge", None)
     if not challenge_b64:
@@ -82,6 +89,7 @@ async def register_verify(request: Request, conn=Depends(get_db)):
             credential_json=body.decode(),
             expected_challenge=base64url_to_bytes(challenge_b64),
         )
+        complete_initial_setup(conn)
         conn.commit()
         return JSONResponse({"ok": True})
     except Exception as exc:

@@ -17,6 +17,9 @@ NL = {
     "auth.register_page_title": "YubiKey registreren – PortfolioManager",
     "auth.register_heading": "YubiKey instellen",
     "auth.register_instructions_line1": "Registreer je YubiKey voor toegang tot de applicatie.",
+    "auth.setup_token_label": "Installatiecode",
+    "auth.setup_token_help": "Gebruik de eenmalige code uit de serverlog, of de waarde van PM_SETUP_TOKEN.",
+    "auth.setup_token_required": "✗ Vul eerst de installatiecode in.",
     "auth.register_button": "🔑 YubiKey registreren",
     "auth.no_yubikey_summary": "Heb je geen YubiKey?",
     "auth.no_yubikey_detail": (
@@ -43,6 +46,9 @@ EN = {
     "auth.register_page_title": "YubiKey registration – PortfolioManager",
     "auth.register_heading": "Set up YubiKey",
     "auth.register_instructions_line1": "Register your YubiKey for access to the application.",
+    "auth.setup_token_label": "Setup token",
+    "auth.setup_token_help": "Use the one-time code from the server log, or the value of PM_SETUP_TOKEN.",
+    "auth.setup_token_required": "✗ Enter the setup token first.",
     "auth.register_button": "🔑 Register YubiKey",
     "auth.no_yubikey_summary": "Don't have a YubiKey?",
     "auth.no_yubikey_detail": (

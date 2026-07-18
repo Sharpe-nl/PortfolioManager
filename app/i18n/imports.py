@@ -12,6 +12,7 @@ NL = {
     "imports.import_done_prefix": "✓ Import klaar:",
     "imports.rows_added_word": "rijen toegevoegd",
     "imports.error_details_summary": "Foutdetails",
+    "imports.file_too_large": "Het CSV-bestand is groter dan de importlimiet van 10 MB.",
 
     # ── import.html: upload form ─────────────────────────────────────────
     "imports.upload_header": "CSV uploaden",
@@ -93,6 +94,7 @@ EN = {
     "imports.import_done_prefix": "✓ Import done:",
     "imports.rows_added_word": "rows added",
     "imports.error_details_summary": "Error details",
+    "imports.file_too_large": "The CSV file is larger than the 10 MB import limit.",
 
     # ── import.html: upload form ─────────────────────────────────────────
     "imports.upload_header": "Upload CSV",
