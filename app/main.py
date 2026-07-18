@@ -4,6 +4,8 @@ from __future__ import annotations
 import logging
 import os
 import secrets
+import asyncio
+from contextlib import suppress
 
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
@@ -12,7 +14,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from .db import get_db, get_setting, run_migrations, set_setting
 from .helpers import _AuthRedirect
-from .routers import auth, portfolio, imports, accounts, dividends, benchmark, settings, actions
+from .routers import auth, portfolio, imports, accounts, dividends, benchmark, settings, actions, crypto, savings
 
 # ---------------------------------------------------------------------------
 # Logging — goes to stderr → visible in journalctl -u portfoliomanager
@@ -98,6 +100,17 @@ async def auth_redirect_handler(request: Request, exc: _AuthRedirect):
 @app.on_event("startup")
 async def startup():
     run_migrations()
+    from .services.refresh_scheduler import scheduler_loop
+    app.state.refresh_scheduler_task = asyncio.create_task(scheduler_loop())
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    task = getattr(app.state, "refresh_scheduler_task", None)
+    if task:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
 
 
 # ---------------------------------------------------------------------------
@@ -112,3 +125,5 @@ app.include_router(dividends.router)
 app.include_router(benchmark.router)
 app.include_router(settings.router)
 app.include_router(actions.router)
+app.include_router(crypto.router)
+app.include_router(savings.router)

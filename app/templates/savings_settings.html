@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}{{ account.name }} – {{ t(request, 'savings.settings') }}{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ account.name }}</h1><a href="/savings" class="btn-sm outline secondary">{{ t(request, 'savings.back') }}</a></div>
+{% if request.query_params.get('saved') %}<div class="notice success">✓ {{ t(request, 'common.save') }}</div>{% endif %}
+
+<article><header>{{ t(request, 'savings.dashboard') }}</header>
+  <form method="post" action="/savings/{{ account.id }}/visibility" class="savings-visibility-form">
+    <input type="hidden" name="include_in_dashboard" value="0">
+    <label><input type="checkbox" name="include_in_dashboard" value="1" {% if account.include_in_dashboard %}checked{% endif %} onchange="this.form.submit()"> {{ t(request, 'savings.dashboard') }}</label>
+  </form>
+</article>
+
+<article><header>{{ t(request, 'savings.rate') }}</header>
+  <details class="savings-new-entry">
+    <summary>{{ t(request, 'savings.new_rate') }}</summary>
+    <form method="post" action="/savings/{{ account.id }}/rate" class="savings-create-form savings-create-form--rate-end">
+      <label>%<input name="annual_rate" type="number" step="0.001" min="0" required></label>
+      <label>{{ t(request, 'savings.frequency') }}<select name="payout_frequency"><option value="weekly">{{ t(request, 'savings.weekly') }}</option><option value="monthly">{{ t(request, 'savings.monthly') }}</option><option value="yearly">{{ t(request, 'savings.yearly') }}</option></select></label>
+      <label>{{ t(request, 'savings.starts') }}<input name="starts_on" type="date" required></label>
+      <div class="savings-field"><span class="savings-field-label">{{ t(request, 'savings.ends') }}</span><span class="savings-end-date-control" data-end-date-control><input name="ends_on" type="date" aria-label="{{ t(request, 'savings.ends') }}" data-end-date><label class="savings-current-toggle"><input type="checkbox" checked data-current-toggle> {{ t(request, 'savings.present') }}</label></span></div>
+      <button class="outline secondary btn-sm">{{ t(request, 'common.save') }}</button>
+    </form>
+  </details>
+  {% if account.rates %}{% for rate in account.rates %}<form id="rate-{{ rate.id }}" method="post" action="/savings/{{ account.id }}/rate/{{ rate.id }}/edit"></form>{% endfor %}<div class="table-scroll"><table class="savings-settings-table"><thead><tr><th>{{ t(request, 'savings.rate_pct') }}</th><th>{{ t(request, 'savings.frequency') }}</th><th>{{ t(request, 'savings.starts') }}</th><th>{{ t(request, 'savings.ends') }}</th><th class="savings-actions-heading">{{ t(request, 'savings.actions') }}</th></tr></thead><tbody>{% for rate in account.rates %}
+    <tr><td><input form="rate-{{ rate.id }}" aria-label="{{ t(request, 'savings.rate_pct') }}" name="annual_rate" type="number" step="0.001" value="{{ rate.annual_rate }}"></td><td><select form="rate-{{ rate.id }}" aria-label="{{ t(request, 'savings.frequency') }}" name="payout_frequency">{% for f in ['weekly','monthly','yearly'] %}<option value="{{ f }}" {% if rate.payout_frequency == f %}selected{% endif %}>{{ t(request, 'savings.' ~ f) }}</option>{% endfor %}</select></td><td><input form="rate-{{ rate.id }}" aria-label="{{ t(request, 'savings.starts') }}" name="starts_on" type="date" value="{{ rate.starts_on }}"></td><td><span class="savings-end-date-control savings-end-date-control--table" data-end-date-control><input form="rate-{{ rate.id }}" aria-label="{{ t(request, 'savings.ends') }}" name="ends_on" type="date" value="{{ rate.ends_on or '' }}" data-end-date><label class="savings-current-toggle"><input type="checkbox" {% if not rate.ends_on %}checked{% endif %} data-current-toggle> {{ t(request, 'savings.present') }}</label></span></td><td class="savings-actions-cell"><div class="savings-table-actions"><button form="rate-{{ rate.id }}" class="outline secondary btn-sm">{{ t(request, 'common.save') }}</button><button form="rate-{{ rate.id }}" formaction="/savings/{{ account.id }}/rate/{{ rate.id }}/delete" class="outline secondary btn-sm savings-delete-btn danger-btn">{{ t(request, 'savings.delete') }}</button></div></td></tr>
+    <tr class="savings-tier-row"><td colspan="5"><details><summary>{{ t(request, 'savings.bonus_tiers') }}</summary><p class="muted savings-form-hint">{{ t(request, 'savings.bonus_hint') }}</p><form method="post" action="/savings/{{ account.id }}/rate/{{ rate.id }}/tier" class="savings-create-form savings-create-form--two"><label>{{ t(request, 'savings.from_balance') }}<input name="min_balance_eur" type="number" step="0.01" min="0" required></label><label>{{ t(request, 'savings.rate_pct') }}<input name="annual_rate" type="number" step="0.001" min="0" required></label><button class="outline secondary btn-sm">{{ t(request, 'common.save') }}</button></form>{% for tier in rate.tiers %}<form method="post" action="/savings/{{ account.id }}/rate/{{ rate.id }}/tier/{{ tier.id }}/delete" class="inline-form"><span>{{ t(request, 'savings.from_balance') }} {{ tier.min_balance_eur | eur }} · {{ tier.annual_rate }}%</span><button class="outline secondary btn-sm savings-delete-btn danger-btn">{{ t(request, 'savings.delete') }}</button></form>{% endfor %}</details></td></tr>
+  {% endfor %}</tbody></table></div>{% endif %}
+</article>
+
+<article><header>{{ t(request, 'savings.cash_movement') }}</header>
+  <details class="savings-new-entry">
+    <summary>{{ t(request, 'savings.new_cash_movement') }}</summary>
+    <form method="post" action="/savings/{{ account.id }}/cash" class="savings-create-form savings-create-form--three">
+      <label>{{ t(request, 'common.date') }}<input name="date" type="date" required></label><label>{{ t(request, 'savings.movement_type') }}<select name="movement_type"><option value="deposit">{{ t(request, 'savings.deposit') }}</option><option value="withdrawal">{{ t(request, 'savings.withdrawal') }}</option></select></label><label>{{ t(request, 'savings.amount') }}<input name="amount_eur" type="number" step="0.01" min="0.01" required></label><button class="outline secondary btn-sm">{{ t(request, 'common.save') }}</button>
+    </form>
+  </details>
+  {% if account.cash_movements %}{% for row in account.cash_movements %}<form id="cash-{{ row.id }}" method="post" action="/savings/{{ account.id }}/cash/{{ row.id }}/edit"></form>{% endfor %}<div class="table-scroll"><table class="savings-settings-table"><thead><tr><th>{{ t(request, 'common.date') }}</th><th>{{ t(request, 'savings.movement_type') }}</th><th>{{ t(request, 'savings.amount') }}</th><th class="savings-actions-heading">{{ t(request, 'savings.actions') }}</th></tr></thead><tbody>{% for row in account.cash_movements %}
+    <tr><td><input form="cash-{{ row.id }}" aria-label="{{ t(request, 'common.date') }}" name="date" type="date" value="{{ row.date }}"></td><td><select form="cash-{{ row.id }}" aria-label="{{ t(request, 'savings.movement_type') }}" name="movement_type"><option value="deposit" {% if row.type == 'deposit' %}selected{% endif %}>{{ t(request, 'savings.deposit') }}</option><option value="withdrawal" {% if row.type == 'withdrawal' %}selected{% endif %}>{{ t(request, 'savings.withdrawal') }}</option></select></td><td><input form="cash-{{ row.id }}" aria-label="{{ t(request, 'savings.amount') }}" name="amount_eur" type="number" step="0.01" min="0.01" value="{{ row.amount_eur }}"></td><td class="savings-actions-cell"><div class="savings-table-actions"><button form="cash-{{ row.id }}" class="outline secondary btn-sm">{{ t(request, 'common.save') }}</button><button form="cash-{{ row.id }}" formaction="/savings/{{ account.id }}/cash/{{ row.id }}/delete" class="outline secondary btn-sm savings-delete-btn danger-btn">{{ t(request, 'savings.delete') }}</button></div></td></tr>
+  {% endfor %}</tbody></table></div>{% endif %}
+</article>
+
+<article><header>{{ t(request, 'savings.manual') }}</header>
+  <details class="savings-new-entry">
+    <summary>{{ t(request, 'savings.new_manual') }}</summary>
+    <form method="post" action="/savings/{{ account.id }}/interest" class="savings-create-form savings-create-form--manual">
+      <label>{{ t(request, 'common.date') }}<input name="date" type="date" required></label><label>{{ t(request, 'savings.amount') }}<input name="amount_eur" type="number" step="0.01" required></label><label>{{ t(request, 'common.description') }}<input name="description"></label><button class="outline secondary btn-sm">{{ t(request, 'common.save') }}</button>
+    </form>
+  </details>
+  {% if account.adjustments %}{% for row in account.adjustments %}<form id="interest-{{ row.id }}" method="post" action="/savings/{{ account.id }}/interest/{{ row.id }}/edit"></form>{% endfor %}<div class="table-scroll"><table class="savings-settings-table"><thead><tr><th>{{ t(request, 'common.date') }}</th><th>{{ t(request, 'savings.amount') }}</th><th>{{ t(request, 'common.description') }}</th><th class="savings-actions-heading">{{ t(request, 'savings.actions') }}</th></tr></thead><tbody>{% for row in account.adjustments %}
+    <tr><td><input form="interest-{{ row.id }}" aria-label="{{ t(request, 'common.date') }}" name="date" type="date" value="{{ row.date }}"></td><td><input form="interest-{{ row.id }}" aria-label="{{ t(request, 'savings.amount') }}" name="amount_eur" type="number" step="0.01" value="{{ row.amount_eur }}"></td><td><input form="interest-{{ row.id }}" aria-label="{{ t(request, 'common.description') }}" name="description" value="{{ row.description or '' }}"></td><td class="savings-actions-cell"><div class="savings-table-actions"><button form="interest-{{ row.id }}" class="outline secondary btn-sm">{{ t(request, 'common.save') }}</button><button form="interest-{{ row.id }}" formaction="/savings/{{ account.id }}/interest/{{ row.id }}/delete" class="outline secondary btn-sm savings-delete-btn danger-btn">{{ t(request, 'savings.delete') }}</button></div></td></tr>
+  {% endfor %}</tbody></table></div>{% endif %}
+</article>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.querySelectorAll('[data-end-date-control]').forEach(function (control) {
+    var dateInput = control.querySelector('[data-end-date]');
+    var currentToggle = control.querySelector('[data-current-toggle]');
+    function updateEndDate() {
+      dateInput.hidden = currentToggle.checked;
+      dateInput.disabled = currentToggle.checked;
+      if (currentToggle.checked) dateInput.value = '';
+    }
+    currentToggle.addEventListener('change', updateEndDate);
+    updateEndDate();
+  });
+</script>
+{% endblock %}

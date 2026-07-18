@@ -655,6 +655,7 @@ def refresh_all_prices(
     *,
     provider: PriceProvider = _default_provider,
     period: str = "5d",
+    force: bool = False,
 ) -> dict:
     """Refresh prices for all instruments that have a symbol mapped.
 
@@ -705,7 +706,7 @@ def refresh_all_prices(
             to_fetch.append((iid, ticker, desired_start))  # no data at all
         elif not has_full_history:
             to_fetch.append((iid, ticker, desired_start))  # backfill missing older history
-        elif _is_history_stale(cached["fetched_at"]):
+        elif force or _is_history_stale(cached["fetched_at"]):
             to_fetch.append((iid, ticker, None))  # just an incremental refresh
         else:
             skipped += 1

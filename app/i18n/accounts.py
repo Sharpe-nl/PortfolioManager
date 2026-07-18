@@ -20,6 +20,8 @@ NL = {
     "accounts.section_add": "Account toevoegen",
     "accounts.name_placeholder": "bijv. DeGiro",
     "accounts.btn_add": "Toevoegen",
+    "accounts.btn_delete": "✕ Verwijderen",
+    "accounts.confirm_delete": "Dit account en alle bijbehorende gegevens verwijderen? Dit kan niet ongedaan worden.",
 }
 
 EN = {
@@ -42,4 +44,6 @@ EN = {
     "accounts.section_add": "Add account",
     "accounts.name_placeholder": "e.g. DeGiro",
     "accounts.btn_add": "Add",
+    "accounts.btn_delete": "✕ Delete",
+    "accounts.confirm_delete": "Delete this account and all associated data? This cannot be undone.",
 }

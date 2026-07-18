@@ -33,7 +33,10 @@
 
 <!-- ── Upload form ────────────────────────────────────────────────────────── -->
 <article>
-  <header>{{ t(request, 'imports.upload_header') }}</header>
+  <header class="import-upload-header">
+    <span>{{ t(request, 'imports.upload_header') }}</span>
+    <button type="button" class="outline secondary btn-sm" onclick="openDegiroCsvTutorial()">ⓘ {{ t(request, 'imports.csv_tutorial_button') }}</button>
+  </header>
 
   {% if not accounts %}
   <div class="notice warning">
@@ -50,10 +53,13 @@
           <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.type }})</option>
           {% endfor %}
         </select>
+        <a class="import-account-add" href="/accounts#add-account">{{ t(request, 'imports.account_add_link') }}</a>
       </label>
-      <label>{{ t(request, 'imports.csv_file_label') }}
-        <input type="file" name="file" accept=".csv,text/csv" required>
-      </label>
+    </div>
+    <input id="import-csv-file" class="sr-only" type="file" name="file" accept=".csv,text/csv" required tabindex="-1">
+    <div class="import-dropzone" id="importDropzone" tabindex="0" role="button" aria-controls="import-csv-file">
+      <strong>{{ t(request, 'imports.dropzone_title') }}</strong>
+      <small>{{ t(request, 'imports.dropzone_hint') }}</small>
     </div>
     <p class="hint">
       <strong>Account.csv</strong> → {{ t(request, 'imports.hint_account_statement') }}
@@ -62,6 +68,26 @@
   </form>
   {% endif %}
 </article>
+
+<dialog id="degiroCsvTutorialDialog" class="import-tutorial-dialog">
+  <article>
+    <header>
+      <strong>{{ t(request, 'imports.csv_tutorial_title') }}</strong>
+      <button aria-label="{{ t(request, 'common.close') }}" rel="prev" type="button" onclick="document.getElementById('degiroCsvTutorialDialog').close()"></button>
+    </header>
+    <p>{{ t(request, 'imports.csv_tutorial_intro') }}</p>
+    <p>{{ t(request, 'imports.csv_tutorial_requirement') }}</p>
+    <ol class="import-tutorial-steps">
+      <li>{{ t(request, 'imports.csv_tutorial_step_1') }}</li>
+      <li>{{ t(request, 'imports.csv_tutorial_step_2') }}</li>
+      <li>
+        {{ t(request, 'imports.csv_tutorial_step_3') }}
+        <small>{{ t(request, 'imports.csv_tutorial_step_3_note') }}</small>
+      </li>
+      <li>{{ t(request, 'imports.csv_tutorial_step_4') }}</li>
+    </ol>
+  </article>
+</dialog>
 
 <!-- ── Needs ticker mapping ────────────────────────────────────────────────── -->
 {% if needs_mapping %}
@@ -232,4 +258,45 @@ async function autoMapTickers() {
   </div>
 </article>
 {% endif %}
+
+<script>
+function openDegiroCsvTutorial() {
+  document.getElementById('degiroCsvTutorialDialog').showModal();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('import-csv-file');
+  const dropzone = document.getElementById('importDropzone');
+  const tutorial = document.getElementById('degiroCsvTutorialDialog');
+  if (tutorial) tutorial.addEventListener('click', event => {
+    if (event.target === tutorial) tutorial.close();
+  });
+  if (!input || !dropzone) return;
+
+  const selectFiles = files => {
+    const csv = [...files].find(file => file.name.toLowerCase().endsWith('.csv'));
+    if (!csv) return;
+    const transfer = new DataTransfer();
+    transfer.items.add(csv);
+    input.files = transfer.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  dropzone.addEventListener('click', () => input.click());
+  dropzone.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      input.click();
+    }
+  });
+  ['dragenter', 'dragover'].forEach(name => dropzone.addEventListener(name, event => {
+    event.preventDefault();
+    dropzone.classList.add('is-dragging');
+  }));
+  ['dragleave', 'drop'].forEach(name => dropzone.addEventListener(name, event => {
+    event.preventDefault();
+    dropzone.classList.remove('is-dragging');
+  }));
+  dropzone.addEventListener('drop', event => selectFiles(event.dataTransfer.files));
+});
+</script>
 {% endblock %}

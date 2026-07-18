@@ -50,6 +50,15 @@ NL = {
     "dashboard.selected_period": "Gekozen periode: {range}",
     "dashboard.value_dataset_label": "Waarde (€)",
     "dashboard.view_instrument_aria": "Bekijk {name}",
+    "dashboard.savings_title": "Opgebouwd vermogen met rente",
+    "dashboard.savings_interest": "Verdiende rente",
+    "dashboard.main_total_value": "Totaal opgebouwd vermogen",
+    "dashboard.main_total_result": "totaal resultaat van getoonde onderdelen",
+    "dashboard.main_result": "Resultaat",
+    "dashboard.main_empty_title": "Nog niets geselecteerd",
+    "dashboard.main_empty_text": "Schakel 'Meenemen in dashboard' in bij aandelen, crypto of een spaarrekening.",
+    "dashboard.main_chart_title": "Vermogensontwikkeling",
+    "dashboard.main_chart_empty": "Nog onvoldoende historie voor de vermogensgrafiek.",
 }
 
 EN = {
@@ -102,4 +111,13 @@ EN = {
     "dashboard.selected_period": "Selected period: {range}",
     "dashboard.value_dataset_label": "Value (€)",
     "dashboard.view_instrument_aria": "View {name}",
+    "dashboard.savings_title": "Accumulated savings with interest",
+    "dashboard.savings_interest": "Interest earned",
+    "dashboard.main_total_value": "Total accumulated wealth",
+    "dashboard.main_total_result": "total result of displayed sections",
+    "dashboard.main_result": "Result",
+    "dashboard.main_empty_title": "Nothing selected yet",
+    "dashboard.main_empty_text": "Enable 'Include in dashboard' for stocks, crypto, or a savings account.",
+    "dashboard.main_chart_title": "Wealth development",
+    "dashboard.main_chart_empty": "Not enough history for the wealth chart yet.",
 }

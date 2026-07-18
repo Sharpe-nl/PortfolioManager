@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}{{ t(request, 'savings.title') }} – PortfolioManager{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t(request, 'savings.title') }}</h1><a href="/accounts#add-account" class="btn-sm outline secondary">{{ t(request, 'savings.add_account') }}</a></div>
+<div class="savings-dashboard">
+{% for account in savings_accounts %}
+<article class="savings-card"><header>{{ account.name }} <span><button type="button" class="btn-sm outline secondary" onclick="document.getElementById('savingsActions{{ account.id }}').showModal()">{{ t(request, 'savings.actions') }}</button> <a href="/savings/{{ account.id }}/settings" class="btn-sm outline secondary">{{ t(request, 'savings.settings') }}</a></span></header>
+  <div class="savings-summary"><div><small>{{ t(request, 'savings.balance') }}</small><strong>{{ account.balance | eur }}</strong></div><div><small>{{ t(request, 'savings.interest') }}</small><strong class="pl-positive">{{ account.interest | eur }}</strong></div></div>
+  {% if account.active_rate %}<div class="savings-rate-meta"><span>{{ t(request, 'savings.active_rate') }} <strong>{{ account.active_rate.annual_rate }}%</strong> · {{ t(request, 'savings.' ~ account.active_rate.payout_frequency) }}</span>{% if account.next_payout %}<span>{{ t(request, 'savings.next_payout') }} {{ account.next_payout }}</span>{% endif %}</div>{% endif %}
+  <small class="muted">{{ t(request, 'savings.as_of') }} {{ account.as_of }}</small>
+</article>
+<dialog id="savingsActions{{ account.id }}"><article><header><strong>{{ account.name }} · {{ t(request, 'savings.account_actions') }}</strong><button aria-label="{{ t(request, 'common.close') }}" rel="prev" type="button" onclick="document.getElementById('savingsActions{{ account.id }}').close()"></button></header><div class="table-scroll"><table><thead><tr><th>{{ t(request, 'common.date') }}</th><th>{{ t(request, 'savings.actions') }}</th><th class="num">{{ t(request, 'savings.amount') }}</th></tr></thead><tbody>{% for event in account.events %}<tr><td>{{ event.date }}</td><td>{% if event.kind == 'deposit' %}{{ t(request, 'savings.deposit') }}{% elif event.kind == 'withdrawal' %}{{ t(request, 'savings.withdrawal') }}{% elif event.kind == 'automatic' %}{{ t(request, 'savings.event_interest') }}{% else %}{{ t(request, 'savings.event_manual') }}{% endif %}</td><td class="num {{ 'pl-negative' if event.amount < 0 else 'pl-positive' }}">{{ event.amount | eur }}</td></tr>{% else %}<tr><td colspan="3" class="muted">{{ t(request, 'savings.no_data') }}</td></tr>{% endfor %}</tbody></table></div></article></dialog>
+{% else %}<article><p>{{ t(request, 'savings.empty') }}</p></article>{% endfor %}
+</div>
+<script>document.querySelectorAll('dialog[id^="savingsActions"]').forEach(dialog => dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); }));</script>
+{% endblock %}

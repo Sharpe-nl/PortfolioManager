@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+{% block title %}{{ t(request, 'dashboard.page_title') }} – PortfolioManager{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>{{ t(request, 'dashboard.page_title') }}</h1>
+  {% if overview_series.stocks or overview_series.crypto %}
+  <span class="range-selector dashboard-chart-ranges">
+    <button type="button" data-range="1M" onclick="setDashboardRange(this,'1M')">{{ t(request, 'range.1m') }}</button>
+    <button type="button" data-range="YTD" onclick="setDashboardRange(this,'YTD')">{{ t(request, 'range.ytd') }}</button>
+    <button type="button" class="active" data-range="1Y" onclick="setDashboardRange(this,'1Y')">{{ t(request, 'range.1y') }}</button>
+    <button type="button" data-range="CUSTOM" onclick="openDashboardCustomRange()">{{ t(request, 'range.custom') }}</button>
+    <button type="button" data-range="ALL" onclick="setDashboardRange(this,'ALL')">{{ t(request, 'range.all') }}</button>
+  </span>
+  {% endif %}
+</div>
+
+<section class="portfolio-hero dashboard-main-hero">
+  <div class="portfolio-hero-left">
+    <div class="portfolio-hero-label">{{ t(request, 'dashboard.main_total_value') }}</div>
+    <div class="portfolio-hero-value">{{ total_value | eur }}</div>
+    <div class="portfolio-hero-row">
+      <span class="portfolio-hero-badge {{ total_result | pl_class }}">{{ total_result | eur }}</span>
+      <small class="muted">{{ t(request, 'dashboard.main_total_result') }}</small>
+    </div>
+  </div>
+</section>
+
+<div class="dashboard-overview-grid">
+  {% if show_stocks %}
+  <a href="/stocks" class="dashboard-overview-card">
+    <header><span><span class="dashboard-category-icon">📊</span>{{ t(request, 'nav.stocks') }}</span><span aria-hidden="true">→</span></header>
+    <strong>{{ stock_summary.total_value | eur }}</strong>
+    <span class="{{ stock_summary.total_pl | pl_class }}">{{ t(request, 'dashboard.main_result') }} · {{ stock_summary.total_pl | eur }} · {{ stock_summary.total_pl_pct | pct }}</span>
+  </a>
+  {% endif %}
+
+  {% if show_crypto %}
+  <a href="/crypto" class="dashboard-overview-card">
+    <header><span><span class="dashboard-category-icon">₿</span>{{ t(request, 'nav.crypto') }}</span><span aria-hidden="true">→</span></header>
+    <strong>{{ crypto.total | eur }}</strong>
+    <span class="{{ crypto.unrealized_result | pl_class }}">{{ t(request, 'dashboard.main_result') }} · {{ crypto.unrealized_result | eur }}{% if crypto.unrealized_pct is not none %} · {{ crypto.unrealized_pct | pct }}{% endif %}</span>
+    <small>{{ t(request, 'crypto.earn_rewards') }} · {{ crypto.earn_rewards | eur }}</small>
+  </a>
+  {% endif %}
+
+  {% if dashboard_savings %}
+  <a href="/savings" class="dashboard-overview-card dashboard-overview-card--savings">
+    <header><span><span class="dashboard-category-icon">💰</span>{{ t(request, 'nav.savings') }}</span><span aria-hidden="true">→</span></header>
+    <strong>{{ savings_balance | eur }}</strong>
+    <span class="pl-positive">{{ t(request, 'dashboard.savings_interest') }} · {{ savings_interest | eur }}</span>
+    <small>{% for saving in dashboard_savings %}{{ saving.name }}{% if not loop.last %} · {% endif %}{% endfor %}</small>
+  </a>
+  {% endif %}
+</div>
+
+{% if not show_stocks and not show_crypto and not dashboard_savings %}
+<article class="empty-state"><h2>{{ t(request, 'dashboard.main_empty_title') }}</h2><p>{{ t(request, 'dashboard.main_empty_text') }}</p></article>
+{% endif %}
+
+{% if overview_series.stocks or overview_series.crypto %}
+<dialog id="dashboardCustomRangeDialog">
+  <article style="margin:0;">
+    <header>{{ t(request, 'range.custom_period') }}</header>
+    <label>{{ t(request, 'range.from') }}<input type="date" id="dashboardCustomStart"></label>
+    <label>{{ t(request, 'range.to') }}<input type="date" id="dashboardCustomEnd"></label>
+    <footer style="display:flex; gap:.5rem; justify-content:flex-end; margin-top:.75rem;">
+      <button class="secondary btn-sm" type="button" onclick="document.getElementById('dashboardCustomRangeDialog').close()">{{ t(request, 'common.cancel') }}</button>
+      <button class="btn-sm" type="button" onclick="applyDashboardCustomRange()">{{ t(request, 'common.apply') }}</button>
+    </footer>
+  </article>
+</dialog>
+<article class="chart-card dashboard-overview-chart-card">
+  <header>
+    <span class="dashboard-chart-title">{{ t(request, 'dashboard.main_chart_title') }}</span>
+    <span class="tab-selector dashboard-chart-toggles">
+      <button type="button" class="active" data-series="total" onclick="toggleDashboardSeries(this)">{{ t(request, 'common.total') }}</button>
+      {% if show_stocks and overview_series.stocks %}<button type="button" class="active" data-series="stocks" onclick="toggleDashboardSeries(this)">{{ t(request, 'nav.stocks') }}</button>{% endif %}
+      {% if show_crypto and overview_series.crypto %}<button type="button" class="active" data-series="crypto" onclick="toggleDashboardSeries(this)">{{ t(request, 'nav.crypto') }}</button>{% endif %}
+    </span>
+  </header>
+  <div class="dashboard-overview-chart-wrap"><canvas id="dashboardOverviewChart"></canvas></div>
+</article>
+{% elif show_stocks or show_crypto or dashboard_savings %}
+<article class="empty-state dashboard-chart-empty"><p>{{ t(request, 'dashboard.main_chart_empty') }}</p></article>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if overview_series.stocks or overview_series.crypto %}<script>
+const dashboardOverviewSeries = {{ overview_series | tojson }};
+const dashboardOverviewLabels = {
+  total: {{ t(request, 'common.total') | tojson }},
+  stocks: {{ t(request, 'nav.stocks') | tojson }},
+  crypto: {{ t(request, 'nav.crypto') | tojson }},
+};
+const dashboardRangeInvalid = {{ t(request, 'range.invalid_alert') | tojson }};
+let dashboardOverviewChart;
+let dashboardRange = '1Y';
+let dashboardCustomRange = null;
+const visibleDashboardSeries = new Set(
+  ['total', ...Object.entries(dashboardOverviewSeries).filter(([, rows]) => rows.length).map(([key]) => key)]
+);
+
+function alignedDashboardValues(rows, labels) {
+  const sorted = [...rows].sort((left, right) => left.date.localeCompare(right.date));
+  let index = 0;
+  let latest = null;
+  return labels.map(date => {
+    while (index < sorted.length && sorted[index].date <= date) {
+      latest = Number(sorted[index].value);
+      index += 1;
+    }
+    return latest;
+  });
+}
+
+function allDashboardDates() {
+  return [...new Set(Object.values(dashboardOverviewSeries).flatMap(rows => rows.map(row => row.date)))].sort();
+}
+
+function filteredDashboardDates() {
+  const labels = allDashboardDates();
+  if (!labels.length || dashboardRange === 'ALL') return labels;
+  const last = new Date(`${labels[labels.length - 1]}T00:00:00`);
+  let start;
+  let end = last;
+  if (dashboardRange === 'CUSTOM' && dashboardCustomRange) {
+    start = new Date(`${dashboardCustomRange.start}T00:00:00`);
+    end = new Date(`${dashboardCustomRange.end}T00:00:00`);
+  } else if (dashboardRange === 'YTD') {
+    start = new Date(last.getFullYear(), 0, 1);
+  } else {
+    start = new Date(last);
+    if (dashboardRange === '1M') start.setMonth(start.getMonth() - 1);
+    else start.setFullYear(start.getFullYear() - 1);
+  }
+  const filtered = labels.filter(value => {
+    const date = new Date(`${value}T00:00:00`);
+    return date >= start && date <= end;
+  });
+  return filtered.length ? filtered : labels.slice(-1);
+}
+
+function buildDashboardOverviewChart() {
+  if (dashboardOverviewChart) dashboardOverviewChart.destroy();
+  const keys = Object.keys(dashboardOverviewSeries).filter(key => dashboardOverviewSeries[key].length);
+  const labels = filteredDashboardDates();
+  const tokens = chartTokens();
+  const palette = chartPalette();
+  const colours = { stocks: tokens.primary, crypto: palette[1] || '#f59e0b' };
+  const categoryDatasets = keys.map(key => ({
+    dashboardKey: key,
+    label: dashboardOverviewLabels[key],
+    data: alignedDashboardValues(dashboardOverviewSeries[key], labels),
+    borderColor: colours[key],
+    backgroundColor: colours[key],
+    borderWidth: 1.8,
+    tension: .24,
+    pointRadius: labels.length < 12 ? 2.5 : 0,
+    pointHoverRadius: 4,
+    spanGaps: true,
+    hidden: !visibleDashboardSeries.has(key),
+  }));
+  const totalValues = labels.map((_, index) => categoryDatasets.reduce((sum, dataset) => sum + (dataset.data[index] ?? 0), 0));
+  dashboardOverviewChart = new Chart(document.getElementById('dashboardOverviewChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        dashboardKey: 'total', label: dashboardOverviewLabels.total, data: totalValues,
+        borderColor: tokens.text, backgroundColor: tokens.text, borderWidth: 2.8,
+        tension: .24, pointRadius: labels.length < 12 ? 2.5 : 0, pointHoverRadius: 4,
+        hidden: !visibleDashboardSeries.has('total'),
+      }, ...categoryDatasets],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { ...glassTooltipOptions(), callbacks: { label: context => `${context.dataset.label}: ${formatEur(context.parsed.y)}` } },
+        hoverGuideLine: hoverGuideLineOptions(),
+      },
+      scales: {
+        x: { ticks: { color: tokens.muted, maxTicksLimit: 9 }, grid: { display: false } },
+        y: { ticks: { color: tokens.muted, callback: value => formatEur(value) }, grid: { color: tokens.border } },
+      },
+    },
+  });
+}
+
+function toggleDashboardSeries(button) {
+  const key = button.dataset.series;
+  if (visibleDashboardSeries.has(key)) visibleDashboardSeries.delete(key);
+  else visibleDashboardSeries.add(key);
+  button.classList.toggle('active', visibleDashboardSeries.has(key));
+  const dataset = dashboardOverviewChart.data.datasets.find(item => item.dashboardKey === key);
+  if (dataset) dataset.hidden = !visibleDashboardSeries.has(key);
+  dashboardOverviewChart.update();
+}
+
+function setDashboardRange(button, range) {
+  dashboardRange = range;
+  dashboardCustomRange = null;
+  document.querySelectorAll('.dashboard-chart-ranges button').forEach(item => item.classList.remove('active'));
+  button.classList.add('active');
+  saveRangePreference('main-dashboard', range, null);
+  buildDashboardOverviewChart();
+}
+
+function openDashboardCustomRange() {
+  const labels = allDashboardDates();
+  document.getElementById('dashboardCustomStart').value = dashboardCustomRange?.start || labels[0] || '';
+  document.getElementById('dashboardCustomEnd').value = dashboardCustomRange?.end || labels[labels.length - 1] || '';
+  document.getElementById('dashboardCustomRangeDialog').showModal();
+}
+
+function applyDashboardCustomRange() {
+  const start = document.getElementById('dashboardCustomStart').value;
+  const end = document.getElementById('dashboardCustomEnd').value;
+  if (!start || !end || start > end) {
+    alert(dashboardRangeInvalid);
+    return;
+  }
+  dashboardRange = 'CUSTOM';
+  dashboardCustomRange = { start, end };
+  document.querySelectorAll('.dashboard-chart-ranges button').forEach(item => item.classList.remove('active'));
+  document.querySelector('.dashboard-chart-ranges button[data-range="CUSTOM"]').classList.add('active');
+  document.getElementById('dashboardCustomRangeDialog').close();
+  saveRangePreference('main-dashboard', 'CUSTOM', dashboardCustomRange);
+  buildDashboardOverviewChart();
+}
+
+const savedDashboardRange = loadRangePreference('main-dashboard');
+if (savedDashboardRange) {
+  dashboardRange = savedDashboardRange.range || '1Y';
+  dashboardCustomRange = savedDashboardRange.customRange || null;
+  document.querySelectorAll('.dashboard-chart-ranges button').forEach(item => item.classList.toggle('active', item.dataset.range === dashboardRange));
+}
+
+document.getElementById('dashboardCustomRangeDialog').addEventListener('click', event => {
+  if (event.target === event.currentTarget) event.currentTarget.close();
+});
+
+buildDashboardOverviewChart();
+onChartThemeChange(buildDashboardOverviewChart);
+</script>{% endif %}
+{% endblock %}

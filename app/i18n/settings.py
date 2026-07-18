@@ -20,6 +20,26 @@ NL = {
     "settings.logo_dev_key_configured": "Actief",
     "settings.clear_logo_dev_key": "Logo-sleutel verwijderen",
 
+    # ── Bitvavo API ──────────────────────────────────────────────────
+    "settings.section_bitvavo": "Bitvavo API",
+    "settings.bitvavo_info": "Maak in Bitvavo via Instellingen → API een nieuwe sleutel. Schakel alleen 'Inzien' (read-only) in en laat handelen en opnemen uitgeschakeld. Kopieer daarna zowel de API-key als de eenmalig getoonde API-secret naar deze velden.",
+    "settings.bitvavo_key": "API-key",
+    "settings.bitvavo_secret": "API-secret",
+    "settings.bitvavo_key_placeholder": "Bitvavo API-key",
+    "settings.bitvavo_secret_placeholder": "Bitvavo API-secret",
+    "settings.bitvavo_connect": "Koppelen",
+    "settings.bitvavo_remove": "Bitvavo-koppeling verwijderen",
+    "settings.bitvavo_readonly_warning": "Gebruik uitsluitend een read-only sleutel. PortfolioManager voert alleen GET-verzoeken uit en bevat geen functies om te handelen of crypto op te nemen.",
+    "settings.bitvavo_connected": "✓ Bitvavo gekoppeld en {count} saldi ingeladen.",
+    "settings.bitvavo_error": "✗ Bitvavo kon niet worden gekoppeld. Controleer beide velden en de read-only permissie.",
+
+    "settings.section_schedule": "Automatisch verversen",
+    "settings.schedule_time_1": "Eerste tijd",
+    "settings.schedule_time_2": "Tweede tijd",
+    "settings.schedule_hint": "Aandelen en crypto worden dagelijks op deze tijden ververst volgens de servertijd ({timezone}). Niet-gekoppelde onderdelen worden overgeslagen.",
+    "settings.schedule_last_run": "Laatst uitgevoerd: {value}.",
+    "settings.schedule_error": "Kies twee geldige tijden.",
+
     # ── YubiKeys / security keys ──────────────────────────────────────
     "settings.section_yubikeys": "YubiKeys / beveiligingssleutels",
     "settings.yubikeys_intro": "Voeg een extra sleutel toe als back-up, of om vanaf een andere plek te kunnen inloggen.",
@@ -43,7 +63,7 @@ NL = {
     "settings.download_backup": "⬇ Database downloaden",
 
     # ── Danger zone ────────────────────────────────────────────────────
-    "settings.section_danger": "⚠ Data verwijderen",
+    "settings.section_danger": "⚠ Gevarenzone",
     "settings.danger_intro": "Gebruik dit als je opnieuw wilt beginnen of als de import fout gegaan is. Accounts en instellingen blijven bewaard bij \"transacties verwijderen\".",
     "settings.confirm_delete_txn": "Alle transacties, koersen en events verwijderen? Dit kan niet ongedaan worden.",
     "settings.btn_delete_txn": "🗑 Transacties & koersen verwijderen",
@@ -98,6 +118,25 @@ EN = {
     "settings.logo_dev_key_configured": "Active",
     "settings.clear_logo_dev_key": "Remove logo key",
 
+    "settings.section_bitvavo": "Bitvavo API",
+    "settings.bitvavo_info": "In Bitvavo, open Settings → API and create a new key. Enable only View (read-only), leaving trading and withdrawals disabled. Then copy both the API key and the one-time API secret into these fields.",
+    "settings.bitvavo_key": "API key",
+    "settings.bitvavo_secret": "API secret",
+    "settings.bitvavo_key_placeholder": "Bitvavo API key",
+    "settings.bitvavo_secret_placeholder": "Bitvavo API secret",
+    "settings.bitvavo_connect": "Connect",
+    "settings.bitvavo_remove": "Remove Bitvavo connection",
+    "settings.bitvavo_readonly_warning": "Use a read-only key only. PortfolioManager sends GET requests exclusively and contains no functions for trading or withdrawing crypto.",
+    "settings.bitvavo_connected": "✓ Bitvavo connected and {count} balances loaded.",
+    "settings.bitvavo_error": "✗ Bitvavo could not be connected. Check both fields and the read-only permission.",
+
+    "settings.section_schedule": "Automatic refresh",
+    "settings.schedule_time_1": "First time",
+    "settings.schedule_time_2": "Second time",
+    "settings.schedule_hint": "Stocks and crypto are refreshed daily at these times using server time ({timezone}). Unconnected sections are skipped.",
+    "settings.schedule_last_run": "Last run: {value}.",
+    "settings.schedule_error": "Choose two valid times.",
+
     "settings.section_yubikeys": "YubiKeys / security keys",
     "settings.yubikeys_intro": "Add an extra key as a backup, or to be able to log in from another location.",
     "settings.col_name": "Name",
@@ -118,7 +157,7 @@ EN = {
     "settings.db_accounts": "accounts",
     "settings.download_backup": "⬇ Download database",
 
-    "settings.section_danger": "⚠ Delete data",
+    "settings.section_danger": "⚠ Danger zone",
     "settings.danger_intro": "Use this if you want to start over or if the import went wrong. Accounts and settings are kept when using \"delete transactions\".",
     "settings.confirm_delete_txn": "Delete all transactions, prices and events? This cannot be undone.",
     "settings.btn_delete_txn": "🗑 Delete transactions & prices",

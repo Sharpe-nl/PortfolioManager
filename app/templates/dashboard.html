@@ -1,9 +1,13 @@
 {% extends "base.html" %}
-{% block title %}{{ t(request, 'dashboard.page_title') }} – PortfolioManager{% endblock %}
+{% block title %}{{ t(request, 'nav.stocks') }} – PortfolioManager{% endblock %}
 
 {% block content %}
 <div class="page-header">
-  <h1>{{ t(request, 'dashboard.page_title') }}</h1>
+  <h1>{{ t(request, 'nav.stocks') }}</h1>
+  <form method="post" action="/stocks/visibility" class="dashboard-visibility-toggle">
+    <input type="hidden" name="include_in_dashboard" value="0">
+    <label><input type="checkbox" name="include_in_dashboard" value="1" {% if include_in_dashboard %}checked{% endif %} onchange="this.form.submit()"> {{ t(request, 'savings.dashboard') }}</label>
+  </form>
   <span class="range-selector">
     <button onclick="setRange(this,'1M')" data-range="1M">{{ t(request, 'range.1m') }}</button>
     <button onclick="setRange(this,'YTD')" data-range="YTD">{{ t(request, 'range.ytd') }}</button>
@@ -281,9 +285,9 @@ let customRange = null;  // {start: 'yyyy-mm-dd', end: 'yyyy-mm-dd'} when range 
 let selectedRange = '1Y';
 
 document.addEventListener('DOMContentLoaded', () => {
-  const saved = loadRangePreference('dashboard');
+  const saved = loadRangePreference('stocks');
   if (saved && saved.range === 'CUSTOM' && saved.customRange) customRange = saved.customRange;
-  updateDashboard(restoreRangeSelection('dashboard'));
+  updateDashboard(restoreRangeSelection('stocks'));
   initAllocCharts();
   document.querySelectorAll('dialog').forEach(dialog => {
     dialog.addEventListener('click', event => {
@@ -612,7 +616,7 @@ function setRange(btn, range) {
   document.querySelectorAll('.range-selector button')
           .forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  saveRangePreference('dashboard', range, null);
+  saveRangePreference('stocks', range, null);
   updateDashboard(range);
 }
 
@@ -640,7 +644,7 @@ function applyCustomRange() {
   document.querySelectorAll('.range-selector button').forEach(b => b.classList.remove('active'));
   document.querySelector('.range-selector button[data-range="CUSTOM"]').classList.add('active');
   document.getElementById('customRangeDialog').close();
-  saveRangePreference('dashboard', 'CUSTOM', customRange);
+  saveRangePreference('stocks', 'CUSTOM', customRange);
   updateDashboard('CUSTOM');
 }
 

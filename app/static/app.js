@@ -45,6 +45,21 @@ function toggleMobileMenu() {
   if (drawer) drawer.classList.toggle('open');
 }
 
+// Close desktop navigation dropdowns when focus moves elsewhere, while
+// retaining native <details> keyboard and no-JavaScript behaviour.
+document.addEventListener('click', function (event) {
+  document.querySelectorAll('.topnav-dropdown[open]').forEach(function (dropdown) {
+    if (!dropdown.contains(event.target)) dropdown.removeAttribute('open');
+  });
+});
+
+document.addEventListener('keydown', function (event) {
+  if (event.key !== 'Escape') return;
+  document.querySelectorAll('.topnav-dropdown[open]').forEach(function (dropdown) {
+    dropdown.removeAttribute('open');
+  });
+});
+
 // ── Instrument logos ──────────────────────────────────────────────────────
 // Logo.dev supports ISINs and tickers, including ETFs. The publishable key is
 // optional: without it, the compact monogram remains as a local fallback.

@@ -1,7 +1,7 @@
 """Dashboard, holdings, and instrument detail routes."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 import sys
@@ -141,8 +141,7 @@ def _ticker_map_run() -> None:
 # Dashboard
 # ---------------------------------------------------------------------------
 
-@router.get("/", response_class=HTMLResponse)
-async def dashboard(request: Request, conn=Depends(get_db), _=Depends(require_auth)):
+def _stock_dashboard_context(conn) -> dict:
     summary = svc_portfolio.get_portfolio_summary(conn)
     allocation = svc_portfolio.get_allocation(conn)
     allocation_details = svc_portfolio.get_allocation_details(conn)
@@ -166,9 +165,7 @@ async def dashboard(request: Request, conn=Depends(get_db), _=Depends(require_au
     # the "Ongerealiseerd" stat — naturally immune to deposits/cash-snapshot
     # jumps and to simply buying more (see get_unrealized_pl_series docstring).
     unrealized_series = svc_portfolio.get_unrealized_pl_series(conn)
-
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
+    return {
         "summary": summary,
         "allocation": allocation,
         "allocation_details": allocation_details,
@@ -181,7 +178,67 @@ async def dashboard(request: Request, conn=Depends(get_db), _=Depends(require_au
         "unrealized_series": unrealized_series,
         "holdings_value_series": holdings_value_series,
         "accounts": svc_portfolio.list_accounts(conn),
+        "include_in_dashboard": get_setting(conn, "include_stocks_in_dashboard", "1") != "0",
+    }
+
+
+@router.get("/", response_class=HTMLResponse)
+async def dashboard(request: Request, conn=Depends(get_db), _=Depends(require_auth)):
+    from ..services.bitvavo import crypto_overview
+    from ..services.savings import savings_accounts
+
+    show_stocks = get_setting(conn, "include_stocks_in_dashboard", "1") != "0"
+    show_crypto = get_setting(conn, "include_crypto_in_dashboard", "1") != "0"
+    stock_summary = svc_portfolio.get_portfolio_summary(conn) if show_stocks else None
+    crypto = crypto_overview(conn) if show_crypto else None
+    dashboard_savings = savings_accounts(conn, include_hidden=False)
+    stock_value_series = svc_portfolio.get_portfolio_value_series(conn) if show_stocks else []
+    savings_balance = sum((item["balance"] for item in dashboard_savings), Decimal("0"))
+    savings_interest = sum((item["interest"] for item in dashboard_savings), Decimal("0"))
+    total_value = (
+        (stock_summary["total_value"] if stock_summary else Decimal("0"))
+        + (crypto["total"] if crypto else Decimal("0"))
+        + savings_balance
+    )
+    total_result = (
+        (stock_summary["total_pl"] if stock_summary else Decimal("0"))
+        + (crypto["unrealized_result"] if crypto else Decimal("0"))
+        + savings_interest
+    )
+    return templates.TemplateResponse("overview_dashboard.html", {
+        "request": request,
+        "show_stocks": show_stocks,
+        "show_crypto": show_crypto,
+        "stock_summary": stock_summary,
+        "crypto": crypto,
+        "dashboard_savings": dashboard_savings,
+        "savings_balance": savings_balance,
+        "savings_interest": savings_interest,
+        "total_value": total_value,
+        "total_result": total_result,
+        "overview_series": {
+            "stocks": stock_value_series,
+            "crypto": crypto["value_series"] if crypto else [],
+        },
     })
+
+
+@router.get("/stocks", response_class=HTMLResponse)
+async def stocks_dashboard(request: Request, conn=Depends(get_db), _=Depends(require_auth)):
+    return templates.TemplateResponse("dashboard.html", {
+        "request": request,
+        **_stock_dashboard_context(conn),
+    })
+
+
+@router.post("/stocks/visibility")
+async def set_stocks_visibility(
+    include_in_dashboard: int = Form(0),
+    conn=Depends(get_db),
+    _=Depends(require_auth),
+):
+    set_setting(conn, "include_stocks_in_dashboard", "1" if include_in_dashboard else "0")
+    return RedirectResponse(url="/stocks", status_code=303)
 
 
 # ---------------------------------------------------------------------------

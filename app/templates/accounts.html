@@ -36,6 +36,9 @@
     <span class="badge">{{ item.account.type }}</span>
     <span class="badge secondary">{{ item.account.currency }}</span>
     <a href="/accounts/{{ item.account.id }}/edit" class="btn-sm outline secondary">{{ t(request, 'accounts.btn_edit') }}</a>
+    <form method="post" action="/accounts/{{ item.account.id }}/delete" style="display:inline" onsubmit="return confirm('{{ t(request, 'accounts.confirm_delete') }}')">
+      <button type="submit" class="btn-sm outline secondary danger-btn">{{ t(request, 'accounts.btn_delete') }}</button>
+    </form>
   </header>
   {% if item.total_value %}
   <div>{{ t(request, 'accounts.estimated_value') }} <strong>{{ item.total_value | eur }}</strong></div>
@@ -68,7 +71,7 @@
 {% endfor %}
 
 <!-- ── Add account form ────────────────────────────────────────────── -->
-<article>
+<article id="add-account">
   <header>{{ t(request, 'accounts.section_add') }}</header>
   <form method="post" action="/accounts/add">
     <div class="form-grid">

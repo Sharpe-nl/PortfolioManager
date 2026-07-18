@@ -19,6 +19,12 @@
 {% if request.query_params.get('classified') is not none %}
 <div class="notice success">{{ t(request, 'settings.notice_classified', count=request.query_params.get('classified')) }}</div>
 {% endif %}
+{% if request.query_params.get('bitvavo_saved') is not none %}
+<div class="notice success">{{ t(request, 'settings.bitvavo_connected', count=request.query_params.get('bitvavo_saved')) }}</div>
+{% endif %}
+{% if request.query_params.get('bitvavo_error') %}
+<div class="notice error">{{ t(request, 'settings.bitvavo_error') }}{% if request.query_params.get('bitvavo_error') != 'missing' %} {{ request.query_params.get('bitvavo_error') }}{% endif %}</div>
+{% endif %}
 
 <!-- Quick links -->
 <div class="settings-quicklinks">
@@ -55,6 +61,39 @@
   </form>
 </article>
 
+<!-- ── Bitvavo read-only API ─────────────────────────────────────────── -->
+<article class="api-credentials-card">
+  <form method="post" action="/settings/bitvavo" class="api-credentials-row" onsubmit="showPageLoadingOverlay()">
+    <span class="logo-key-title">
+      {{ t(request, 'settings.section_bitvavo') }}
+      <button type="button" class="info-tooltip" aria-label="{{ t(request, 'settings.section_bitvavo') }}"
+              aria-describedby="bitvavo-key-info">ⓘ</button>
+      <span id="bitvavo-key-info" class="info-popover" role="tooltip">{{ t(request, 'settings.bitvavo_info') }}</span>
+    </span>
+    <label><span>{{ t(request, 'settings.bitvavo_key') }}</span><input type="password" name="api_key" autocomplete="off" placeholder="{% if bitvavo_configured %}••••••••••••{% else %}{{ t(request, 'settings.bitvavo_key_placeholder') }}{% endif %}"></label>
+    <label><span>{{ t(request, 'settings.bitvavo_secret') }}</span><input type="password" name="api_secret" autocomplete="new-password" placeholder="{% if bitvavo_configured %}••••••••••••{% else %}{{ t(request, 'settings.bitvavo_secret_placeholder') }}{% endif %}"></label>
+    <button type="submit" class="logo-key-save">{{ t(request, 'settings.bitvavo_connect') }}</button>
+    {% if bitvavo_configured %}
+    <span class="badge">{{ t(request, 'settings.logo_dev_key_configured') }}</span>
+    <button type="submit" formaction="/settings/clear-bitvavo" class="outline secondary logo-key-remove"
+            aria-label="{{ t(request, 'settings.bitvavo_remove') }}" title="{{ t(request, 'settings.bitvavo_remove') }}">×</button>
+    {% endif %}
+  </form>
+  <p class="muted api-credentials-hint">{{ t(request, 'settings.bitvavo_readonly_warning') }}</p>
+</article>
+
+<!-- ── Automatic refresh schedule ───────────────────────────────────── -->
+<article class="schedule-settings-card">
+  <header>{{ t(request, 'settings.section_schedule') }}</header>
+  {% if request.query_params.get('schedule_error') %}<div class="notice error">{{ t(request, 'settings.schedule_error') }}</div>{% endif %}
+  <form method="post" action="/settings/refresh-schedule" class="schedule-settings-row">
+    <label>{{ t(request, 'settings.schedule_time_1') }}<input type="time" name="refresh_time_1" value="{{ refresh_time_1 }}" required></label>
+    <label>{{ t(request, 'settings.schedule_time_2') }}<input type="time" name="refresh_time_2" value="{{ refresh_time_2 }}" required></label>
+    <button type="submit" class="outline secondary btn-sm">{{ t(request, 'common.save') }}</button>
+  </form>
+  <p class="muted schedule-settings-hint">{{ t(request, 'settings.schedule_hint', timezone=server_timezone) }}{% if refresh_last_run %} {{ t(request, 'settings.schedule_last_run', value=refresh_last_run) }}{% endif %}</p>
+</article>
+
 <!-- ── YubiKeys / beveiligingssleutels ─────────────────────────────────── -->
 <article>
   <header>{{ t(request, 'settings.section_yubikeys') }}</header>
@@ -83,7 +122,7 @@
       <td>
         <form method="post" action="/auth/credentials/{{ cred.id }}/delete" style="display:inline"
               onsubmit="return confirm('{{ t(request, 'settings.confirm_delete_key') }}')">
-          <button type="submit" class="outline secondary small"
+          <button type="submit" class="outline secondary small danger-btn"
                   {% if webauthn_credentials | length <= 1 %}
                   disabled title="{{ t(request, 'settings.last_key_hint') }}"
                   {% endif %}>
@@ -99,7 +138,7 @@
   {% endif %}
 
   <div id="yk-status" class="status-msg" hidden style="margin-top:.75rem"></div>
-  <div class="form-grid" style="margin-top:.75rem; align-items:end;">
+  <div class="settings-inline-form" style="margin-top:.75rem;">
     <label>{{ t(request, 'settings.yk_name_label') }}
       <input type="text" id="yk-name" placeholder="{{ t(request, 'settings.yk_name_placeholder') }}">
     </label>
@@ -116,28 +155,6 @@
     <strong>{{ db_counts.accounts }}</strong> {{ t(request, 'settings.db_accounts') }}
   </p>
   <a href="/settings/backup" role="button" class="outline" download>{{ t(request, 'settings.download_backup') }}</a>
-</article>
-
-<!-- ── Danger zone ────────────────────────────────────────────────────── -->
-<article>
-  <header>{{ t(request, 'settings.section_danger') }}</header>
-  <p class="muted">
-    {{ t(request, 'settings.danger_intro') }}
-  </p>
-  <div style="display:flex;gap:1rem;flex-wrap:wrap">
-    <form method="post" action="/settings/delete-transactions"
-          onsubmit="return confirm('{{ t(request, 'settings.confirm_delete_txn') }}')">
-      <button type="submit" class="outline secondary">
-        {{ t(request, 'settings.btn_delete_txn') }}
-      </button>
-    </form>
-    <form method="post" action="/settings/delete-all"
-          onsubmit="return confirm('{{ t(request, 'settings.confirm_delete_all') }}')">
-      <button type="submit" class="outline contrast">
-        {{ t(request, 'settings.btn_delete_all') }}
-      </button>
-    </form>
-  </div>
 </article>
 
 <!-- ── Ticker mapping overview ───────────────────────────────────────── -->
@@ -213,6 +230,22 @@
   </ul>
 </article>
 {% endif %}
+
+<!-- ── Danger zone: deliberately the final settings section ─────────── -->
+<article class="danger-zone-card">
+  <header>{{ t(request, 'settings.section_danger') }}</header>
+  <p class="muted">{{ t(request, 'settings.danger_intro') }}</p>
+  <div class="settings-action-row">
+    <form method="post" action="/settings/delete-transactions"
+          onsubmit="return confirm('{{ t(request, 'settings.confirm_delete_txn') }}')">
+      <button type="submit" class="outline secondary danger-btn">{{ t(request, 'settings.btn_delete_txn') }}</button>
+    </form>
+    <form method="post" action="/settings/delete-all"
+          onsubmit="return confirm('{{ t(request, 'settings.confirm_delete_all') }}')">
+      <button type="submit" class="outline danger-btn">{{ t(request, 'settings.btn_delete_all') }}</button>
+    </form>
+  </div>
+</article>
 </div>
 {% endblock %}
 

@@ -118,3 +118,14 @@ async def add_snapshot(
         (account_id, date, balance_eur),
     )
     return RedirectResponse(url="/accounts", status_code=303)
+
+
+@router.post("/{account_id}/delete")
+async def delete_account(account_id: int, conn=Depends(get_db), _=Depends(require_auth)):
+    """Delete an account and the data that cannot outlive it."""
+    for table in ("transactions", "cash_events", "balance_snapshots", "import_log", "import_staging", "savings_interest_rates", "savings_interest_adjustments"):
+        if table == "import_staging":
+            continue  # staging rows have no account_id
+        conn.execute(f"DELETE FROM {table} WHERE account_id=?", (account_id,))
+    conn.execute("DELETE FROM accounts WHERE id=?", (account_id,))
+    return RedirectResponse(url="/accounts", status_code=303)
