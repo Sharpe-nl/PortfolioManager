@@ -29,6 +29,25 @@ def _next_date(value: date, frequency: str) -> date:
     return value.replace(year=year, month=month, day=min(value.day, calendar.monthrange(year, month)[1]))
 
 
+def _tiered_interest(balance: Decimal, rate: dict) -> Decimal:
+    """Interest for one payout, including optional bonus-rate tiers."""
+    divisor = {"weekly": Decimal("52"), "monthly": Decimal("12"), "yearly": Decimal("1")}[rate["payout_frequency"]]
+    tiers = rate.get("tiers") or []
+    if not tiers:
+        return (balance * _d(rate["annual_rate"]) / Decimal("100") / divisor).quantize(_CENT, ROUND_HALF_UP)
+    total = _ZERO
+    # The base rate applies below the first tier. Each tier replaces it from
+    # its threshold until the next tier's threshold.
+    first_threshold = _d(tiers[0]["min_balance_eur"])
+    total += min(balance, first_threshold) * _d(rate["annual_rate"]) / Decimal("100") / divisor
+    for index, tier in enumerate(tiers):
+        lower = _d(tier["min_balance_eur"])
+        upper = _d(tiers[index + 1]["min_balance_eur"]) if index + 1 < len(tiers) else balance
+        portion = max(_ZERO, min(balance, upper) - lower)
+        total += portion * _d(tier["annual_rate"]) / Decimal("100") / divisor
+    return total.quantize(_CENT, ROUND_HALF_UP)
+
+
 def account_interest(conn: sqlite3.Connection, account_id: int, as_of: date | None = None) -> dict:
     """Return confirmed balance plus scheduled, compounded interest to *as_of*.
 
@@ -57,10 +76,15 @@ def account_interest(conn: sqlite3.Connection, account_id: int, as_of: date | No
             return {"balance": _ZERO, "principal": _ZERO, "interest": _ZERO, "events": [], "as_of": as_of.isoformat(), "active_rate": None, "next_payout": None}
         balance = principal = _ZERO
         start = date.fromisoformat(first)
-    rates = conn.execute(
-        "SELECT annual_rate, payout_frequency, starts_on FROM savings_interest_rates WHERE account_id=? AND starts_on<=? ORDER BY starts_on",
+    rates = [dict(row) for row in conn.execute(
+        "SELECT id, annual_rate, payout_frequency, starts_on, ends_on FROM savings_interest_rates WHERE account_id=? AND starts_on<=? ORDER BY starts_on",
         (account_id, as_of.isoformat()),
-    ).fetchall()
+    ).fetchall()]
+    for rate in rates:
+        rate["tiers"] = [dict(row) for row in conn.execute(
+            "SELECT min_balance_eur, annual_rate FROM savings_interest_rate_tiers WHERE rate_id=? ORDER BY CAST(min_balance_eur AS REAL)",
+            (rate["id"],),
+        ).fetchall()]
     adjustments = conn.execute(
         "SELECT id, date, amount_eur, description FROM savings_interest_adjustments WHERE account_id=? AND date>=? AND date<=? ORDER BY date, id",
         (account_id, start.isoformat(), as_of.isoformat()),
@@ -77,7 +101,8 @@ def account_interest(conn: sqlite3.Connection, account_id: int, as_of: date | No
         if rate_start > as_of:
             break
         next_rate = date.fromisoformat(rates[index + 1]["starts_on"]) if index + 1 < len(rates) else as_of + timedelta(days=1)
-        period_end = min(next_rate - timedelta(days=1), as_of)
+        rate_end = date.fromisoformat(rate["ends_on"]) if rate["ends_on"] else as_of
+        period_end = min(next_rate - timedelta(days=1), rate_end, as_of)
         if period_end < rate_start:
             continue
         payout = _next_date(rate_start, rate["payout_frequency"])
@@ -90,9 +115,7 @@ def account_interest(conn: sqlite3.Connection, account_id: int, as_of: date | No
         timeline.append((date.fromisoformat(movement["ts"][:10]), 0, movement["type"], movement))
     for event_date, _priority, kind, source in sorted(timeline, key=lambda item: (item[0], item[1])):
         if kind == "automatic":
-            annual = _d(source["annual_rate"]) / Decimal("100")
-            divisor = {"weekly": Decimal("52"), "monthly": Decimal("12"), "yearly": Decimal("1")}[source["payout_frequency"]]
-            amount = (balance * annual / divisor).quantize(_CENT, ROUND_HALF_UP)
+            amount = _tiered_interest(balance, source)
             balance += amount
             events.append({"date": event_date.isoformat(), "amount": amount, "kind": "automatic"})
         elif kind == "manual":
@@ -105,7 +128,7 @@ def account_interest(conn: sqlite3.Connection, account_id: int, as_of: date | No
             principal += amount
             events.append({"date": event_date.isoformat(), "amount": amount, "kind": kind, "id": source["id"], "description": source["description"]})
     interest = (balance - principal).quantize(_CENT)
-    active_rate = rates[-1] if rates else None
+    active_rate = next((rate for rate in reversed(rates) if not rate["ends_on"] or rate["ends_on"] >= as_of.isoformat()), None)
     next_payout = None
     if active_rate:
         payout = _next_date(date.fromisoformat(active_rate["starts_on"]), active_rate["payout_frequency"])

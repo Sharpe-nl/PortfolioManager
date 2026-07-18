@@ -59,6 +59,26 @@ def test_first_deposit_can_create_a_savings_balance_without_snapshot(mem_db):
     assert result["balance"] == Decimal("250.00")
 
 
+def test_bonus_rate_applies_only_to_the_balance_above_its_threshold(mem_db):
+    _savings_account(mem_db)
+    mem_db.execute("UPDATE savings_interest_rates SET annual_rate='1.5', payout_frequency='monthly' WHERE account_id=2")
+    mem_db.execute("INSERT INTO savings_interest_rate_tiers(rate_id,min_balance_eur,annual_rate) VALUES(1,'19000','3')")
+    mem_db.execute("UPDATE balance_snapshots SET balance_eur='20000' WHERE account_id=2")
+    mem_db.commit()
+    result = account_interest(mem_db, 2, date(2026, 2, 2))
+    # €19,000 at 1.5% and €1,000 at 3%, paid monthly.
+    assert result["interest"] == Decimal("26.25")
+
+
+def test_ended_rate_stops_before_new_rate_starts(mem_db):
+    _savings_account(mem_db)
+    mem_db.execute("UPDATE savings_interest_rates SET ends_on='2026-01-07' WHERE account_id=2")
+    mem_db.execute("INSERT INTO savings_interest_rates(account_id,annual_rate,payout_frequency,starts_on) VALUES(2,'52','weekly','2026-01-08')")
+    mem_db.commit()
+    result = account_interest(mem_db, 2, date(2026, 1, 16))
+    assert result["interest"] == Decimal("10.00")
+
+
 def test_hidden_savings_is_not_returned_for_dashboard(mem_db):
     _savings_account(mem_db)
     mem_db.execute("UPDATE accounts SET include_in_dashboard=0 WHERE id=2")

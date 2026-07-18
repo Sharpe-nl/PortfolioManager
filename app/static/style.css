@@ -1124,6 +1124,7 @@ td.num, th.num {
 .savings-create-form, .savings-edit-row { display: grid; gap: .6rem; align-items: end; }
 .savings-create-form { margin: 0; }
 .savings-create-form--rate { grid-template-columns: minmax(8rem, 1fr) minmax(10rem, 1fr) minmax(10rem, 1fr) auto; }
+.savings-create-form--rate-end { grid-template-columns: minmax(7rem, 1fr) minmax(9rem, 1fr) minmax(9rem, 1fr) minmax(9rem, 1fr) auto; }
 .savings-create-form--two { grid-template-columns: minmax(10rem, 1fr) minmax(10rem, 1fr) auto; }
 .savings-create-form--three { grid-template-columns: minmax(9rem, 1fr) minmax(9rem, 1fr) minmax(9rem, 1fr) auto; }
 .savings-create-form--manual { grid-template-columns: minmax(10rem, 1fr) minmax(9rem, 1fr) minmax(12rem, 1fr) auto; }
@@ -1149,6 +1150,8 @@ td.num, th.num {
 .savings-table-actions { display: flex; gap: .35rem; justify-content: flex-end; align-items: center; white-space: nowrap; }
 .savings-table-actions button { width: auto !important; min-width: 0; min-height: 1.9rem; margin: 0; padding: .25rem .48rem; font-size: .74rem; }
 .savings-table-actions .savings-delete-btn { width: 1.9rem !important; padding: 0; font-size: 1rem; }
+.savings-tier-row > td { padding: 0 .75rem .75rem !important; }
+.savings-tier-row details { margin: 0; }
 .savings-visibility-form { margin: 0; }
 @media (max-width: 700px) { .savings-create-form, .savings-edit-row { grid-template-columns: 1fr 1fr; } .savings-create-form button, .savings-edit-row button { justify-self: start; } .settings-inline-form { align-items: stretch; flex-direction: column; } .settings-inline-form label { flex-basis: auto; } }
 .dashboard-savings-card { margin-top: 1rem; }
