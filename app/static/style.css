@@ -1121,6 +1121,24 @@ td.num, th.num {
 .savings-form-hint { margin: .85rem 0 0; font-size: .8rem; }
 .savings-card details { margin-top: .65rem; }
 .savings-dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 1rem; }
+.savings-new-entry { margin: 0 0 .85rem; }
+.savings-new-entry > summary {
+  display: inline-flex;
+  width: auto;
+  padding: .35rem .7rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: .78rem;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+  transition: color .16s ease, border-color .16s ease, background .16s ease;
+}
+.savings-new-entry > summary::-webkit-details-marker { display: none; }
+.savings-new-entry > summary::before { content: "+"; margin-right: .35rem; color: var(--primary); }
+.savings-new-entry > summary:hover { color: var(--text); border-color: var(--primary); background: var(--surface-2); }
+.savings-new-entry[open] > summary { margin-bottom: .75rem; color: var(--text); }
 .savings-create-form, .savings-edit-row { display: grid; gap: .6rem; align-items: end; }
 .savings-create-form { margin: 0; }
 .savings-create-form--rate { grid-template-columns: minmax(8rem, 1fr) minmax(10rem, 1fr) minmax(10rem, 1fr) auto; }
@@ -1132,11 +1150,18 @@ td.num, th.num {
 .savings-edit-row--two { grid-template-columns: minmax(10rem, 1fr) minmax(10rem, 1fr) auto auto; }
 .savings-edit-row--manual { grid-template-columns: minmax(10rem, 1fr) minmax(9rem, 1fr) minmax(12rem, 1fr) auto auto; }
 .savings-edit-row { margin-top: .8rem; padding-top: .8rem; border-top: 1px solid var(--border); }
-.savings-create-form label, .savings-edit-row input, .savings-edit-row select { margin-bottom: 0; min-width: 0; }
+.savings-create-form label, .savings-field, .savings-edit-row input, .savings-edit-row select { margin-bottom: 0; min-width: 0; }
+.savings-field { display: grid; }
+.savings-field-label { display: block; margin-bottom: .35rem; }
 /* Pico adds a bottom margin to controls. In a labelled grid that margin is
    part of the label height, which made the standalone save button sit lower
    than the fields. Reset it locally so all control baselines match. */
 .savings-create-form input, .savings-create-form select { margin-bottom: 0; }
+.savings-end-date-control { display: flex; min-height: 2.4rem; align-items: center; }
+.savings-end-date-control > input[type="date"] { flex: 1; min-width: 8.5rem; }
+.savings-current-toggle { display: inline-flex; align-items: center; gap: .3rem; margin: 0; color: var(--text); font-size: .82rem; white-space: nowrap; }
+.savings-current-toggle input { width: 1rem !important; height: 1rem; margin: 0 !important; }
+.savings-end-date-control--table { min-width: 8rem; }
 .savings-create-form button, .savings-edit-row button { width: auto !important; min-width: 0; min-height: 2.25rem; margin: 0; padding: .35rem .7rem; align-self: end; justify-self: end; white-space: nowrap; }
 .savings-edit-row .savings-delete-btn { width: 1.9rem !important; min-width: 1.9rem; height: 1.9rem; min-height: 1.9rem; padding: 0; font-size: 1rem; line-height: 1; }
 .savings-settings-table { margin: .85rem 0 0; }
