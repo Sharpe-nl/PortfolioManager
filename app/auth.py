@@ -14,8 +14,11 @@ Authentication flow
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import os
+import secrets
 import sqlite3
 from datetime import datetime, timezone
 from typing import Any
@@ -38,6 +41,7 @@ from webauthn.helpers.structs import (
 from .db import get_setting, set_setting
 
 RP_NAME = "PortfolioManager"
+_SETUP_TOKEN_HASH_KEY = "initial_setup_token_hash"
 
 
 # ---------------------------------------------------------------------------
@@ -67,6 +71,44 @@ def has_credentials(conn: sqlite3.Connection) -> bool:
     return conn.execute(
         "SELECT 1 FROM webauthn_credentials LIMIT 1"
     ).fetchone() is not None
+
+
+def _token_digest(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def issue_initial_setup_token(conn: sqlite3.Connection) -> str | None:
+    """Create a one-time code for the first WebAuthn registration.
+
+    A fresh network-accessible installation must not allow the first visitor
+    to claim ownership by registering their own credential. ``PM_SETUP_TOKEN``
+    takes precedence; otherwise only a digest of a generated token is stored.
+    """
+    if has_credentials(conn) or os.getenv("PM_SETUP_TOKEN", "").strip():
+        return None
+    if get_setting(conn, _SETUP_TOKEN_HASH_KEY):
+        return None
+    token = secrets.token_urlsafe(24)
+    set_setting(conn, _SETUP_TOKEN_HASH_KEY, _token_digest(token))
+    conn.commit()
+    return token
+
+
+def verify_initial_setup_token(conn: sqlite3.Connection, candidate: str | None) -> bool:
+    """Check the installation code without retaining its plaintext value."""
+    token = (candidate or "").strip()
+    if not token:
+        return False
+    configured = os.getenv("PM_SETUP_TOKEN", "").strip()
+    if configured:
+        return hmac.compare_digest(token, configured)
+    expected = get_setting(conn, _SETUP_TOKEN_HASH_KEY, "") or ""
+    return bool(expected) and hmac.compare_digest(_token_digest(token), expected)
+
+
+def complete_initial_setup(conn: sqlite3.Connection) -> None:
+    """Invalidate the generated bootstrap token after owner registration."""
+    conn.execute("DELETE FROM settings WHERE key=?", (_SETUP_TOKEN_HASH_KEY,))
 
 
 def list_credentials(conn: sqlite3.Connection) -> list[dict]:

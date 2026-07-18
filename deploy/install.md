@@ -134,7 +134,7 @@ systemctl status portfoliomanager
 
 ## Step 8 — First login (YubiKey registration)
 
-1. Open the URL configured in your proxy manager (e.g. `https://portfolio.lan`).
+1. Retrieve the one-time setup token with `journalctl -u portfoliomanager -n 50` and open the URL configured in your proxy manager (e.g. `https://portfolio.lan`). Enter this token on the registration page. To choose a token yourself, set `PM_SETUP_TOKEN` in the systemd service before its first start.
 2. The app redirects to the **YubiKey registration** page (only shown when
    no credentials exist yet).
 3. Insert your YubiKey and click the registration button.

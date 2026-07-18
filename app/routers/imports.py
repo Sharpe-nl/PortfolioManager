@@ -10,12 +10,14 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from ..db import get_db
 from ..helpers import templates, require_auth
+from ..i18n import t
 from ..importers import degiro_account, generic
 from ..services.portfolio import list_accounts
 
 router = APIRouter(prefix="/import", tags=["import"])
 
 _STAGING_TTL_MINUTES = 60
+_MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 
 # ---------------------------------------------------------------------------
@@ -63,7 +65,18 @@ async def upload(
     account_id: int = Form(...),
     file: UploadFile = File(...),
 ):
-    raw_bytes = await file.read()
+    # Imports are parsed in memory; bound the input before decoding it so a
+    # large upload cannot exhaust the small home-server process.
+    raw_bytes = await file.read(_MAX_UPLOAD_BYTES + 1)
+    if len(raw_bytes) > _MAX_UPLOAD_BYTES:
+        request.session["import_result"] = {
+            "imported": 0,
+            "skipped": 0,
+            "errors": 1,
+            "error_details": [t(request, "imports.file_too_large")],
+            "filename": file.filename or "upload.csv",
+        }
+        return RedirectResponse(url="/import?result=1", status_code=303)
     try:
         content = raw_bytes.decode("utf-8-sig")  # handles BOM
     except UnicodeDecodeError:

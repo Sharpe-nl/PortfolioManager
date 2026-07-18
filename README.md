@@ -193,7 +193,7 @@ Open `https://portfolio.home:8443`. Add a local DNS entry for that hostname if n
 
 ## First run and settings
 
-1. Open the site and register a FIDO2/WebAuthn authenticator. Register a second key from Settings when possible, so you have a backup login method.
+1. Retrieve the one-time setup token from the application log (`docker compose logs` or `journalctl -u portfoliomanager`). Enter it when registering the first FIDO2/WebAuthn authenticator. To choose your own code instead, set `PM_SETUP_TOKEN` before the first start. Register a second key from Settings when possible, so you have a backup login method.
 2. For stocks and ETFs, create a broker account and import DeGiro's `Account.csv` from **Stocks → Actions → Import**. Overlapping exports are safe: previously imported rows are recognized automatically.
 3. For crypto, create a Bitvavo API key with **View/read-only permissions only**. Never enable trading or withdrawals. Enter the API key and its one-time secret under **Settings → Bitvavo API**, then start the first synchronization from the Crypto page.
 4. For savings, create an account with type **Savings**. Open its settings to add deposits or withdrawals and define the applicable interest rates, payout frequency and optional balance tiers.

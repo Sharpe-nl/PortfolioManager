@@ -14,7 +14,34 @@ from .i18n import get_lang as _get_lang
 from .i18n import t as _t
 
 _TEMPLATE_DIR = Path(__file__).parent / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
+
+
+class PortfolioTemplates(Jinja2Templates):
+    """Keep existing server-rendered routes compatible with Starlette 1.x.
+
+    Starlette 1.x changed ``TemplateResponse`` to receive ``Request`` first.
+    The application deliberately keeps its established ``name, context`` route
+    calls and translates them at this single boundary.
+    """
+
+    def TemplateResponse(self, request_or_name, name_or_context=None, context=None,
+                         status_code: int = 200, headers=None, media_type=None, background=None):
+        if isinstance(request_or_name, Request):
+            return super().TemplateResponse(
+                request_or_name, name_or_context, context, status_code,
+                headers, media_type, background,
+            )
+        legacy_context = name_or_context or {}
+        request = legacy_context.get("request")
+        if request is None:
+            raise ValueError("Template context requires a request")
+        return super().TemplateResponse(
+            request, request_or_name, legacy_context, status_code,
+            headers, media_type, background,
+        )
+
+
+templates = PortfolioTemplates(directory=str(_TEMPLATE_DIR))
 
 
 # ---------------------------------------------------------------------------
