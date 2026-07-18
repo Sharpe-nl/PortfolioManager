@@ -9,6 +9,9 @@ Group=service_portfolio_manager
 WorkingDirectory=/opt/portfoliomanager
 # Optional: a Logo.dev publishable key enables official company/ETF logos.
 # Environment=PM_LOGO_DEV_TOKEN=pk_your_publishable_key
+# Optional: enables the Settings page to start the separately authorised
+# portfoliomanager-update.service. See deploy/install.md before enabling it.
+# Environment=PM_ENABLE_SELF_UPDATE=true
 ExecStart=/opt/portfoliomanager/.venv/bin/uvicorn app.main:app \
     --host 0.0.0.0 \
     --port 8443 \

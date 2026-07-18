@@ -130,9 +130,10 @@ apt install -y python3 python3-venv python3-dev git sqlite3
 
 useradd --system --create-home --shell /usr/sbin/nologin service_portfolio_manager
 git clone https://github.com/Sharpe-nl/PortfolioManager.git /opt/portfoliomanager
-chown -R service_portfolio_manager:service_portfolio_manager /opt/portfoliomanager
 
-sudo -u service_portfolio_manager python3 -m venv /opt/portfoliomanager/.venv
+python3 -m venv /opt/portfoliomanager/.venv
+mkdir /opt/portfoliomanager/data
+chown -R service_portfolio_manager:service_portfolio_manager /opt/portfoliomanager/.venv /opt/portfoliomanager/data
 sudo -u service_portfolio_manager /opt/portfoliomanager/.venv/bin/pip install -r /opt/portfoliomanager/requirements.txt
 
 cp /opt/portfoliomanager/deploy/portfoliomanager.service /etc/systemd/system/
@@ -141,6 +142,8 @@ systemctl enable --now portfoliomanager
 ```
 
 The service listens on port `8443`. Configure the reverse proxy to reach the LXC IP on that port and forward `Host` and `X-Forwarded-Proto` headers. See [deploy/install.md](deploy/install.md) for a more detailed LXC and proxy guide.
+
+PortfolioManager follows semantic versions. The first public main-branch version is `0.1.0-beta`.
 
 ## Option 4: Direct Python for development
 

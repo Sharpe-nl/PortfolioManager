@@ -40,6 +40,20 @@ NL = {
     "settings.schedule_last_run": "Laatst uitgevoerd: {value}.",
     "settings.schedule_error": "Kies twee geldige tijden.",
 
+    # ── Application updates ──────────────────────────────────────────
+    "settings.section_updates": "Updates",
+    "settings.current_version": "Huidige versie:",
+    "settings.check_updates": "Controleren op updates",
+    "settings.update_available": "✓ Versie {version} is beschikbaar.",
+    "settings.update_current": "✓ Je gebruikt al de nieuwste versie.",
+    "settings.install_update": "Update installeren",
+    "settings.confirm_install_update": "De app wordt kort opnieuw gestart om de update te installeren. Doorgaan?",
+    "settings.update_started": "✓ Update gestart. De app is mogelijk kort niet bereikbaar.",
+    "settings.update_check_error": "✗ Controleren op updates is niet gelukt. Controleer de internetverbinding van de server.",
+    "settings.update_install_error": "✗ De update kon niet worden gestart. Controleer de serverconfiguratie.",
+    "settings.self_update_disabled": "Installeren vanuit de app is nog niet ingeschakeld op deze server.",
+    "settings.update_hint": "Controleren vergelijkt deze installatie met de officiële main-versie. Installeren vanuit de app is alleen beschikbaar voor een native systemd-installatie die daarvoor expliciet is ingesteld.",
+
     # ── YubiKeys / security keys ──────────────────────────────────────
     "settings.section_yubikeys": "YubiKeys / beveiligingssleutels",
     "settings.yubikeys_intro": "Voeg een extra sleutel toe als back-up, of om vanaf een andere plek te kunnen inloggen.",
@@ -136,6 +150,19 @@ EN = {
     "settings.schedule_hint": "Stocks and crypto are refreshed daily at these times using server time ({timezone}). Unconnected sections are skipped.",
     "settings.schedule_last_run": "Last run: {value}.",
     "settings.schedule_error": "Choose two valid times.",
+
+    "settings.section_updates": "Updates",
+    "settings.current_version": "Current version:",
+    "settings.check_updates": "Check for updates",
+    "settings.update_available": "✓ Version {version} is available.",
+    "settings.update_current": "✓ You are already using the latest version.",
+    "settings.install_update": "Install update",
+    "settings.confirm_install_update": "The app will restart briefly to install this update. Continue?",
+    "settings.update_started": "✓ Update started. The app may be unreachable briefly.",
+    "settings.update_check_error": "✗ The update check failed. Check the server's internet connection.",
+    "settings.update_install_error": "✗ The update could not be started. Check the server configuration.",
+    "settings.self_update_disabled": "Installing from the app is not enabled on this server yet.",
+    "settings.update_hint": "Checking compares this installation with the official main version. Installing from the app is available only for a native systemd installation that has explicitly been configured for it.",
 
     "settings.section_yubikeys": "YubiKeys / security keys",
     "settings.yubikeys_intro": "Add an extra key as a backup, or to be able to log in from another location.",

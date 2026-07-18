@@ -94,6 +94,39 @@
   <p class="muted schedule-settings-hint">{{ t(request, 'settings.schedule_hint', timezone=server_timezone) }}{% if refresh_last_run %} {{ t(request, 'settings.schedule_last_run', value=refresh_last_run) }}{% endif %}</p>
 </article>
 
+<!-- ── Application updates ─────────────────────────────────────────── -->
+<article class="update-settings-card">
+  <header>{{ t(request, 'settings.section_updates') }}</header>
+  <div class="update-settings-row">
+    <span class="update-version">{{ t(request, 'settings.current_version') }} <strong>{{ app_version }}</strong></span>
+    <form method="post" action="/settings/check-update">
+      <button type="submit" class="outline secondary btn-sm">{{ t(request, 'settings.check_updates') }}</button>
+    </form>
+  </div>
+  {% if request.query_params.get('update') == 'available' %}
+  <div class="notice success">{{ t(request, 'settings.update_available', version=request.query_params.get('latest')) }}</div>
+  <div class="update-settings-row">
+    {% if self_update_enabled %}
+    <form method="post" action="/settings/install-update"
+          onsubmit="return confirm('{{ t(request, 'settings.confirm_install_update') }}')">
+      <button type="submit" class="btn-sm">{{ t(request, 'settings.install_update') }}</button>
+    </form>
+    {% else %}
+    <span class="muted small">{{ t(request, 'settings.self_update_disabled') }}</span>
+    {% endif %}
+  </div>
+  {% elif request.query_params.get('update') == 'current' %}
+  <div class="notice success">{{ t(request, 'settings.update_current') }}</div>
+  {% elif request.query_params.get('update') == 'started' %}
+  <div class="notice success">{{ t(request, 'settings.update_started') }}</div>
+  {% elif request.query_params.get('update') == 'check_error' %}
+  <div class="notice error">{{ t(request, 'settings.update_check_error') }}</div>
+  {% elif request.query_params.get('update') == 'install_error' %}
+  <div class="notice error">{{ t(request, 'settings.update_install_error') }}</div>
+  {% endif %}
+  <p class="muted update-settings-hint">{{ t(request, 'settings.update_hint') }}</p>
+</article>
+
 <!-- ── YubiKeys / beveiligingssleutels ─────────────────────────────────── -->
 <article>
   <header>{{ t(request, 'settings.section_yubikeys') }}</header>

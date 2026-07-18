@@ -1,0 +1,10 @@
+[Unit]
+Description=PortfolioManager update from the official main branch
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/portfoliomanager
+ExecStart=/opt/portfoliomanager/deploy/update.sh --from-git

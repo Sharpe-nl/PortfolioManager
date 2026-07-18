@@ -1,0 +1,3 @@
+# Allow the unprivileged web service to start only the fixed update unit.
+# Install this file as /etc/sudoers.d/portfoliomanager-update with mode 0440.
+service_portfolio_manager ALL=(root) NOPASSWD: /usr/bin/systemctl start --no-block portfoliomanager-update.service
