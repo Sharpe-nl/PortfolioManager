@@ -53,7 +53,8 @@ def get_cached_logo(conn, mode: str, value: str, fetcher=None) -> Path | None:
 
         if not content or len(content) > _MAX_LOGO_BYTES:
             raise LogoFetchError("Logo provider returned an invalid image")
-        filename = f"{hashlib.sha256(f'{mode}\0{value}'.encode('utf-8')).hexdigest()}.png"
+        cache_key = mode + "\0" + value
+        filename = f"{hashlib.sha256(cache_key.encode('utf-8')).hexdigest()}.png"
         _LOGO_CACHE_DIR.mkdir(parents=True, exist_ok=True)
         path = _LOGO_CACHE_DIR / filename
         temp_path = path.with_suffix(".tmp")
