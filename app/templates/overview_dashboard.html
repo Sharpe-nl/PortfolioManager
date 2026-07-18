@@ -1,7 +1,18 @@
 {% extends "base.html" %}
 {% block title %}{{ t(request, 'dashboard.page_title') }} – PortfolioManager{% endblock %}
 {% block content %}
-<div class="page-header"><h1>{{ t(request, 'dashboard.page_title') }}</h1></div>
+<div class="page-header">
+  <h1>{{ t(request, 'dashboard.page_title') }}</h1>
+  {% if overview_series.stocks or overview_series.crypto %}
+  <span class="range-selector dashboard-chart-ranges">
+    <button type="button" data-range="1M" onclick="setDashboardRange(this,'1M')">{{ t(request, 'range.1m') }}</button>
+    <button type="button" data-range="YTD" onclick="setDashboardRange(this,'YTD')">{{ t(request, 'range.ytd') }}</button>
+    <button type="button" class="active" data-range="1Y" onclick="setDashboardRange(this,'1Y')">{{ t(request, 'range.1y') }}</button>
+    <button type="button" data-range="CUSTOM" onclick="openDashboardCustomRange()">{{ t(request, 'range.custom') }}</button>
+    <button type="button" data-range="ALL" onclick="setDashboardRange(this,'ALL')">{{ t(request, 'range.all') }}</button>
+  </span>
+  {% endif %}
+</div>
 
 <section class="portfolio-hero dashboard-main-hero">
   <div class="portfolio-hero-left">
@@ -61,13 +72,6 @@
 <article class="chart-card dashboard-overview-chart-card">
   <header>
     <span class="dashboard-chart-title">{{ t(request, 'dashboard.main_chart_title') }}</span>
-    <span class="range-selector dashboard-chart-ranges">
-      <button type="button" data-range="1M" onclick="setDashboardRange(this,'1M')">{{ t(request, 'range.1m') }}</button>
-      <button type="button" data-range="YTD" onclick="setDashboardRange(this,'YTD')">{{ t(request, 'range.ytd') }}</button>
-      <button type="button" class="active" data-range="1Y" onclick="setDashboardRange(this,'1Y')">{{ t(request, 'range.1y') }}</button>
-      <button type="button" data-range="CUSTOM" onclick="openDashboardCustomRange()">{{ t(request, 'range.custom') }}</button>
-      <button type="button" data-range="ALL" onclick="setDashboardRange(this,'ALL')">{{ t(request, 'range.all') }}</button>
-    </span>
     <span class="tab-selector dashboard-chart-toggles">
       <button type="button" class="active" data-series="total" onclick="toggleDashboardSeries(this)">{{ t(request, 'common.total') }}</button>
       {% if show_stocks and overview_series.stocks %}<button type="button" class="active" data-series="stocks" onclick="toggleDashboardSeries(this)">{{ t(request, 'nav.stocks') }}</button>{% endif %}

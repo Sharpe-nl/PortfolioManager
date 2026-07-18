@@ -46,3 +46,4 @@ def test_main_dashboard_chart_has_ranges_and_total_toggle(mem_db):
     assert 'data-range="YTD"' in html
     assert "dashboardOverviewChart" in html
     assert 'data-series="savings"' not in html
+    assert html.index("dashboard-chart-ranges") < html.index("portfolio-hero")
