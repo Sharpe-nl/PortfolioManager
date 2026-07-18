@@ -2,6 +2,7 @@
 from datetime import date
 from decimal import Decimal
 
+from app.routers.savings import _cash_movements, _signed_cash_amount
 from app.services.savings import account_interest, savings_accounts
 from app.services.portfolio import get_allocation, get_portfolio_summary
 
@@ -49,6 +50,24 @@ def test_deposit_and_withdrawal_change_savings_balance(mem_db):
     result = account_interest(mem_db, 2, date(2026, 1, 2))
     assert result["balance"] == Decimal("1150.00")
     assert {event["kind"] for event in result["events"]} >= {"deposit", "withdrawal"}
+
+
+def test_savings_cash_movements_are_available_to_settings(mem_db):
+    _savings_account(mem_db)
+    mem_db.execute("INSERT INTO cash_events(account_id,ts,type,amount_eur) VALUES(2,'2026-03-01T00:00:00','deposit','250')")
+    mem_db.execute("INSERT INTO cash_events(account_id,ts,type,amount_eur) VALUES(2,'2026-03-02T00:00:00','withdrawal','-75')")
+    mem_db.commit()
+    movements = _cash_movements(mem_db, 2)
+    assert [(row["date"], row["type"], row["amount_eur"]) for row in movements] == [
+        ("2026-03-02", "withdrawal", "75"),
+        ("2026-03-01", "deposit", "250"),
+    ]
+
+
+def test_savings_cash_amount_uses_movement_direction():
+    assert _signed_cash_amount("125.50", "deposit") == "125.50"
+    assert _signed_cash_amount("125.50", "withdrawal") == "-125.50"
+    assert _signed_cash_amount("0", "deposit") is None
 
 
 def test_first_deposit_can_create_a_savings_balance_without_snapshot(mem_db):

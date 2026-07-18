@@ -1,6 +1,8 @@
 """Savings-account management."""
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
+
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
@@ -13,6 +15,31 @@ router = APIRouter(prefix="/savings", tags=["savings"])
 
 def _savings_account(conn, account_id: int):
     return conn.execute("SELECT * FROM accounts WHERE id=? AND type='savings'", (account_id,)).fetchone()
+
+
+def _signed_cash_amount(amount_eur: str, movement_type: str) -> str | None:
+    if movement_type not in {"deposit", "withdrawal"}:
+        return None
+    try:
+        amount = abs(Decimal(amount_eur))
+    except (InvalidOperation, TypeError):
+        return None
+    if amount <= 0:
+        return None
+    return str(amount if movement_type == "deposit" else -amount)
+
+
+def _cash_movements(conn, account_id: int) -> list[dict]:
+    rows = conn.execute(
+        "SELECT id, substr(ts,1,10) AS date, type, amount_eur, description "
+        "FROM cash_events WHERE account_id=? AND type IN ('deposit','withdrawal') "
+        "ORDER BY ts DESC, id DESC",
+        (account_id,),
+    ).fetchall()
+    return [
+        {**dict(row), "amount_eur": str(abs(Decimal(row["amount_eur"])))}
+        for row in rows
+    ]
 
 
 @router.get("", response_class=HTMLResponse)
@@ -31,7 +58,7 @@ async def savings_settings(account_id: int, request: Request, conn=Depends(get_d
     context["rates"] = [dict(row) for row in conn.execute("SELECT * FROM savings_interest_rates WHERE account_id=? ORDER BY starts_on DESC", (account_id,))]
     for rate in context["rates"]:
         rate["tiers"] = [dict(row) for row in conn.execute("SELECT * FROM savings_interest_rate_tiers WHERE rate_id=? ORDER BY CAST(min_balance_eur AS REAL)", (rate["id"],))]
-    context["snapshots"] = [dict(row) for row in conn.execute("SELECT * FROM balance_snapshots WHERE account_id=? ORDER BY date DESC, id DESC", (account_id,))]
+    context["cash_movements"] = _cash_movements(conn, account_id)
     context["adjustments"] = [dict(row) for row in conn.execute("SELECT * FROM savings_interest_adjustments WHERE account_id=? ORDER BY date DESC, id DESC", (account_id,))]
     return templates.TemplateResponse("savings_settings.html", {"request": request, "account": context})
 
@@ -52,9 +79,8 @@ async def add_snapshot(account_id: int, date: str = Form(...), balance_eur: str 
 
 @router.post("/{account_id}/cash")
 async def add_cash_movement(account_id: int, date: str = Form(...), movement_type: str = Form(...), amount_eur: str = Form(...), conn=Depends(get_db), _=Depends(require_auth)):
-    if _savings_account(conn, account_id) and movement_type in {"deposit", "withdrawal"}:
-        amount = abs(float(amount_eur))
-        signed_amount = amount if movement_type == "deposit" else -amount
+    signed_amount = _signed_cash_amount(amount_eur, movement_type)
+    if _savings_account(conn, account_id) and signed_amount is not None:
         conn.execute(
             "INSERT INTO cash_events(account_id,ts,type,amount_eur,description) VALUES(?,?,?,?,?)",
             (account_id, f"{date}T00:00:00", movement_type, str(signed_amount), "Savings account movement"),
@@ -82,6 +108,16 @@ async def delete_snapshot(account_id: int, snapshot_id: int, conn=Depends(get_db
     return RedirectResponse(url=f"/savings/{account_id}/settings?saved=1", status_code=303)
 
 
+@router.post("/{account_id}/cash/{movement_id}/delete")
+async def delete_cash_movement(account_id: int, movement_id: int, conn=Depends(get_db), _=Depends(require_auth)):
+    conn.execute(
+        "DELETE FROM cash_events WHERE id=? AND account_id=? AND type IN ('deposit','withdrawal') "
+        "AND EXISTS(SELECT 1 FROM accounts WHERE id=? AND type='savings')",
+        (movement_id, account_id, account_id),
+    )
+    return RedirectResponse(url=f"/savings/{account_id}/settings?saved=1", status_code=303)
+
+
 @router.post("/{account_id}/interest/{adjustment_id}/delete")
 async def delete_interest(account_id: int, adjustment_id: int, conn=Depends(get_db), _=Depends(require_auth)):
     conn.execute("DELETE FROM savings_interest_adjustments WHERE id=? AND account_id=?", (adjustment_id, account_id))
@@ -97,6 +133,18 @@ async def edit_rate(account_id: int, rate_id: int, annual_rate: str = Form(...),
 @router.post("/{account_id}/snapshot/{snapshot_id}/edit")
 async def edit_snapshot(account_id: int, snapshot_id: int, date: str = Form(...), balance_eur: str = Form(...), conn=Depends(get_db), _=Depends(require_auth)):
     conn.execute("UPDATE balance_snapshots SET date=?, balance_eur=? WHERE id=? AND account_id=?", (date, balance_eur, snapshot_id, account_id))
+    return RedirectResponse(url=f"/savings/{account_id}/settings?saved=1", status_code=303)
+
+
+@router.post("/{account_id}/cash/{movement_id}/edit")
+async def edit_cash_movement(account_id: int, movement_id: int, date: str = Form(...), movement_type: str = Form(...), amount_eur: str = Form(...), conn=Depends(get_db), _=Depends(require_auth)):
+    signed_amount = _signed_cash_amount(amount_eur, movement_type)
+    if _savings_account(conn, account_id) and signed_amount is not None:
+        conn.execute(
+            "UPDATE cash_events SET ts=? || substr(ts,11), type=?, amount_eur=? "
+            "WHERE id=? AND account_id=? AND type IN ('deposit','withdrawal')",
+            (date, movement_type, signed_amount, movement_id, account_id),
+        )
     return RedirectResponse(url=f"/savings/{account_id}/settings?saved=1", status_code=303)
 
 
