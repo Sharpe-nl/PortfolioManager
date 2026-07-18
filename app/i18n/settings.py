@@ -63,7 +63,7 @@ NL = {
     "settings.download_backup": "⬇ Database downloaden",
 
     # ── Danger zone ────────────────────────────────────────────────────
-    "settings.section_danger": "⚠ Data verwijderen",
+    "settings.section_danger": "⚠ Gevarenzone",
     "settings.danger_intro": "Gebruik dit als je opnieuw wilt beginnen of als de import fout gegaan is. Accounts en instellingen blijven bewaard bij \"transacties verwijderen\".",
     "settings.confirm_delete_txn": "Alle transacties, koersen en events verwijderen? Dit kan niet ongedaan worden.",
     "settings.btn_delete_txn": "🗑 Transacties & koersen verwijderen",
@@ -157,7 +157,7 @@ EN = {
     "settings.db_accounts": "accounts",
     "settings.download_backup": "⬇ Download database",
 
-    "settings.section_danger": "⚠ Delete data",
+    "settings.section_danger": "⚠ Danger zone",
     "settings.danger_intro": "Use this if you want to start over or if the import went wrong. Accounts and settings are kept when using \"delete transactions\".",
     "settings.confirm_delete_txn": "Delete all transactions, prices and events? This cannot be undone.",
     "settings.btn_delete_txn": "🗑 Delete transactions & prices",

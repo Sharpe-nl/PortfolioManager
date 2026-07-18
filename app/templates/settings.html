@@ -157,28 +157,6 @@
   <a href="/settings/backup" role="button" class="outline" download>{{ t(request, 'settings.download_backup') }}</a>
 </article>
 
-<!-- ── Danger zone ────────────────────────────────────────────────────── -->
-<article>
-  <header>{{ t(request, 'settings.section_danger') }}</header>
-  <p class="muted">
-    {{ t(request, 'settings.danger_intro') }}
-  </p>
-  <div class="settings-action-row">
-    <form method="post" action="/settings/delete-transactions"
-          onsubmit="return confirm('{{ t(request, 'settings.confirm_delete_txn') }}')">
-      <button type="submit" class="outline secondary danger-btn">
-        {{ t(request, 'settings.btn_delete_txn') }}
-      </button>
-    </form>
-    <form method="post" action="/settings/delete-all"
-          onsubmit="return confirm('{{ t(request, 'settings.confirm_delete_all') }}')">
-      <button type="submit" class="outline danger-btn">
-        {{ t(request, 'settings.btn_delete_all') }}
-      </button>
-    </form>
-  </div>
-</article>
-
 <!-- ── Ticker mapping overview ───────────────────────────────────────── -->
 <article>
   <header>{{ t(request, 'settings.section_ticker_mapping', count=mapped_instruments | length) }}</header>
@@ -252,6 +230,22 @@
   </ul>
 </article>
 {% endif %}
+
+<!-- ── Danger zone: deliberately the final settings section ─────────── -->
+<article class="danger-zone-card">
+  <header>{{ t(request, 'settings.section_danger') }}</header>
+  <p class="muted">{{ t(request, 'settings.danger_intro') }}</p>
+  <div class="settings-action-row">
+    <form method="post" action="/settings/delete-transactions"
+          onsubmit="return confirm('{{ t(request, 'settings.confirm_delete_txn') }}')">
+      <button type="submit" class="outline secondary danger-btn">{{ t(request, 'settings.btn_delete_txn') }}</button>
+    </form>
+    <form method="post" action="/settings/delete-all"
+          onsubmit="return confirm('{{ t(request, 'settings.confirm_delete_all') }}')">
+      <button type="submit" class="outline danger-btn">{{ t(request, 'settings.btn_delete_all') }}</button>
+    </form>
+  </div>
+</article>
 </div>
 {% endblock %}
 
