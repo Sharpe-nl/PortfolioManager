@@ -150,34 +150,3 @@ def savings_accounts(conn: sqlite3.Connection, include_hidden: bool = True) -> l
         data = account_interest(conn, row["id"])
         result.append({**dict(row), **data})
     return result
-
-
-def savings_value_series(conn: sqlite3.Connection, include_hidden: bool = False) -> list[dict]:
-    """Aggregate selected savings balances at every meaningful history date."""
-    where = "WHERE type='savings'" + ("" if include_hidden else " AND include_in_dashboard=1")
-    account_ids = [row["id"] for row in conn.execute(f"SELECT id FROM accounts {where}").fetchall()]
-    if not account_ids:
-        return []
-
-    dates = {date.today().isoformat()}
-    for account_id in account_ids:
-        dates.update(row["date"] for row in conn.execute(
-            "SELECT date FROM balance_snapshots WHERE account_id=?",
-            (account_id,),
-        ).fetchall())
-        dates.update(row["day"] for row in conn.execute(
-            "SELECT substr(ts,1,10) AS day FROM cash_events WHERE account_id=? AND type IN ('deposit','withdrawal')",
-            (account_id,),
-        ).fetchall())
-        dates.update(row["date"] for row in conn.execute(
-            "SELECT date FROM savings_interest_adjustments WHERE account_id=?",
-            (account_id,),
-        ).fetchall())
-        dates.update(event["date"] for event in account_interest(conn, account_id)["events"])
-
-    result = []
-    for day in sorted(dates):
-        as_of = date.fromisoformat(day)
-        value = sum((account_interest(conn, account_id, as_of)["balance"] for account_id in account_ids), _ZERO)
-        result.append({"date": day, "value": value.quantize(_CENT)})
-    return result

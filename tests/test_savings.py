@@ -3,7 +3,7 @@ from datetime import date
 from decimal import Decimal
 
 from app.routers.savings import _cash_movements, _signed_cash_amount
-from app.services.savings import account_interest, savings_accounts, savings_value_series
+from app.services.savings import account_interest, savings_accounts
 from app.services.portfolio import get_allocation, get_portfolio_summary
 
 
@@ -103,16 +103,6 @@ def test_hidden_savings_is_not_returned_for_dashboard(mem_db):
     mem_db.execute("UPDATE accounts SET include_in_dashboard=0 WHERE id=2")
     mem_db.commit()
     assert savings_accounts(mem_db, include_hidden=False) == []
-
-
-def test_savings_dashboard_series_contains_balance_and_interest_history(mem_db):
-    _savings_account(mem_db)
-    series = savings_value_series(mem_db, include_hidden=False)
-    assert series[0] == {"date": "2026-01-01", "value": Decimal("1000.00")}
-    assert series[-1]["value"] > series[0]["value"]
-
-    mem_db.execute("UPDATE accounts SET include_in_dashboard=0 WHERE id=2")
-    assert savings_value_series(mem_db, include_hidden=False) == []
 
 
 def test_savings_stays_out_of_portfolio_total_and_allocation(mem_db):

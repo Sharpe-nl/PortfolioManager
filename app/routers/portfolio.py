@@ -185,7 +185,7 @@ def _stock_dashboard_context(conn) -> dict:
 @router.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, conn=Depends(get_db), _=Depends(require_auth)):
     from ..services.bitvavo import crypto_overview
-    from ..services.savings import savings_accounts, savings_value_series
+    from ..services.savings import savings_accounts
 
     show_stocks = get_setting(conn, "include_stocks_in_dashboard", "1") != "0"
     show_crypto = get_setting(conn, "include_crypto_in_dashboard", "1") != "0"
@@ -193,7 +193,6 @@ async def dashboard(request: Request, conn=Depends(get_db), _=Depends(require_au
     crypto = crypto_overview(conn) if show_crypto else None
     dashboard_savings = savings_accounts(conn, include_hidden=False)
     stock_value_series = svc_portfolio.get_portfolio_value_series(conn) if show_stocks else []
-    savings_series = savings_value_series(conn, include_hidden=False)
     savings_balance = sum((item["balance"] for item in dashboard_savings), Decimal("0"))
     savings_interest = sum((item["interest"] for item in dashboard_savings), Decimal("0"))
     total_value = (
@@ -220,7 +219,6 @@ async def dashboard(request: Request, conn=Depends(get_db), _=Depends(require_au
         "overview_series": {
             "stocks": stock_value_series,
             "crypto": crypto["value_series"] if crypto else [],
-            "savings": savings_series,
         },
     })
 

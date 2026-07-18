@@ -1283,7 +1283,7 @@ td.num, th.num {
 .dashboard-chart-title { margin-right: auto; }
 .dashboard-chart-ranges { flex-wrap: wrap; }
 .dashboard-chart-toggles { flex-wrap: wrap; }
-.dashboard-overview-chart-wrap { position: relative; height: 13.5rem; }
+.dashboard-overview-chart-wrap { position: relative; height: 16rem; }
 .dashboard-chart-empty { margin-top: 1rem; }
 
 .api-credentials-card { display: grid; gap: .6rem; max-width: none; padding: .65rem .8rem !important; overflow: visible; }

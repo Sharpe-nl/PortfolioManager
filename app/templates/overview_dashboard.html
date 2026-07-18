@@ -46,7 +46,7 @@
 <article class="empty-state"><h2>{{ t(request, 'dashboard.main_empty_title') }}</h2><p>{{ t(request, 'dashboard.main_empty_text') }}</p></article>
 {% endif %}
 
-{% if overview_series.stocks or overview_series.crypto or overview_series.savings %}
+{% if overview_series.stocks or overview_series.crypto %}
 <dialog id="dashboardCustomRangeDialog">
   <article style="margin:0;">
     <header>{{ t(request, 'range.custom_period') }}</header>
@@ -72,7 +72,6 @@
       <button type="button" class="active" data-series="total" onclick="toggleDashboardSeries(this)">{{ t(request, 'common.total') }}</button>
       {% if show_stocks and overview_series.stocks %}<button type="button" class="active" data-series="stocks" onclick="toggleDashboardSeries(this)">{{ t(request, 'nav.stocks') }}</button>{% endif %}
       {% if show_crypto and overview_series.crypto %}<button type="button" class="active" data-series="crypto" onclick="toggleDashboardSeries(this)">{{ t(request, 'nav.crypto') }}</button>{% endif %}
-      {% if dashboard_savings and overview_series.savings %}<button type="button" class="active" data-series="savings" onclick="toggleDashboardSeries(this)">{{ t(request, 'nav.savings') }}</button>{% endif %}
     </span>
   </header>
   <div class="dashboard-overview-chart-wrap"><canvas id="dashboardOverviewChart"></canvas></div>
@@ -83,13 +82,12 @@
 {% endblock %}
 
 {% block scripts %}
-{% if overview_series.stocks or overview_series.crypto or overview_series.savings %}<script>
+{% if overview_series.stocks or overview_series.crypto %}<script>
 const dashboardOverviewSeries = {{ overview_series | tojson }};
 const dashboardOverviewLabels = {
   total: {{ t(request, 'common.total') | tojson }},
   stocks: {{ t(request, 'nav.stocks') | tojson }},
   crypto: {{ t(request, 'nav.crypto') | tojson }},
-  savings: {{ t(request, 'nav.savings') | tojson }},
 };
 const dashboardRangeInvalid = {{ t(request, 'range.invalid_alert') | tojson }};
 let dashboardOverviewChart;
@@ -145,7 +143,7 @@ function buildDashboardOverviewChart() {
   const labels = filteredDashboardDates();
   const tokens = chartTokens();
   const palette = chartPalette();
-  const colours = { stocks: tokens.primary, crypto: palette[1] || '#f59e0b', savings: palette[3] || '#22c55e' };
+  const colours = { stocks: tokens.primary, crypto: palette[1] || '#f59e0b' };
   const categoryDatasets = keys.map(key => ({
     dashboardKey: key,
     label: dashboardOverviewLabels[key],
