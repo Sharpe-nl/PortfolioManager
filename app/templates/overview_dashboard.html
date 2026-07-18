@@ -45,4 +45,101 @@
 {% if not show_stocks and not show_crypto and not dashboard_savings %}
 <article class="empty-state"><h2>{{ t(request, 'dashboard.main_empty_title') }}</h2><p>{{ t(request, 'dashboard.main_empty_text') }}</p></article>
 {% endif %}
+
+{% if overview_series.stocks or overview_series.crypto or overview_series.savings %}
+<article class="chart-card dashboard-overview-chart-card">
+  <header>
+    <span>{{ t(request, 'dashboard.main_chart_title') }}</span>
+    <span class="tab-selector dashboard-chart-toggles">
+      {% if show_stocks and overview_series.stocks %}<button type="button" class="active" data-series="stocks" onclick="toggleDashboardSeries(this)">{{ t(request, 'nav.stocks') }}</button>{% endif %}
+      {% if show_crypto and overview_series.crypto %}<button type="button" class="active" data-series="crypto" onclick="toggleDashboardSeries(this)">{{ t(request, 'nav.crypto') }}</button>{% endif %}
+      {% if dashboard_savings and overview_series.savings %}<button type="button" class="active" data-series="savings" onclick="toggleDashboardSeries(this)">{{ t(request, 'nav.savings') }}</button>{% endif %}
+    </span>
+  </header>
+  <canvas id="dashboardOverviewChart" height="280"></canvas>
+</article>
+{% elif show_stocks or show_crypto or dashboard_savings %}
+<article class="empty-state dashboard-chart-empty"><p>{{ t(request, 'dashboard.main_chart_empty') }}</p></article>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if overview_series.stocks or overview_series.crypto or overview_series.savings %}<script>
+const dashboardOverviewSeries = {{ overview_series | tojson }};
+const dashboardOverviewLabels = {
+  stocks: {{ t(request, 'nav.stocks') | tojson }},
+  crypto: {{ t(request, 'nav.crypto') | tojson }},
+  savings: {{ t(request, 'nav.savings') | tojson }},
+};
+let dashboardOverviewChart;
+const visibleDashboardSeries = new Set(
+  Object.entries(dashboardOverviewSeries).filter(([, rows]) => rows.length).map(([key]) => key)
+);
+
+function alignedDashboardValues(rows, labels) {
+  const sorted = [...rows].sort((left, right) => left.date.localeCompare(right.date));
+  let index = 0;
+  let latest = null;
+  return labels.map(date => {
+    while (index < sorted.length && sorted[index].date <= date) {
+      latest = Number(sorted[index].value);
+      index += 1;
+    }
+    return latest;
+  });
+}
+
+function buildDashboardOverviewChart() {
+  if (dashboardOverviewChart) dashboardOverviewChart.destroy();
+  const keys = Object.keys(dashboardOverviewSeries).filter(key => dashboardOverviewSeries[key].length);
+  const labels = [...new Set(keys.flatMap(key => dashboardOverviewSeries[key].map(row => row.date)))].sort();
+  const tokens = chartTokens();
+  const palette = chartPalette();
+  const colours = { stocks: tokens.primary, crypto: palette[1] || '#f59e0b', savings: palette[3] || '#22c55e' };
+  dashboardOverviewChart = new Chart(document.getElementById('dashboardOverviewChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: keys.map(key => ({
+        label: dashboardOverviewLabels[key],
+        data: alignedDashboardValues(dashboardOverviewSeries[key], labels),
+        borderColor: colours[key],
+        backgroundColor: colours[key],
+        borderWidth: 2,
+        tension: .24,
+        pointRadius: labels.length < 12 ? 2.5 : 0,
+        pointHoverRadius: 4,
+        spanGaps: true,
+        hidden: !visibleDashboardSeries.has(key),
+      })),
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { ...glassTooltipOptions(), callbacks: { label: context => `${context.dataset.label}: ${formatEur(context.parsed.y)}` } },
+        hoverGuideLine: hoverGuideLineOptions(),
+      },
+      scales: {
+        x: { ticks: { color: tokens.muted, maxTicksLimit: 9 }, grid: { display: false } },
+        y: { ticks: { color: tokens.muted, callback: value => formatEur(value) }, grid: { color: tokens.border } },
+      },
+    },
+  });
+}
+
+function toggleDashboardSeries(button) {
+  const key = button.dataset.series;
+  if (visibleDashboardSeries.has(key)) visibleDashboardSeries.delete(key);
+  else visibleDashboardSeries.add(key);
+  button.classList.toggle('active', visibleDashboardSeries.has(key));
+  const dataset = dashboardOverviewChart.data.datasets.find(item => item.label === dashboardOverviewLabels[key]);
+  if (dataset) dataset.hidden = !visibleDashboardSeries.has(key);
+  dashboardOverviewChart.update();
+}
+
+buildDashboardOverviewChart();
+onChartThemeChange(buildDashboardOverviewChart);
+</script>{% endif %}
 {% endblock %}
