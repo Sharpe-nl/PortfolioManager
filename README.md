@@ -145,6 +145,18 @@ The service listens on port `8443`. Configure the reverse proxy to reach the LXC
 
 PortfolioManager follows semantic versions. The first public main-branch version is `0.1.0-beta`.
 
+### Optional updates from Settings
+
+The **Settings → Updates** card can always check the installed version against
+the official `main` branch. Installing an update from the app is optional and
+disabled by default. For a native systemd installation, follow the narrowly
+scoped setup in the [update procedure](deploy/install.md#update-procedure): it
+permits the web-service account to start only the fixed
+`portfoliomanager-update.service`, not to run arbitrary commands with `sudo`.
+The updater verifies the official repository, requires a clean `main` checkout,
+and keeps code and deploy scripts root-owned. Docker installations should use
+their normal image update procedure instead.
+
 ## Option 4: Direct Python for development
 
 ```bash
