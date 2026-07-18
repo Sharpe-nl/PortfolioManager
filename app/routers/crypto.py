@@ -1,10 +1,10 @@
 """Read-only Bitvavo crypto overview."""
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from ..db import get_db
+from ..db import get_db, get_setting, set_setting
 from ..helpers import require_auth, templates
 from ..services.bitvavo import BitvavoError, crypto_overview, sync_bitvavo
 from ..services.credentials import CredentialError, get_bitvavo_credentials, has_bitvavo_credentials
@@ -23,7 +23,18 @@ async def crypto_page(request: Request, conn=Depends(get_db), _=Depends(require_
         "request": request,
         "crypto": data,
         "bitvavo_configured": has_bitvavo_credentials(conn),
+        "include_in_dashboard": get_setting(conn, "include_crypto_in_dashboard", "1") != "0",
     })
+
+
+@router.post("/visibility")
+async def set_crypto_visibility(
+    include_in_dashboard: int = Form(0),
+    conn=Depends(get_db),
+    _=Depends(require_auth),
+):
+    set_setting(conn, "include_crypto_in_dashboard", "1" if include_in_dashboard else "0")
+    return RedirectResponse(url="/crypto", status_code=303)
 
 
 @router.post("/sync")

@@ -623,6 +623,8 @@ input[type="button"] {
 }
 .topnav-dropdown { position: relative; height: 100%; }
 .topnav-dropdown > summary { height: 100%; cursor: pointer; list-style: none; }
+.topnav-dropdown > summary a,
+.mobile-nav-group > summary a { color: inherit !important; text-decoration: none !important; }
 .topnav-dropdown > summary::-webkit-details-marker { display: none; }
 .topnav-dropdown > summary span { margin-left: .3rem; font-size: .72rem; transition: transform .15s ease; }
 .topnav-dropdown[open] > summary span { transform: rotate(180deg); }
@@ -767,7 +769,7 @@ input[type="button"] {
   list-style: none;
 }
 .mobile-nav-group > summary::-webkit-details-marker { display: none; }
-.mobile-nav-group > summary > span:first-of-type { flex: 1; }
+.mobile-nav-group > summary > a { flex: 1; }
 .mobile-nav-group.active > summary { color: var(--primary); background: var(--primary-bg); font-weight: 600; }
 .mobile-nav-chevron { margin-left: auto; transition: transform .15s ease; }
 .mobile-nav-group[open] .mobile-nav-chevron { transform: rotate(180deg); }
@@ -1239,12 +1241,41 @@ td.num, th.num {
 .savings-tier-row > td { padding: 0 .75rem .75rem !important; }
 .savings-tier-row details { margin: 0; }
 .savings-visibility-form { margin: 0; }
+.dashboard-visibility-toggle { margin: 0; }
+.dashboard-visibility-toggle label { display: inline-flex; align-items: center; gap: .38rem; margin: 0; color: var(--text-muted); font-size: .76rem; font-weight: 500; white-space: nowrap; cursor: pointer; }
+.dashboard-visibility-toggle input[type="checkbox"] { flex: 0 0 1rem; width: 1rem !important; min-width: 1rem !important; max-width: 1rem; height: 1rem; margin: 0 !important; }
 @media (max-width: 700px) { .savings-create-form, .savings-edit-row { grid-template-columns: 1fr 1fr; } .savings-create-form button, .savings-edit-row button { justify-self: start; } .settings-inline-form { align-items: stretch; flex-direction: column; } .settings-inline-form label { flex-basis: auto; } }
 .dashboard-savings-card { margin-top: 1rem; }
 .dashboard-savings-total { font-size: 1.65rem; font-weight: 700; }
 .dashboard-savings-interest { margin-top: .15rem; font-size: .85rem; }
 .dashboard-savings-list { display: flex; gap: .6rem 1rem; flex-wrap: wrap; margin-top: .85rem; color: var(--text-muted); font-size: .82rem; }
 .dashboard-savings-list strong { color: var(--text); margin-left: .25rem; }
+
+.dashboard-main-hero { margin-bottom: 1rem; }
+.dashboard-overview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; }
+.dashboard-overview-card {
+  display: grid;
+  gap: .45rem;
+  min-height: 10.5rem;
+  padding: 1rem 1.1rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--shadow-sm);
+  color: var(--text) !important;
+  text-decoration: none !important;
+  -webkit-backdrop-filter: blur(18px) saturate(135%);
+  backdrop-filter: blur(18px) saturate(135%);
+  transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+.dashboard-overview-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--primary) 48%, var(--border)); box-shadow: inset 0 1px 0 var(--glass-highlight), var(--shadow); }
+.dashboard-overview-card header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin: -.1rem 0 .35rem; padding: 0 0 .65rem; border-bottom: 1px solid var(--border); background: transparent; font-weight: 700; }
+.dashboard-overview-card header > span:first-child { display: inline-flex; align-items: center; gap: .5rem; }
+.dashboard-category-icon { display: inline-grid; width: 1.65rem; height: 1.65rem; place-items: center; border: 1px solid var(--border); border-radius: .48rem; background: var(--primary-bg); font-size: .82rem; }
+.dashboard-overview-card > strong { font-size: 1.65rem; line-height: 1.15; letter-spacing: -.03em; }
+.dashboard-overview-card > span { font-size: .82rem; font-weight: 600; }
+.dashboard-overview-card > small { align-self: end; color: var(--text-muted); font-size: .72rem; }
 
 .api-credentials-card { display: grid; gap: .6rem; max-width: none; padding: .65rem .8rem !important; overflow: visible; }
 .api-credentials-row { display: grid; grid-template-columns: minmax(9rem, 1.1fr) minmax(10rem, 1fr) minmax(10rem, 1fr) auto auto auto; align-items: end; gap: .65rem; margin: 0; }

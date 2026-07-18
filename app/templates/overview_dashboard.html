@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ t(request, 'dashboard.page_title') }} – PortfolioManager{% endblock %}
+{% block content %}
+<div class="page-header"><h1>{{ t(request, 'dashboard.page_title') }}</h1></div>
+
+<section class="portfolio-hero dashboard-main-hero">
+  <div class="portfolio-hero-left">
+    <div class="portfolio-hero-label">{{ t(request, 'dashboard.main_total_value') }}</div>
+    <div class="portfolio-hero-value">{{ total_value | eur }}</div>
+    <div class="portfolio-hero-row">
+      <span class="portfolio-hero-badge {{ total_result | pl_class }}">{{ total_result | eur }}</span>
+      <small class="muted">{{ t(request, 'dashboard.main_total_result') }}</small>
+    </div>
+  </div>
+</section>
+
+<div class="dashboard-overview-grid">
+  {% if show_stocks %}
+  <a href="/stocks" class="dashboard-overview-card">
+    <header><span><span class="dashboard-category-icon">📊</span>{{ t(request, 'nav.stocks') }}</span><span aria-hidden="true">→</span></header>
+    <strong>{{ stock_summary.total_value | eur }}</strong>
+    <span class="{{ stock_summary.total_pl | pl_class }}">{{ t(request, 'dashboard.main_result') }} · {{ stock_summary.total_pl | eur }} · {{ stock_summary.total_pl_pct | pct }}</span>
+  </a>
+  {% endif %}
+
+  {% if show_crypto %}
+  <a href="/crypto" class="dashboard-overview-card">
+    <header><span><span class="dashboard-category-icon">₿</span>{{ t(request, 'nav.crypto') }}</span><span aria-hidden="true">→</span></header>
+    <strong>{{ crypto.total | eur }}</strong>
+    <span class="{{ crypto.unrealized_result | pl_class }}">{{ t(request, 'dashboard.main_result') }} · {{ crypto.unrealized_result | eur }}{% if crypto.unrealized_pct is not none %} · {{ crypto.unrealized_pct | pct }}{% endif %}</span>
+    <small>{{ t(request, 'crypto.earn_rewards') }} · {{ crypto.earn_rewards | eur }}</small>
+  </a>
+  {% endif %}
+
+  {% if dashboard_savings %}
+  <a href="/savings" class="dashboard-overview-card dashboard-overview-card--savings">
+    <header><span><span class="dashboard-category-icon">💰</span>{{ t(request, 'nav.savings') }}</span><span aria-hidden="true">→</span></header>
+    <strong>{{ savings_balance | eur }}</strong>
+    <span class="pl-positive">{{ t(request, 'dashboard.savings_interest') }} · {{ savings_interest | eur }}</span>
+    <small>{% for saving in dashboard_savings %}{{ saving.name }}{% if not loop.last %} · {% endif %}{% endfor %}</small>
+  </a>
+  {% endif %}
+</div>
+
+{% if not show_stocks and not show_crypto and not dashboard_savings %}
+<article class="empty-state"><h2>{{ t(request, 'dashboard.main_empty_title') }}</h2><p>{{ t(request, 'dashboard.main_empty_text') }}</p></article>
+{% endif %}
+{% endblock %}
