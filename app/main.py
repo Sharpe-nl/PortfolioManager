@@ -14,7 +14,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from .db import _open, get_db, get_setting, run_migrations, set_setting
 from .helpers import _AuthRedirect
-from .routers import auth, portfolio, imports, accounts, dividends, benchmark, settings, actions, crypto, savings
+from .routers import auth, portfolio, imports, accounts, dividends, benchmark, settings, actions, crypto, savings, logos
 
 # ---------------------------------------------------------------------------
 # Logging — goes to stderr → visible in journalctl -u portfoliomanager
@@ -48,7 +48,7 @@ async def browser_security_middleware(request: Request, call_next):
                 return PlainTextResponse("Cross-origin request rejected", status_code=403)
 
     response = await call_next(request)
-    response.headers.setdefault("Content-Security-Policy", "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://img.logo.dev; connect-src 'self'")
+    response.headers.setdefault("Content-Security-Policy", "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'")
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "same-origin")
@@ -157,3 +157,4 @@ app.include_router(settings.router)
 app.include_router(actions.router)
 app.include_router(crypto.router)
 app.include_router(savings.router)
+app.include_router(logos.router)

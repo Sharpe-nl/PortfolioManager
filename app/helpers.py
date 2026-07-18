@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import os
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 from typing import Any
@@ -202,19 +201,5 @@ def _static_ver() -> str:
 templates.env.globals["sv"] = _static_ver()
 
 
-def _get_logo_dev_token() -> str:
-    """Return the UI-configured Logo.dev key, falling back to the environment."""
-    try:
-        from .db import _open, get_setting
-        conn = _open()
-        try:
-            return get_setting(conn, "logo_dev_token") or os.getenv("PM_LOGO_DEV_TOKEN", "")
-        finally:
-            conn.close()
-    except Exception:
-        return os.getenv("PM_LOGO_DEV_TOKEN", "")
-
-
-templates.env.globals["get_logo_dev_token"] = _get_logo_dev_token
 templates.env.globals["t"] = _t
 templates.env.globals["get_lang"] = _get_lang

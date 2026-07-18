@@ -12,6 +12,7 @@ from ..db import get_db, get_setting, set_setting
 from ..helpers import templates, require_auth
 from ..services.bitvavo import BitvavoError, sync_bitvavo
 from ..services.credentials import clear_bitvavo_credentials, has_bitvavo_credentials, save_bitvavo_credentials
+from ..services.logo_cache import clear_missing_logo_cache
 from ..services.refresh_scheduler import get_refresh_times, save_refresh_times
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -63,6 +64,7 @@ async def save_settings(
 ):
     if logo_dev_token.strip():
         set_setting(conn, "logo_dev_token", logo_dev_token.strip())
+        clear_missing_logo_cache(conn)
     return RedirectResponse(url="/settings?saved=1", status_code=303)
 
 

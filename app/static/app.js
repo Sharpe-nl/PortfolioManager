@@ -74,7 +74,6 @@ function createInstrumentLogo({ isin = '', symbol = '', name = '' } = {}) {
   fallback.textContent = (name.trim().match(/[\p{L}\p{N}]/u) || ['?'])[0].toUpperCase();
   logo.appendChild(fallback);
 
-  const token = document.body.dataset.logoToken;
   // Yahoo symbols can include exchange suffixes (IWDA.AS) or an index
   // prefix (^AEX). Logo.dev often resolves the base ticker instead, so try
   // both forms before falling back to the brand name.
@@ -89,7 +88,7 @@ function createInstrumentLogo({ isin = '', symbol = '', name = '' } = {}) {
     ...(baseTicker && baseTicker !== symbol && baseTicker !== normalizedTicker ? [{ mode: 'ticker', value: baseTicker }] : []),
     ...(name ? [{ mode: 'name', value: name }] : []),
   ];
-  if (!token || !candidates.length) return logo;
+  if (!candidates.length) return logo;
 
   const image = document.createElement('img');
   image.alt = '';
@@ -97,7 +96,7 @@ function createInstrumentLogo({ isin = '', symbol = '', name = '' } = {}) {
   let candidateIndex = 0;
   const loadCandidate = () => {
     const candidate = candidates[candidateIndex];
-    image.src = `https://img.logo.dev/${candidate.mode}/${encodeURIComponent(candidate.value)}?token=${encodeURIComponent(token)}&size=64&format=png&fallback=404`;
+    image.src = `/logos/${candidate.mode}?value=${encodeURIComponent(candidate.value)}`;
   };
   image.addEventListener('error', () => {
     candidateIndex += 1;

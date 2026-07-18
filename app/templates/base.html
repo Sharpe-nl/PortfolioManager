@@ -15,7 +15,7 @@
     })();
   </script>
 </head>
-<body data-logo-token="{{ get_logo_dev_token() }}">
+<body>
 {% set stocks_active = request.url.path.startswith('/stocks') or request.url.path.startswith('/holdings') or request.url.path.startswith('/dividends') or request.url.path.startswith('/benchmark') or request.url.path.startswith('/actions') or request.url.path.startswith('/instrument') %}
 
 <!-- ── Top navigation (desktop) ──────────────────────────────────────────── -->

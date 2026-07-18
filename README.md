@@ -41,7 +41,7 @@ The screenshots use an isolated demo portfolio with fictitious data.
 - Read-only Bitvavo integration with crypto balances, deposits, activity, historical EUR valuation and staking/lending income
 - Savings accounts with dated deposits and withdrawals, rate history, payout frequency, optional end dates, rate tiers and manual interest corrections
 - Configurable automatic stock and crypto refresh schedule (06:00 and 18:00 by default, using server time)
-- Company, ETF and crypto logos through an optional Logo.dev publishable key
+- Company, ETF and crypto logos through an optional Logo.dev publishable key; fetched assets are cached locally after the first request
 - WebAuthn/FIDO2 authentication (YubiKey-compatible)
 - SQLite backup download from the settings page
 - Responsive liquid-glass interface for desktop and mobile
