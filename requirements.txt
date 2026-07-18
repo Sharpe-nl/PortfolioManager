@@ -15,4 +15,4 @@ curl_cffi>=0.7.0          # browser TLS fingerprinting — auto-detected by yfin
 webauthn==2.3.0
 
 # ── Dev / test (not needed in production) ──────────────────────────────────────
-pytest==8.3.4
+pytest==9.0.3
