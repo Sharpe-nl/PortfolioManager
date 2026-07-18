@@ -20,6 +20,19 @@ NL = {
     "settings.logo_dev_key_configured": "Actief",
     "settings.clear_logo_dev_key": "Logo-sleutel verwijderen",
 
+    # ── Bitvavo API ──────────────────────────────────────────────────
+    "settings.section_bitvavo": "Bitvavo API",
+    "settings.bitvavo_info": "Maak in Bitvavo via Instellingen → API een nieuwe sleutel. Schakel alleen 'Inzien' (read-only) in en laat handelen en opnemen uitgeschakeld. Kopieer daarna zowel de API-key als de eenmalig getoonde API-secret naar deze velden.",
+    "settings.bitvavo_key": "API-key",
+    "settings.bitvavo_secret": "API-secret",
+    "settings.bitvavo_key_placeholder": "Bitvavo API-key",
+    "settings.bitvavo_secret_placeholder": "Bitvavo API-secret",
+    "settings.bitvavo_connect": "Koppelen",
+    "settings.bitvavo_remove": "Bitvavo-koppeling verwijderen",
+    "settings.bitvavo_readonly_warning": "Gebruik uitsluitend een read-only sleutel. PortfolioManager voert alleen GET-verzoeken uit en bevat geen functies om te handelen of crypto op te nemen.",
+    "settings.bitvavo_connected": "✓ Bitvavo gekoppeld en {count} saldi ingeladen.",
+    "settings.bitvavo_error": "✗ Bitvavo kon niet worden gekoppeld. Controleer beide velden en de read-only permissie.",
+
     # ── YubiKeys / security keys ──────────────────────────────────────
     "settings.section_yubikeys": "YubiKeys / beveiligingssleutels",
     "settings.yubikeys_intro": "Voeg een extra sleutel toe als back-up, of om vanaf een andere plek te kunnen inloggen.",
@@ -97,6 +110,18 @@ EN = {
     "settings.logo_dev_key_info": "Create a free Logo.dev account, open the dashboard and copy your publishable key (pk_…).",
     "settings.logo_dev_key_configured": "Active",
     "settings.clear_logo_dev_key": "Remove logo key",
+
+    "settings.section_bitvavo": "Bitvavo API",
+    "settings.bitvavo_info": "In Bitvavo, open Settings → API and create a new key. Enable only View (read-only), leaving trading and withdrawals disabled. Then copy both the API key and the one-time API secret into these fields.",
+    "settings.bitvavo_key": "API key",
+    "settings.bitvavo_secret": "API secret",
+    "settings.bitvavo_key_placeholder": "Bitvavo API key",
+    "settings.bitvavo_secret_placeholder": "Bitvavo API secret",
+    "settings.bitvavo_connect": "Connect",
+    "settings.bitvavo_remove": "Remove Bitvavo connection",
+    "settings.bitvavo_readonly_warning": "Use a read-only key only. PortfolioManager sends GET requests exclusively and contains no functions for trading or withdrawing crypto.",
+    "settings.bitvavo_connected": "✓ Bitvavo connected and {count} balances loaded.",
+    "settings.bitvavo_error": "✗ Bitvavo could not be connected. Check both fields and the read-only permission.",
 
     "settings.section_yubikeys": "YubiKeys / security keys",
     "settings.yubikeys_intro": "Add an extra key as a backup, or to be able to log in from another location.",

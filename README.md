@@ -25,6 +25,7 @@ The screenshots use an isolated demo portfolio with fictitious data.
 - Manual accounts and generic CSV imports
 - Portfolio dashboard, value history, realised/unrealised P&L, dividends and benchmark comparison
 - Allocation by sector, continent and asset type, including manual ETF country weights
+- Read-only Bitvavo integration with crypto balances, fixed staking, EUR valuation, performance and account activity
 - Company and ETF logos through an optional Logo.dev publishable key
 - WebAuthn/FIDO2 authentication (YubiKey-compatible)
 - SQLite backup download from the settings page
@@ -37,7 +38,7 @@ The screenshots use an isolated demo portfolio with fictitious data.
 - Outbound internet access if you want price updates or Logo.dev images
 - One of the deployment options below
 
-The app stores all persistent state in `data/portfolio.db`. Do not commit or share this file: it contains portfolio data, the generated session secret, WebAuthn credentials, and any saved Logo.dev key.
+The app stores all persistent state in `data/portfolio.db`. Do not commit or share this file: it contains portfolio data, the generated session secret, WebAuthn credentials, and encrypted external-service credentials. The generated encryption key is stored separately as `data/.credential_key`; keep it private as well.
 
 ## Deployment options
 
@@ -180,7 +181,8 @@ Open `https://portfolio.home:8443`. Add a local DNS entry for that hostname if n
 1. Open the site and register a FIDO2/WebAuthn authenticator.
 2. Create or import an account from the Import page.
 3. Add a Logo.dev **publishable** key in **Settings → Company logo API keys** if you want official logos. It is optional; the app falls back to initials.
-4. Download a backup from Settings after the first successful import.
+4. To connect Bitvavo, create an API key in Bitvavo with **View/read-only only**. Do not enable trading or withdrawals. Add both the API key and the one-time API secret in **Settings → Bitvavo API**.
+5. Download a backup from Settings after the first successful import or synchronization.
 
 ## Backups and updates
 
@@ -189,6 +191,8 @@ Back up `data/portfolio.db` while the app is stopped, or use SQLite's backup com
 ```bash
 sqlite3 data/portfolio.db ".backup 'portfolio-backup.db'"
 ```
+
+If you want a restored installation to retain encrypted Bitvavo credentials, also back up `data/.credential_key` and protect it like a password. A database-only backup remains usable, but you will need to enter the Bitvavo credentials again after restoring it.
 
 For a native installation, update with:
 
