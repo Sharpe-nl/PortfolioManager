@@ -4,6 +4,8 @@ from __future__ import annotations
 import logging
 import os
 import secrets
+import asyncio
+from contextlib import suppress
 
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
@@ -98,6 +100,17 @@ async def auth_redirect_handler(request: Request, exc: _AuthRedirect):
 @app.on_event("startup")
 async def startup():
     run_migrations()
+    from .services.refresh_scheduler import scheduler_loop
+    app.state.refresh_scheduler_task = asyncio.create_task(scheduler_loop())
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    task = getattr(app.state, "refresh_scheduler_task", None)
+    if task:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
 
 
 # ---------------------------------------------------------------------------

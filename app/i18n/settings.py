@@ -33,6 +33,13 @@ NL = {
     "settings.bitvavo_connected": "✓ Bitvavo gekoppeld en {count} saldi ingeladen.",
     "settings.bitvavo_error": "✗ Bitvavo kon niet worden gekoppeld. Controleer beide velden en de read-only permissie.",
 
+    "settings.section_schedule": "Automatisch verversen",
+    "settings.schedule_time_1": "Eerste tijd",
+    "settings.schedule_time_2": "Tweede tijd",
+    "settings.schedule_hint": "Aandelen en crypto worden dagelijks op deze tijden ververst volgens de servertijd ({timezone}). Niet-gekoppelde onderdelen worden overgeslagen.",
+    "settings.schedule_last_run": "Laatst uitgevoerd: {value}.",
+    "settings.schedule_error": "Kies twee geldige tijden.",
+
     # ── YubiKeys / security keys ──────────────────────────────────────
     "settings.section_yubikeys": "YubiKeys / beveiligingssleutels",
     "settings.yubikeys_intro": "Voeg een extra sleutel toe als back-up, of om vanaf een andere plek te kunnen inloggen.",
@@ -122,6 +129,13 @@ EN = {
     "settings.bitvavo_readonly_warning": "Use a read-only key only. PortfolioManager sends GET requests exclusively and contains no functions for trading or withdrawing crypto.",
     "settings.bitvavo_connected": "✓ Bitvavo connected and {count} balances loaded.",
     "settings.bitvavo_error": "✗ Bitvavo could not be connected. Check both fields and the read-only permission.",
+
+    "settings.section_schedule": "Automatic refresh",
+    "settings.schedule_time_1": "First time",
+    "settings.schedule_time_2": "Second time",
+    "settings.schedule_hint": "Stocks and crypto are refreshed daily at these times using server time ({timezone}). Unconnected sections are skipped.",
+    "settings.schedule_last_run": "Last run: {value}.",
+    "settings.schedule_error": "Choose two valid times.",
 
     "settings.section_yubikeys": "YubiKeys / security keys",
     "settings.yubikeys_intro": "Add an extra key as a backup, or to be able to log in from another location.",

@@ -26,6 +26,7 @@ The screenshots use an isolated demo portfolio with fictitious data.
 - Portfolio dashboard, value history, realised/unrealised P&L, dividends and benchmark comparison
 - Allocation by sector, continent and asset type, including manual ETF country weights
 - Read-only Bitvavo integration with crypto balances, fixed staking, EUR valuation, performance and account activity
+- Configurable automatic stock and crypto refresh schedule (06:00 and 18:00 by default, using server time)
 - Company and ETF logos through an optional Logo.dev publishable key
 - WebAuthn/FIDO2 authentication (YubiKey-compatible)
 - SQLite backup download from the settings page

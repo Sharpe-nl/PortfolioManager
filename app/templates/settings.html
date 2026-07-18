@@ -82,6 +82,18 @@
   <p class="muted api-credentials-hint">{{ t(request, 'settings.bitvavo_readonly_warning') }}</p>
 </article>
 
+<!-- ── Automatic refresh schedule ───────────────────────────────────── -->
+<article class="schedule-settings-card">
+  <header>{{ t(request, 'settings.section_schedule') }}</header>
+  {% if request.query_params.get('schedule_error') %}<div class="notice error">{{ t(request, 'settings.schedule_error') }}</div>{% endif %}
+  <form method="post" action="/settings/refresh-schedule" class="schedule-settings-row">
+    <label>{{ t(request, 'settings.schedule_time_1') }}<input type="time" name="refresh_time_1" value="{{ refresh_time_1 }}" required></label>
+    <label>{{ t(request, 'settings.schedule_time_2') }}<input type="time" name="refresh_time_2" value="{{ refresh_time_2 }}" required></label>
+    <button type="submit" class="outline secondary btn-sm">{{ t(request, 'common.save') }}</button>
+  </form>
+  <p class="muted schedule-settings-hint">{{ t(request, 'settings.schedule_hint', timezone=server_timezone) }}{% if refresh_last_run %} {{ t(request, 'settings.schedule_last_run', value=refresh_last_run) }}{% endif %}</p>
+</article>
+
 <!-- ── YubiKeys / beveiligingssleutels ─────────────────────────────────── -->
 <article>
   <header>{{ t(request, 'settings.section_yubikeys') }}</header>

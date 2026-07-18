@@ -1,6 +1,7 @@
 """Settings page."""
 from __future__ import annotations
 
+from datetime import datetime
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -11,6 +12,7 @@ from ..db import get_db, get_setting, set_setting
 from ..helpers import templates, require_auth
 from ..services.bitvavo import BitvavoError, sync_bitvavo
 from ..services.credentials import clear_bitvavo_credentials, has_bitvavo_credentials, save_bitvavo_credentials
+from ..services.refresh_scheduler import get_refresh_times, save_refresh_times
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -18,6 +20,7 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 @router.get("", response_class=HTMLResponse)
 async def settings_page(request: Request, conn=Depends(get_db), _=Depends(require_auth)):
     logo_dev_token_configured = bool(get_setting(conn, "logo_dev_token"))
+    refresh_times = get_refresh_times(conn)
 
     unmapped = conn.execute(
         "SELECT id, name, isin FROM instruments WHERE symbol IS NULL OR symbol = '' ORDER BY name"
@@ -36,6 +39,10 @@ async def settings_page(request: Request, conn=Depends(get_db), _=Depends(requir
         "request": request,
         "logo_dev_token_configured": logo_dev_token_configured,
         "bitvavo_configured": has_bitvavo_credentials(conn),
+        "refresh_time_1": refresh_times[0],
+        "refresh_time_2": refresh_times[1] if len(refresh_times) > 1 else refresh_times[0],
+        "refresh_last_run": get_setting(conn, "automatic_refresh_last_run"),
+        "server_timezone": datetime.now().astimezone().tzname() or "local",
         "webauthn_credentials": list_credentials(conn),
         "unmapped_instruments": [dict(r) for r in unmapped],
         "mapped_instruments": [dict(r) for r in mapped],
@@ -56,6 +63,20 @@ async def save_settings(
 ):
     if logo_dev_token.strip():
         set_setting(conn, "logo_dev_token", logo_dev_token.strip())
+    return RedirectResponse(url="/settings?saved=1", status_code=303)
+
+
+@router.post("/refresh-schedule")
+async def save_refresh_schedule(
+    refresh_time_1: str = Form(...),
+    refresh_time_2: str = Form(...),
+    conn=Depends(get_db),
+    _=Depends(require_auth),
+):
+    try:
+        save_refresh_times(conn, [refresh_time_1, refresh_time_2])
+    except ValueError:
+        return RedirectResponse(url="/settings?schedule_error=1", status_code=303)
     return RedirectResponse(url="/settings?saved=1", status_code=303)
 
 
