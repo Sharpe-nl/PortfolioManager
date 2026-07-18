@@ -53,18 +53,6 @@
   </div>
   {% endif %}
 
-  {% if item.account.type in ['savings','other'] %}
-  <details>
-    <summary>{{ t(request, 'accounts.add_balance_snapshot') }}</summary>
-    <form method="post" action="/accounts/{{ item.account.id }}/snapshot">
-      <div class="form-grid">
-        <label>{{ t(request, 'common.date') }} <input type="date" name="date" required></label>
-        <label>{{ t(request, 'accounts.label_balance_eur') }} <input type="text" name="balance_eur" placeholder="1234.56" required></label>
-      </div>
-      <button type="submit">{{ t(request, 'common.save') }}</button>
-    </form>
-  </details>
-  {% endif %}
 </article>
 {% else %}
 <p>{{ t(request, 'accounts.no_accounts') }}</p>

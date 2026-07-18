@@ -12,8 +12,6 @@ NL = {
     "accounts.estimated_value": "Geschatte waarde:",
     "accounts.last_transaction": "Laatste transactie:",
     "accounts.balance_snapshot": "Saldo snapshot:",
-    "accounts.add_balance_snapshot": "Saldobalans toevoegen",
-    "accounts.label_balance_eur": "Saldo (€)",
 
     "accounts.no_accounts": "Geen accounts. Voeg hieronder een account toe.",
 
@@ -36,8 +34,6 @@ EN = {
     "accounts.estimated_value": "Estimated value:",
     "accounts.last_transaction": "Last transaction:",
     "accounts.balance_snapshot": "Balance snapshot:",
-    "accounts.add_balance_snapshot": "Add balance snapshot",
-    "accounts.label_balance_eur": "Balance (€)",
 
     "accounts.no_accounts": "No accounts. Add one below.",
 

@@ -104,22 +104,6 @@ async def edit_account(
     return RedirectResponse(url="/accounts", status_code=303)
 
 
-@router.post("/{account_id}/snapshot")
-async def add_snapshot(
-    request: Request,
-    account_id: int,
-    conn=Depends(get_db),
-    _=Depends(require_auth),
-    date: str = Form(...),
-    balance_eur: str = Form(...),
-):
-    conn.execute(
-        "INSERT OR REPLACE INTO balance_snapshots(account_id, date, balance_eur) VALUES (?,?,?)",
-        (account_id, date, balance_eur),
-    )
-    return RedirectResponse(url="/accounts", status_code=303)
-
-
 @router.post("/{account_id}/delete")
 async def delete_account(account_id: int, conn=Depends(get_db), _=Depends(require_auth)):
     """Delete an account and the data that cannot outlive it."""
