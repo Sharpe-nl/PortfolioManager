@@ -91,6 +91,22 @@ class TestHoldings:
         assert h.unrealized_pl == Decimal("35.52")
 
 
+def test_stock_result_excludes_savings_deposits(mem_db):
+    _seed_data(mem_db)
+    mem_db.execute("INSERT INTO accounts(id,name,type,currency) VALUES(2,'Savings','savings','EUR')")
+    mem_db.execute(
+        "INSERT INTO cash_events(account_id,ts,type,amount_eur) VALUES(1,'2025-01-01','deposit','1000')"
+    )
+    mem_db.execute(
+        "INSERT INTO cash_events(account_id,ts,type,amount_eur) VALUES(2,'2025-01-01','deposit','20000')"
+    )
+    mem_db.commit()
+
+    summary = get_portfolio_summary(mem_db)
+    assert summary["net_deposits"] == Decimal("1000.0")
+    assert summary["total_pl"] == Decimal("-52.00")
+
+
 class TestRealizedPL:
     def test_realized_pl_zero_before_any_sell(self, mem_db):
         _seed_data(mem_db)

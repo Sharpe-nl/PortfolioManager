@@ -716,9 +716,12 @@ def get_portfolio_summary(
     # a naive value-minus-deposits it isn't thrown off by withdrawals (taking
     # profit out isn't a loss).
     deposits_row = conn.execute(
-        """SELECT SUM(CAST(amount_eur AS REAL)) AS net
-           FROM cash_events
-           WHERE type IN ('deposit','withdrawal') AND (:acct IS NULL OR account_id = :acct)""",
+        """SELECT SUM(CAST(ce.amount_eur AS REAL)) AS net
+           FROM cash_events ce
+           JOIN accounts a ON a.id = ce.account_id
+           WHERE ce.type IN ('deposit','withdrawal')
+             AND a.type != 'savings'
+             AND (:acct IS NULL OR ce.account_id = :acct)""",
         {"acct": account_id},
     ).fetchone()
     net_deposits = Decimal(str(deposits_row["net"])) if deposits_row and deposits_row["net"] else _ZERO
@@ -741,6 +744,7 @@ def get_portfolio_summary(
         "realized_pl": realized,
         "total_pl": total_pl,
         "total_pl_pct": total_pl_pct,
+        "net_deposits": net_deposits,
         "holdings_count": len(holdings),
         "price_as_of": price_as_of,
         "has_stale_prices": price_as_of is None or (len(holdings) > 0 and price_as_of < str(_date.today())),
