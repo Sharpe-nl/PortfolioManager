@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}PortfolioManager{% endblock %}</title>
+  <link rel="icon" href="/static/favicon.svg?v={{ sv }}" type="image/svg+xml">
   <link rel="stylesheet" href="/static/vendor/pico.min.css?v={{ sv }}">
   <link rel="stylesheet" href="/static/style.css?v={{ sv }}">
   <script>
@@ -21,8 +22,7 @@
 <header class="topnav">
   <div class="topnav-inner">
     <a href="/" class="brand-link">
-      <span>📈</span>
-      <span>PortfolioManager</span>
+      PortfolioManager
     </a>
     <nav class="topnav-links" aria-label="{{ t(request, 'nav.aria') }}">
       <a href="/" class="{% if request.url.path == '/' %}active{% endif %}">{{ t(request, 'nav.dashboard') }}</a>
@@ -58,7 +58,7 @@
 <!-- ── Mobile header ──────────────────────────────────────────────────────── -->
 <div class="mobile-header">
   <button class="hamburger" onclick="toggleMobileMenu()" aria-label="{{ t(request, 'nav.menu') }}">☰</button>
-  <span class="brand-name-mobile">📈 PortfolioManager</span>
+  <span class="brand-name-mobile">PortfolioManager</span>
   <button class="lang-toggle" onclick="toggleLanguage()" aria-label="{{ t(request, 'nav.lang_toggle') }}">
     {% if get_lang(request) == 'nl' %}🇳🇱{% else %}🇬🇧{% endif %}
   </button>
