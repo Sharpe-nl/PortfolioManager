@@ -1100,6 +1100,10 @@ td.num, th.num {
 .savings-summary small { color: var(--text-muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; }
 .savings-summary strong { font-size: 1.25rem; }
 .savings-card details { margin-top: .65rem; }
+.savings-dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 1rem; }
+.savings-edit-row { display: grid; grid-template-columns: 1fr 1fr 1fr auto auto; gap: .5rem; align-items: end; margin-top: .65rem; padding-top: .65rem; border-top: 1px solid var(--border); }
+.savings-edit-row input, .savings-edit-row select { margin-bottom: 0; min-width: 0; }
+@media (max-width: 700px) { .savings-edit-row { grid-template-columns: 1fr 1fr; } }
 .dashboard-savings-card { margin-top: 1rem; }
 .dashboard-savings-total { font-size: 1.65rem; font-weight: 700; }
 .dashboard-savings-interest { margin-top: .15rem; font-size: .85rem; }
