@@ -27,7 +27,9 @@ def test_manual_interest_is_an_editable_correction(mem_db):
     mem_db.execute("INSERT INTO savings_interest_adjustments(account_id,date,amount_eur,description) VALUES(2,'2026-03-01','5','Bank correction')")
     mem_db.commit()
     result = account_interest(mem_db, 2, date(2026, 3, 2))
-    assert result["balance"] == Decimal("1025.10")
+    # The correction is available before that day's monthly payout, so it
+    # also earns interest in the next compounding step.
+    assert result["balance"] == Decimal("1025.15")
     assert any(event["kind"] == "manual" for event in result["events"])
 
 
@@ -37,6 +39,24 @@ def test_interest_correction_on_snapshot_date_is_included(mem_db):
     mem_db.commit()
     result = account_interest(mem_db, 2, date(2026, 1, 2))
     assert result["balance"] == Decimal("2000.00")
+
+
+def test_deposit_and_withdrawal_change_savings_balance(mem_db):
+    _savings_account(mem_db)
+    mem_db.execute("INSERT INTO cash_events(account_id,ts,type,amount_eur) VALUES(2,'2026-01-01T00:00:00','deposit','200')")
+    mem_db.execute("INSERT INTO cash_events(account_id,ts,type,amount_eur) VALUES(2,'2026-01-02T00:00:00','withdrawal','-50')")
+    mem_db.commit()
+    result = account_interest(mem_db, 2, date(2026, 1, 2))
+    assert result["balance"] == Decimal("1150.00")
+    assert {event["kind"] for event in result["events"]} >= {"deposit", "withdrawal"}
+
+
+def test_first_deposit_can_create_a_savings_balance_without_snapshot(mem_db):
+    mem_db.execute("INSERT INTO accounts(id,name,type,currency) VALUES(3,'Fresh savings','savings','EUR')")
+    mem_db.execute("INSERT INTO cash_events(account_id,ts,type,amount_eur) VALUES(3,'2026-01-01T00:00:00','deposit','250')")
+    mem_db.commit()
+    result = account_interest(mem_db, 3, date(2026, 1, 2))
+    assert result["balance"] == Decimal("250.00")
 
 
 def test_hidden_savings_is_not_returned_for_dashboard(mem_db):

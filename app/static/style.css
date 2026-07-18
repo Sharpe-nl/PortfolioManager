@@ -1118,12 +1118,14 @@ td.num, th.num {
 .savings-summary strong { font-size: 1.25rem; }
 .savings-rate-meta { display: flex; gap: .35rem .8rem; flex-wrap: wrap; margin: .65rem 0 .2rem; color: var(--text-muted); font-size: .78rem; }
 .savings-rate-meta strong { color: var(--text); }
+.savings-form-hint { margin: .85rem 0 0; font-size: .8rem; }
 .savings-card details { margin-top: .65rem; }
 .savings-dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 1rem; }
 .savings-create-form, .savings-edit-row { display: grid; gap: .6rem; align-items: end; }
 .savings-create-form { margin: 0; }
 .savings-create-form--rate { grid-template-columns: minmax(8rem, 1fr) minmax(10rem, 1fr) minmax(10rem, 1fr) auto; }
 .savings-create-form--two { grid-template-columns: minmax(10rem, 1fr) minmax(10rem, 1fr) auto; }
+.savings-create-form--three { grid-template-columns: minmax(9rem, 1fr) minmax(9rem, 1fr) minmax(9rem, 1fr) auto; }
 .savings-create-form--manual { grid-template-columns: minmax(10rem, 1fr) minmax(9rem, 1fr) minmax(12rem, 1fr) auto; }
 .savings-edit-row--rate { grid-template-columns: minmax(8rem, 1fr) minmax(10rem, 1fr) minmax(10rem, 1fr) auto auto; }
 .savings-edit-row--two { grid-template-columns: minmax(10rem, 1fr) minmax(10rem, 1fr) auto auto; }

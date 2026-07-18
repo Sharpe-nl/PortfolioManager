@@ -48,6 +48,18 @@ async def add_snapshot(account_id: int, date: str = Form(...), balance_eur: str 
     return RedirectResponse(url=f"/savings/{account_id}/settings?saved=1", status_code=303)
 
 
+@router.post("/{account_id}/cash")
+async def add_cash_movement(account_id: int, date: str = Form(...), movement_type: str = Form(...), amount_eur: str = Form(...), conn=Depends(get_db), _=Depends(require_auth)):
+    if _savings_account(conn, account_id) and movement_type in {"deposit", "withdrawal"}:
+        amount = abs(float(amount_eur))
+        signed_amount = amount if movement_type == "deposit" else -amount
+        conn.execute(
+            "INSERT INTO cash_events(account_id,ts,type,amount_eur,description) VALUES(?,?,?,?,?)",
+            (account_id, f"{date}T00:00:00", movement_type, str(signed_amount), "Savings account movement"),
+        )
+    return RedirectResponse(url=f"/savings/{account_id}/settings?saved=1", status_code=303)
+
+
 @router.post("/{account_id}/interest")
 async def add_interest(account_id: int, date: str = Form(...), amount_eur: str = Form(...), description: str = Form(""), conn=Depends(get_db), _=Depends(require_auth)):
     if _savings_account(conn, account_id):
