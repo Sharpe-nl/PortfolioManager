@@ -3,7 +3,7 @@
 ## Requirements
 
 - Debian 12 LXC (1 vCPU, 1 GB RAM, 8 GB disk)
-- Outbound internet access for `pip install` and initial price fetches
+- Outbound internet access for `pip install`, market prices and optional Bitvavo/Logo.dev access
 - Python 3.11 (available via `apt`)
 
 ---
@@ -44,7 +44,7 @@ useradd --system --create-home --shell /bin/false service_portfolio_manager
 
 ```bash
 cd /opt
-git clone https://your-repo-url portfoliomanager
+git clone https://github.com/Sharpe-nl/PortfolioManager.git portfoliomanager
 chown -R service_portfolio_manager:service_portfolio_manager /opt/portfoliomanager
 ```
 
@@ -147,6 +147,26 @@ systemctl status portfoliomanager
 
 ---
 
+## Step 9 — Configure the data sources
+
+1. Create a broker account and import DeGiro's `Account.csv` under **Stocks → Actions → Import**. The same or overlapping file may safely be imported again.
+2. If you use Bitvavo, create an API key with **View/read-only permissions only**. Keep trading and withdrawals disabled. Add the key and its one-time secret under **Settings → Bitvavo API**, then synchronize from the Crypto page.
+3. Create accounts of type **Savings** for bank savings. Each savings account has its own settings page for dated deposits and withdrawals, rate periods, payout frequency, balance tiers and manual interest corrections.
+4. Use the **Show on dashboard** switch per category to control the main dashboard cards.
+5. Review the automatic stock and crypto refresh times in Settings. The defaults are 06:00 and 18:00 in the LXC's local time zone.
+
+The scheduler only runs while the service is active. To inspect or change the LXC time zone:
+
+```bash
+timedatectl status
+timedatectl set-timezone Europe/Amsterdam
+systemctl restart portfoliomanager
+```
+
+Logo.dev is optional. Add only a **publishable** Logo.dev key in Settings; never place private credentials in the repository.
+
+---
+
 ## Backup
 
 ### Manual backup
@@ -154,7 +174,11 @@ systemctl status portfoliomanager
 ```bash
 sqlite3 /opt/portfoliomanager/data/portfolio.db \
     ".backup /opt/portfoliomanager/data/portfolio-$(date +%Y%m%d).db"
+cp /opt/portfoliomanager/data/.credential_key \
+   /opt/portfoliomanager/data/credential-key-$(date +%Y%m%d)
 ```
+
+The database contains portfolio data, WebAuthn credentials, the session secret and encrypted external-service credentials. `data/.credential_key` is required to decrypt those external-service credentials after a restore. Protect both files like passwords and never commit them.
 
 ### Automated nightly backup (keep 30 days)
 

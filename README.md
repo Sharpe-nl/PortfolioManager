@@ -1,6 +1,6 @@
 # PortfolioManager
 
-PortfolioManager is a private, self-hosted investment tracker. It imports DeGiro exports, tracks holdings and cash, fetches market prices, compares benchmarks, and supports WebAuthn/FIDO2 security keys.
+PortfolioManager is a private, self-hosted wealth tracker for stocks, ETFs, crypto and savings. It imports DeGiro account exports, synchronizes a read-only Bitvavo account, calculates savings interest and brings the enabled categories together on one dashboard. Access is protected with WebAuthn/FIDO2 security keys.
 
 It is designed for a small home server: one Python process, one SQLite database, no external database service, and no frontend build step.
 
@@ -17,17 +17,31 @@ It is designed for a small home server: one Python process, one SQLite database,
   </tr>
 </table>
 
+<table>
+  <tr>
+    <td align="center"><strong>Crypto overview</strong></td>
+    <td align="center"><strong>Savings overview</strong></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/crypto-dark.png" alt="PortfolioManager crypto overview in dark theme" width="600"></td>
+    <td><img src="docs/screenshots/savings-light.png" alt="PortfolioManager savings overview in light theme" width="600"></td>
+  </tr>
+</table>
+
 The screenshots use an isolated demo portfolio with fictitious data.
 
 ## Features
 
-- DeGiro `Account.csv` imports with safe re-imports
-- Manual accounts and generic CSV imports
-- Portfolio dashboard, value history, realised/unrealised P&L, dividends and benchmark comparison
+- A configurable main dashboard with separate stock, crypto and savings cards
+- A combined stock-and-crypto history chart with 1M, YTD, 1Y, custom and all-time ranges
+- DeGiro `Account.csv` imports with drag and drop, a built-in export guide and safe overlapping re-imports
+- Manual broker, pension, savings and other accounts
+- Stock and ETF holdings, value history, realised/unrealised P&L, dividends, actions and benchmark comparison
 - Allocation by sector, continent and asset type, including manual ETF country weights
-- Read-only Bitvavo integration with crypto balances, fixed staking, EUR valuation, performance and account activity
+- Read-only Bitvavo integration with crypto balances, deposits, activity, historical EUR valuation and staking/lending income
+- Savings accounts with dated deposits and withdrawals, rate history, payout frequency, optional end dates, rate tiers and manual interest corrections
 - Configurable automatic stock and crypto refresh schedule (06:00 and 18:00 by default, using server time)
-- Company and ETF logos through an optional Logo.dev publishable key
+- Company, ETF and crypto logos through an optional Logo.dev publishable key
 - WebAuthn/FIDO2 authentication (YubiKey-compatible)
 - SQLite backup download from the settings page
 - Responsive liquid-glass interface for desktop and mobile
@@ -36,7 +50,7 @@ The screenshots use an isolated demo portfolio with fictitious data.
 
 - A modern browser
 - HTTPS and a stable hostname for WebAuthn in production
-- Outbound internet access if you want price updates or Logo.dev images
+- Outbound internet access for market prices, Bitvavo synchronization and optional Logo.dev images
 - One of the deployment options below
 
 The app stores all persistent state in `data/portfolio.db`. Do not commit or share this file: it contains portfolio data, the generated session secret, WebAuthn credentials, and encrypted external-service credentials. The generated encryption key is stored separately as `data/.credential_key`; keep it private as well.
@@ -65,8 +79,8 @@ For most home servers, use your existing Nginx Proxy Manager/nginx setup. A self
 ## Option 1: Docker Compose
 
 ```bash
-git clone https://github.com/YOUR-USER/portfoliomanager.git
-cd portfoliomanager
+git clone https://github.com/Sharpe-nl/PortfolioManager.git
+cd PortfolioManager
 docker compose up -d --build
 ```
 
@@ -91,8 +105,8 @@ docker run --rm -v portfoliomanager-data:/data -v "$PWD":/backup alpine \
 ## Option 2: Docker CLI
 
 ```bash
-git clone https://github.com/YOUR-USER/portfoliomanager.git
-cd portfoliomanager
+git clone https://github.com/Sharpe-nl/PortfolioManager.git
+cd PortfolioManager
 docker build -t portfoliomanager:latest .
 mkdir -p /srv/portfoliomanager/data
 docker run -d \
@@ -115,7 +129,7 @@ apt update
 apt install -y python3 python3-venv python3-dev git sqlite3
 
 useradd --system --create-home --shell /usr/sbin/nologin service_portfolio_manager
-git clone https://github.com/YOUR-USER/portfoliomanager.git /opt/portfoliomanager
+git clone https://github.com/Sharpe-nl/PortfolioManager.git /opt/portfoliomanager
 chown -R service_portfolio_manager:service_portfolio_manager /opt/portfoliomanager
 
 sudo -u service_portfolio_manager python3 -m venv /opt/portfoliomanager/.venv
@@ -179,11 +193,25 @@ Open `https://portfolio.home:8443`. Add a local DNS entry for that hostname if n
 
 ## First run and settings
 
-1. Open the site and register a FIDO2/WebAuthn authenticator.
-2. Create or import an account from the Import page.
-3. Add a Logo.dev **publishable** key in **Settings → Company logo API keys** if you want official logos. It is optional; the app falls back to initials.
-4. To connect Bitvavo, create an API key in Bitvavo with **View/read-only only**. Do not enable trading or withdrawals. Add both the API key and the one-time API secret in **Settings → Bitvavo API**.
-5. Download a backup from Settings after the first successful import or synchronization.
+1. Open the site and register a FIDO2/WebAuthn authenticator. Register a second key from Settings when possible, so you have a backup login method.
+2. For stocks and ETFs, create a broker account and import DeGiro's `Account.csv` from **Stocks → Actions → Import**. Overlapping exports are safe: previously imported rows are recognized automatically.
+3. For crypto, create a Bitvavo API key with **View/read-only permissions only**. Never enable trading or withdrawals. Enter the API key and its one-time secret under **Settings → Bitvavo API**, then start the first synchronization from the Crypto page.
+4. For savings, create an account with type **Savings**. Open its settings to add deposits or withdrawals and define the applicable interest rates, payout frequency and optional balance tiers.
+5. Use the **Show on dashboard** switch on the Stocks, Crypto and Savings pages to decide which category cards appear on the main dashboard. Savings is shown as a separate card; the combined history line contains stocks and crypto.
+6. Review the automatic refresh times in Settings. Stocks and crypto refresh at 06:00 and 18:00 by default, in the server's local time zone. The application must be running at those times.
+7. Optionally add a Logo.dev **publishable** key under **Settings → Company logo API keys**. Without one, the interface falls back to initials.
+8. Download a backup from Settings after the first successful import or synchronization.
+
+### What the results mean
+
+- **Stocks** are calculated only from broker-account transactions, cash events and market prices. Crypto and savings deposits do not affect stock performance.
+- **Crypto unrealised result** is the current Bitvavo account value minus net EUR deposits. Staking and lending rewards are reported separately using their historical EUR value when available.
+- **Savings growth** contains calculated and manually corrected interest. Deposits and withdrawals change the balance but are not treated as investment growth.
+- **Main dashboard total value** adds all enabled category values. Its result adds stock performance, crypto unrealised result and savings interest, while its chart deliberately combines only stock and crypto history.
+
+### Automatic refresh
+
+The built-in scheduler checks once per minute and runs each configured time slot only once. A stock-provider failure does not prevent Bitvavo from refreshing, and vice versa. Times use the operating system or container time zone; check the time displayed in Settings if the refresh occurs at an unexpected hour.
 
 ## Backups and updates
 
@@ -210,7 +238,7 @@ For Docker, rebuild and recreate the container with `docker compose up -d --buil
 
 ```bash
 python -m pytest
-python -m py_compile app/main.py app/routers/portfolio.py
+python -m py_compile app/main.py app/routers/portfolio.py app/routers/crypto.py app/routers/savings.py
 git diff --check
 ```
 
@@ -223,7 +251,7 @@ app/          FastAPI application, templates, static assets and services
 migrations/   Ordered SQLite migrations, applied automatically at startup
 tests/        Unit tests and CSV fixtures
 deploy/       systemd unit and detailed LXC deployment guide
-scripts/      Vendor download and maintenance utilities
+scripts/      Deployment and maintenance utilities
 data/         Local SQLite database (ignored by Git)
 ```
 
