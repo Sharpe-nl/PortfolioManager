@@ -35,3 +35,13 @@ def test_stock_and_crypto_dashboard_visibility_is_saved(mem_db):
     asyncio.run(set_crypto_visibility(include_in_dashboard=1, conn=mem_db, _=None))
     assert get_setting(mem_db, "include_stocks_in_dashboard") == "1"
     assert get_setting(mem_db, "include_crypto_in_dashboard") == "1"
+
+
+def test_main_dashboard_chart_has_ranges_and_total_toggle(mem_db):
+    mem_db.execute("INSERT INTO accounts(id,name,type,currency) VALUES(2,'Savings','savings','EUR')")
+    mem_db.execute("INSERT INTO balance_snapshots(account_id,date,balance_eur) VALUES(2,'2026-01-01','1000')")
+    response = asyncio.run(dashboard(_request("/"), conn=mem_db, _=None))
+    html = response.body.decode()
+    assert 'data-series="total"' in html
+    assert 'data-range="YTD"' in html
+    assert "dashboardOverviewChart" in html

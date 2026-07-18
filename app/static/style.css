@@ -1279,8 +1279,11 @@ td.num, th.num {
 .dashboard-overview-card > span { font-size: .82rem; font-weight: 600; }
 .dashboard-overview-card > small { align-self: end; color: var(--text-muted); font-size: .72rem; }
 .dashboard-overview-chart-card { margin-top: 1rem; }
-.dashboard-overview-chart-card > header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
+.dashboard-overview-chart-card > header { display: flex; align-items: center; gap: .55rem .75rem; flex-wrap: wrap; }
+.dashboard-chart-title { margin-right: auto; }
+.dashboard-chart-ranges { flex-wrap: wrap; }
 .dashboard-chart-toggles { flex-wrap: wrap; }
+.dashboard-overview-chart-wrap { position: relative; height: 13.5rem; }
 .dashboard-chart-empty { margin-top: 1rem; }
 
 .api-credentials-card { display: grid; gap: .6rem; max-width: none; padding: .65rem .8rem !important; overflow: visible; }
