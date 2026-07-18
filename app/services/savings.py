@@ -50,7 +50,7 @@ def account_interest(conn: sqlite3.Connection, account_id: int, as_of: date | No
         (account_id, as_of.isoformat()),
     ).fetchall()
     adjustments = conn.execute(
-        "SELECT id, date, amount_eur, description FROM savings_interest_adjustments WHERE account_id=? AND date>? AND date<=? ORDER BY date, id",
+        "SELECT id, date, amount_eur, description FROM savings_interest_adjustments WHERE account_id=? AND date>=? AND date<=? ORDER BY date, id",
         (account_id, start.isoformat(), as_of.isoformat()),
     ).fetchall()
     events = []
@@ -77,7 +77,18 @@ def account_interest(conn: sqlite3.Connection, account_id: int, as_of: date | No
         balance += amount
         events.append({"date": adjustment["date"], "amount": amount, "kind": "manual", "id": adjustment["id"], "description": adjustment["description"]})
     interest = (balance - principal).quantize(_CENT)
-    return {"balance": balance.quantize(_CENT), "principal": principal, "interest": interest, "events": sorted(events, key=lambda e: e["date"], reverse=True), "as_of": as_of.isoformat()}
+    active_rate = rates[-1] if rates else None
+    next_payout = None
+    if active_rate:
+        payout = _next_date(date.fromisoformat(active_rate["starts_on"]), active_rate["payout_frequency"])
+        while payout <= as_of:
+            payout = _next_date(payout, active_rate["payout_frequency"])
+        next_payout = payout.isoformat()
+    return {
+        "balance": balance.quantize(_CENT), "principal": principal, "interest": interest,
+        "events": sorted(events, key=lambda e: e["date"], reverse=True), "as_of": as_of.isoformat(),
+        "active_rate": dict(active_rate) if active_rate else None, "next_payout": next_payout,
+    }
 
 
 def savings_accounts(conn: sqlite3.Connection, include_hidden: bool = True) -> list[dict]:

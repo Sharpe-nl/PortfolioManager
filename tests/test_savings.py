@@ -31,6 +31,14 @@ def test_manual_interest_is_an_editable_correction(mem_db):
     assert any(event["kind"] == "manual" for event in result["events"])
 
 
+def test_interest_correction_on_snapshot_date_is_included(mem_db):
+    _savings_account(mem_db)
+    mem_db.execute("INSERT INTO savings_interest_adjustments(account_id,date,amount_eur) VALUES(2,'2026-01-01','1000')")
+    mem_db.commit()
+    result = account_interest(mem_db, 2, date(2026, 1, 2))
+    assert result["balance"] == Decimal("2000.00")
+
+
 def test_hidden_savings_is_not_returned_for_dashboard(mem_db):
     _savings_account(mem_db)
     mem_db.execute("UPDATE accounts SET include_in_dashboard=0 WHERE id=2")

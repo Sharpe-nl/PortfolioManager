@@ -83,7 +83,7 @@
       <td>
         <form method="post" action="/auth/credentials/{{ cred.id }}/delete" style="display:inline"
               onsubmit="return confirm('{{ t(request, 'settings.confirm_delete_key') }}')">
-          <button type="submit" class="outline secondary small"
+          <button type="submit" class="outline secondary small danger-btn"
                   {% if webauthn_credentials | length <= 1 %}
                   disabled title="{{ t(request, 'settings.last_key_hint') }}"
                   {% endif %}>
@@ -99,7 +99,7 @@
   {% endif %}
 
   <div id="yk-status" class="status-msg" hidden style="margin-top:.75rem"></div>
-  <div class="form-grid" style="margin-top:.75rem; align-items:end;">
+  <div class="settings-inline-form" style="margin-top:.75rem;">
     <label>{{ t(request, 'settings.yk_name_label') }}
       <input type="text" id="yk-name" placeholder="{{ t(request, 'settings.yk_name_placeholder') }}">
     </label>
@@ -124,16 +124,16 @@
   <p class="muted">
     {{ t(request, 'settings.danger_intro') }}
   </p>
-  <div style="display:flex;gap:1rem;flex-wrap:wrap">
+  <div class="settings-action-row">
     <form method="post" action="/settings/delete-transactions"
           onsubmit="return confirm('{{ t(request, 'settings.confirm_delete_txn') }}')">
-      <button type="submit" class="outline secondary">
+      <button type="submit" class="outline secondary danger-btn">
         {{ t(request, 'settings.btn_delete_txn') }}
       </button>
     </form>
     <form method="post" action="/settings/delete-all"
           onsubmit="return confirm('{{ t(request, 'settings.confirm_delete_all') }}')">
-      <button type="submit" class="outline contrast">
+      <button type="submit" class="outline danger-btn">
         {{ t(request, 'settings.btn_delete_all') }}
       </button>
     </form>

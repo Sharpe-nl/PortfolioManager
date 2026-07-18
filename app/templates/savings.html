@@ -6,6 +6,7 @@
 {% for account in savings_accounts %}
 <article class="savings-card"><header>{{ account.name }} <a href="/savings/{{ account.id }}/settings" class="btn-sm outline secondary">{{ t(request, 'savings.settings') }}</a></header>
   <div class="savings-summary"><div><small>{{ t(request, 'savings.balance') }}</small><strong>{{ account.balance | eur }}</strong></div><div><small>{{ t(request, 'savings.interest') }}</small><strong class="pl-positive">{{ account.interest | eur }}</strong></div></div>
+  {% if account.active_rate %}<div class="savings-rate-meta"><span>{{ t(request, 'savings.active_rate') }} <strong>{{ account.active_rate.annual_rate }}%</strong> · {{ t(request, 'savings.' ~ account.active_rate.payout_frequency) }}</span>{% if account.next_payout %}<span>{{ t(request, 'savings.next_payout') }} {{ account.next_payout }}</span>{% endif %}</div>{% endif %}
   <small class="muted">{{ t(request, 'savings.as_of') }} {{ account.as_of }}</small>
 </article>
 {% else %}<article><p>{{ t(request, 'savings.empty') }}</p></article>{% endfor %}

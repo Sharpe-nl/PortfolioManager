@@ -509,6 +509,23 @@ input[type="button"] {
   padding: .24rem .48rem !important;
   font-size: .74rem !important;
 }
+.settings-page .form-grid { align-items: end; }
+.settings-page .form-grid label { margin-bottom: 0; }
+.settings-action-row { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
+.settings-inline-form { display: flex; align-items: end; gap: .6rem; }
+.settings-inline-form label { flex: 0 1 20rem; margin: 0; }
+.settings-inline-form input { margin-bottom: 0; }
+.settings-inline-form button { flex: 0 0 auto; }
+.danger-btn {
+  border-color: color-mix(in srgb, var(--red) 52%, var(--border)) !important;
+  background: color-mix(in srgb, var(--red-bg) 82%, transparent) !important;
+  color: var(--red) !important;
+}
+.danger-btn:hover, .danger-btn:focus-visible {
+  border-color: var(--red) !important;
+  background: color-mix(in srgb, var(--red) 18%, var(--surface)) !important;
+  color: var(--red) !important;
+}
 .sr-only {
   position: absolute;
   width: 1px;
@@ -1099,11 +1116,39 @@ td.num, th.num {
 .savings-summary div { display: grid; gap: .15rem; }
 .savings-summary small { color: var(--text-muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; }
 .savings-summary strong { font-size: 1.25rem; }
+.savings-rate-meta { display: flex; gap: .35rem .8rem; flex-wrap: wrap; margin: .65rem 0 .2rem; color: var(--text-muted); font-size: .78rem; }
+.savings-rate-meta strong { color: var(--text); }
 .savings-card details { margin-top: .65rem; }
 .savings-dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 1rem; }
-.savings-edit-row { display: grid; grid-template-columns: 1fr 1fr 1fr auto auto; gap: .5rem; align-items: end; margin-top: .65rem; padding-top: .65rem; border-top: 1px solid var(--border); }
-.savings-edit-row input, .savings-edit-row select { margin-bottom: 0; min-width: 0; }
-@media (max-width: 700px) { .savings-edit-row { grid-template-columns: 1fr 1fr; } }
+.savings-create-form, .savings-edit-row { display: grid; gap: .6rem; align-items: end; }
+.savings-create-form { margin: 0; }
+.savings-create-form--rate { grid-template-columns: minmax(8rem, 1fr) minmax(10rem, 1fr) minmax(10rem, 1fr) auto; }
+.savings-create-form--two { grid-template-columns: minmax(10rem, 1fr) minmax(10rem, 1fr) auto; }
+.savings-create-form--manual { grid-template-columns: minmax(10rem, 1fr) minmax(9rem, 1fr) minmax(12rem, 1fr) auto; }
+.savings-edit-row--rate { grid-template-columns: minmax(8rem, 1fr) minmax(10rem, 1fr) minmax(10rem, 1fr) auto auto; }
+.savings-edit-row--two { grid-template-columns: minmax(10rem, 1fr) minmax(10rem, 1fr) auto auto; }
+.savings-edit-row--manual { grid-template-columns: minmax(10rem, 1fr) minmax(9rem, 1fr) minmax(12rem, 1fr) auto auto; }
+.savings-edit-row { margin-top: .8rem; padding-top: .8rem; border-top: 1px solid var(--border); }
+.savings-create-form label, .savings-edit-row input, .savings-edit-row select { margin-bottom: 0; min-width: 0; }
+/* Pico adds a bottom margin to controls. In a labelled grid that margin is
+   part of the label height, which made the standalone save button sit lower
+   than the fields. Reset it locally so all control baselines match. */
+.savings-create-form input, .savings-create-form select { margin-bottom: 0; }
+.savings-create-form button, .savings-edit-row button { width: auto !important; min-width: 0; min-height: 2.25rem; margin: 0; padding: .35rem .7rem; align-self: end; justify-self: end; white-space: nowrap; }
+.savings-edit-row .savings-delete-btn { width: 1.9rem !important; min-width: 1.9rem; height: 1.9rem; min-height: 1.9rem; padding: 0; font-size: 1rem; line-height: 1; }
+.savings-settings-table { margin: .85rem 0 0; }
+.savings-settings-table th { padding-top: .4rem; padding-bottom: .4rem; }
+.savings-settings-table td { vertical-align: middle; }
+.savings-settings-table th:last-child,
+.savings-settings-table td:last-child { width: 8.6rem; min-width: 8.6rem; }
+.savings-settings-table input, .savings-settings-table select { width: 100%; min-width: 8rem; margin: 0; padding: .35rem .5rem; font-size: .82rem; }
+.savings-actions-heading { text-align: right; white-space: nowrap; }
+.savings-actions-cell { background: transparent !important; padding-left: .5rem !important; padding-right: .5rem !important; }
+.savings-table-actions { display: flex; gap: .35rem; justify-content: flex-end; align-items: center; white-space: nowrap; }
+.savings-table-actions button { width: auto !important; min-width: 0; min-height: 1.9rem; margin: 0; padding: .25rem .48rem; font-size: .74rem; }
+.savings-table-actions .savings-delete-btn { width: 1.9rem !important; padding: 0; font-size: 1rem; }
+.savings-visibility-form { margin: 0; }
+@media (max-width: 700px) { .savings-create-form, .savings-edit-row { grid-template-columns: 1fr 1fr; } .savings-create-form button, .savings-edit-row button { justify-self: start; } .settings-inline-form { align-items: stretch; flex-direction: column; } .settings-inline-form label { flex-basis: auto; } }
 .dashboard-savings-card { margin-top: 1rem; }
 .dashboard-savings-total { font-size: 1.65rem; font-weight: 700; }
 .dashboard-savings-interest { margin-top: .15rem; font-size: .85rem; }
