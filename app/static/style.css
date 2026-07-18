@@ -1160,7 +1160,14 @@ td.num, th.num {
 .savings-end-date-control { display: flex; min-height: 2.4rem; align-items: center; }
 .savings-end-date-control > input[type="date"] { flex: 1; min-width: 8.5rem; }
 .savings-current-toggle { display: inline-flex; align-items: center; gap: .3rem; margin: 0; color: var(--text); font-size: .82rem; white-space: nowrap; }
-.savings-current-toggle input { width: 1rem !important; height: 1rem; margin: 0 !important; }
+.savings-current-toggle input {
+  flex: 0 0 1rem;
+  width: 1rem !important;
+  min-width: 1rem !important;
+  max-width: 1rem;
+  height: 1rem;
+  margin: 0 !important;
+}
 .savings-end-date-control--table { min-width: 8rem; }
 .savings-create-form button, .savings-edit-row button { width: auto !important; min-width: 0; min-height: 2.25rem; margin: 0; padding: .35rem .7rem; align-self: end; justify-self: end; white-space: nowrap; }
 .savings-edit-row .savings-delete-btn { width: 1.9rem !important; min-width: 1.9rem; height: 1.9rem; min-height: 1.9rem; padding: 0; font-size: 1rem; line-height: 1; }
