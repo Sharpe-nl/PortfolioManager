@@ -45,7 +45,6 @@ useradd --system --create-home --shell /bin/false service_portfolio_manager
 ```bash
 cd /opt
 git clone https://github.com/Sharpe-nl/PortfolioManager.git portfoliomanager
-chown -R service_portfolio_manager:service_portfolio_manager /opt/portfoliomanager
 ```
 
 ---
@@ -54,7 +53,9 @@ chown -R service_portfolio_manager:service_portfolio_manager /opt/portfoliomanag
 
 ```bash
 cd /opt/portfoliomanager
-sudo -u service_portfolio_manager python3.11 -m venv .venv
+python3.11 -m venv .venv
+mkdir data
+chown -R service_portfolio_manager:service_portfolio_manager .venv data
 sudo -u service_portfolio_manager .venv/bin/pip install --upgrade pip
 sudo -u service_portfolio_manager .venv/bin/pip install -r requirements.txt
 ```
@@ -221,6 +222,51 @@ sudo bash /opt/portfoliomanager/deploy/update.sh
 ```
 
 This script updates Python dependencies, corrects permissions, and restarts the service.
+
+### From Settings — optional native systemd update
+
+The **Settings → Updates** card can check the installed version against the
+official `main` branch. Installing from that card is deliberately opt-in: it
+only works for a clean, HTTPS-cloned `main` checkout and starts one fixed,
+root-owned systemd unit. Docker installations should continue to pull/build a
+new image and recreate the container instead.
+
+To enable the install button on a native installation, first install the unit
+and the narrowly-scoped sudo rule as root:
+
+```bash
+cp /opt/portfoliomanager/deploy/portfoliomanager-update.service \
+   /etc/systemd/system/portfoliomanager-update.service
+cp /opt/portfoliomanager/deploy/portfoliomanager-update.sudoers \
+   /etc/sudoers.d/portfoliomanager-update
+chmod 0440 /etc/sudoers.d/portfoliomanager-update
+visudo -cf /etc/sudoers.d/portfoliomanager-update
+chown -R root:root /opt/portfoliomanager
+chown -R service_portfolio_manager:service_portfolio_manager \
+   /opt/portfoliomanager/data /opt/portfoliomanager/.venv
+systemctl daemon-reload
+```
+
+Then create a systemd override for the web service:
+
+```bash
+systemctl edit portfoliomanager
+```
+
+Add the following, save, and restart the service:
+
+```ini
+[Service]
+Environment=PM_ENABLE_SELF_UPDATE=true
+```
+
+```bash
+systemctl restart portfoliomanager
+```
+
+The update unit fetches only `origin/main` from the official repository and
+aborts if the checkout is not on `main` or has tracked local changes. Watch a
+failed update with `journalctl -u portfoliomanager-update -n 100 --no-pager`.
 
 ---
 

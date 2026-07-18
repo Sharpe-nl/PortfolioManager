@@ -1,6 +1,7 @@
 """Settings page."""
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 from urllib.parse import quote
 
@@ -12,7 +13,9 @@ from ..db import get_db, get_setting, set_setting
 from ..helpers import templates, require_auth
 from ..services.bitvavo import BitvavoError, sync_bitvavo
 from ..services.credentials import clear_bitvavo_credentials, has_bitvavo_credentials, save_bitvavo_credentials
+from ..services.logo_cache import clear_missing_logo_cache
 from ..services.refresh_scheduler import get_refresh_times, save_refresh_times
+from ..services.updates import check_for_update, current_version, self_update_enabled, start_self_update
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -43,6 +46,8 @@ async def settings_page(request: Request, conn=Depends(get_db), _=Depends(requir
         "refresh_time_2": refresh_times[1] if len(refresh_times) > 1 else refresh_times[0],
         "refresh_last_run": get_setting(conn, "automatic_refresh_last_run"),
         "server_timezone": datetime.now().astimezone().tzname() or "local",
+        "app_version": current_version(),
+        "self_update_enabled": self_update_enabled(),
         "webauthn_credentials": list_credentials(conn),
         "unmapped_instruments": [dict(r) for r in unmapped],
         "mapped_instruments": [dict(r) for r in mapped],
@@ -54,6 +59,26 @@ async def settings_page(request: Request, conn=Depends(get_db), _=Depends(requir
     })
 
 
+@router.post("/check-update")
+async def check_update(_=Depends(require_auth)):
+    """Check the immutable public version marker without delaying the event loop."""
+    result = await asyncio.to_thread(check_for_update)
+    if result["error"]:
+        return RedirectResponse(url="/settings?update=check_error", status_code=303)
+    if result["update_available"]:
+        latest = quote(str(result["latest_version"]), safe="")
+        return RedirectResponse(url=f"/settings?update=available&latest={latest}", status_code=303)
+    return RedirectResponse(url="/settings?update=current", status_code=303)
+
+
+@router.post("/install-update")
+async def install_update(_=Depends(require_auth)):
+    """Start only the documented, root-owned systemd update unit."""
+    if start_self_update():
+        return RedirectResponse(url="/settings?update=started", status_code=303)
+    return RedirectResponse(url="/settings?update=install_error", status_code=303)
+
+
 @router.post("/save")
 async def save_settings(
     request: Request,
@@ -63,6 +88,7 @@ async def save_settings(
 ):
     if logo_dev_token.strip():
         set_setting(conn, "logo_dev_token", logo_dev_token.strip())
+        clear_missing_logo_cache(conn)
     return RedirectResponse(url="/settings?saved=1", status_code=303)
 
 

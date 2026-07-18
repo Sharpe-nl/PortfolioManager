@@ -41,7 +41,7 @@ The screenshots use an isolated demo portfolio with fictitious data.
 - Read-only Bitvavo integration with crypto balances, deposits, activity, historical EUR valuation and staking/lending income
 - Savings accounts with dated deposits and withdrawals, rate history, payout frequency, optional end dates, rate tiers and manual interest corrections
 - Configurable automatic stock and crypto refresh schedule (06:00 and 18:00 by default, using server time)
-- Company, ETF and crypto logos through an optional Logo.dev publishable key
+- Company, ETF and crypto logos through an optional Logo.dev publishable key; fetched assets are cached locally after the first request
 - WebAuthn/FIDO2 authentication (YubiKey-compatible)
 - SQLite backup download from the settings page
 - Responsive liquid-glass interface for desktop and mobile
@@ -130,9 +130,10 @@ apt install -y python3 python3-venv python3-dev git sqlite3
 
 useradd --system --create-home --shell /usr/sbin/nologin service_portfolio_manager
 git clone https://github.com/Sharpe-nl/PortfolioManager.git /opt/portfoliomanager
-chown -R service_portfolio_manager:service_portfolio_manager /opt/portfoliomanager
 
-sudo -u service_portfolio_manager python3 -m venv /opt/portfoliomanager/.venv
+python3 -m venv /opt/portfoliomanager/.venv
+mkdir /opt/portfoliomanager/data
+chown -R service_portfolio_manager:service_portfolio_manager /opt/portfoliomanager/.venv /opt/portfoliomanager/data
 sudo -u service_portfolio_manager /opt/portfoliomanager/.venv/bin/pip install -r /opt/portfoliomanager/requirements.txt
 
 cp /opt/portfoliomanager/deploy/portfoliomanager.service /etc/systemd/system/
@@ -141,6 +142,20 @@ systemctl enable --now portfoliomanager
 ```
 
 The service listens on port `8443`. Configure the reverse proxy to reach the LXC IP on that port and forward `Host` and `X-Forwarded-Proto` headers. See [deploy/install.md](deploy/install.md) for a more detailed LXC and proxy guide.
+
+PortfolioManager follows semantic versions. The first public main-branch version is `0.1.0-beta`.
+
+### Optional updates from Settings
+
+The **Settings → Updates** card can always check the installed version against
+the official `main` branch. Installing an update from the app is optional and
+disabled by default. For a native systemd installation, follow the narrowly
+scoped setup in the [update procedure](deploy/install.md#update-procedure): it
+permits the web-service account to start only the fixed
+`portfoliomanager-update.service`, not to run arbitrary commands with `sudo`.
+The updater verifies the official repository, requires a clean `main` checkout,
+and keeps code and deploy scripts root-owned. Docker installations should use
+their normal image update procedure instead.
 
 ## Option 4: Direct Python for development
 
