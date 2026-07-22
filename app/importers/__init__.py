@@ -95,9 +95,17 @@ class ColumnIndex:
 
 
 def read_csv_rows(content: str) -> tuple[ColumnIndex, list[list[str]]]:
-    """Read CSV text → (ColumnIndex, list of data rows). Handles BOM, quoted fields."""
+    """Read CSV text → (ColumnIndex, list of data rows).
+
+    DEGIRO chooses the separator from the account locale: Dutch exports are
+    commonly comma-separated, but some accounts receive a semicolon-separated
+    file. Detect it from the header rather than treating the entire file as
+    one column. The same behaviour is useful for generic CSV imports.
+    """
     content = strip_bom(content)
-    reader = csv.reader(StringIO(content))
+    header_line = next((line for line in content.splitlines() if line.strip()), "")
+    delimiter = max((",", ";", "\t"), key=header_line.count)
+    reader = csv.reader(StringIO(content), delimiter=delimiter)
     rows: list[list[str]] = list(reader)
     if not rows:
         return ColumnIndex([]), []

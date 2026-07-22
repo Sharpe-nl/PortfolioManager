@@ -64,6 +64,19 @@ class TestAccountParser:
         assert result.txn_rows[1].quantity == Decimal("-2")
         assert any(row.event_type == "deposit" for row in result.rows)
 
+    def test_parses_semicolon_separated_account_csv(self):
+        content = (
+            "Datum;Tijd;Valutadatum;Product;ISIN;Omschrijving;FX;Mutatie;;Saldo;;Order Id\n"
+            "16-01-2025;04:51;16-01-2025;;;iDEAL storting;;EUR;\"2500,00\";EUR;\"2500,00\";\n"
+        )
+
+        result = acc_parser.parse(content)
+
+        assert acc_parser.is_account_csv(content)
+        assert len(result.rows) == 1
+        assert result.rows[0].event_type == "deposit"
+        assert result.rows[0].amount_eur == Decimal("2500.00")
+
     @pytest.mark.parametrize("fixture_name", ["account_csv", "account_en_csv"])
     def test_spin_off_and_split_adjustments(self, request, fixture_name):
         result = acc_parser.parse(request.getfixturevalue(fixture_name))

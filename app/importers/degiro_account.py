@@ -45,9 +45,9 @@ _ENGLISH_HEADERS = {
 
 def is_account_csv(content: str) -> bool:
     from . import strip_bom
-    first_line = strip_bom(content).split("\n")[0]
-    return (("Omschrijving" in first_line and "Valutadatum" in first_line)
-            or ("Description" in first_line and "Value date" in first_line))
+    first_line = strip_bom(content).split("\n")[0].casefold()
+    return (("omschrijving" in first_line and "valutadatum" in first_line)
+            or ("description" in first_line and "value date" in first_line))
 
 
 # ---------------------------------------------------------------------------
