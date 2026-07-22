@@ -64,6 +64,14 @@ document.addEventListener('keydown', function (event) {
 // Logo.dev supports ISINs and tickers, including ETFs. The publishable key is
 // optional: without it, the compact monogram remains as a local fallback.
 function createInstrumentLogo({ isin = '', symbol = '', name = '' } = {}) {
+  // Database joins intentionally yield null for unmapped/legacy instruments.
+  // Normalise here because this helper is also used by popup rows, where a
+  // missing ticker must still render the name fallback instead of aborting
+  // the entire dialog on `symbol.replace(...)`.
+  isin = typeof isin === 'string' ? isin : '';
+  symbol = typeof symbol === 'string' ? symbol : '';
+  name = typeof name === 'string' ? name : '';
+
   const logo = document.createElement('span');
   logo.className = 'instrument-logo';
   logo.setAttribute('aria-hidden', 'true');
