@@ -38,6 +38,7 @@ def test_upload_stages_account_csv_and_redirects_to_preview(mem_db, account_csv)
     assert response.headers["location"] == "/import/preview"
     assert request.session["import_file_type"] == "degiro_account"
     assert mem_db.execute("SELECT COUNT(*) FROM import_staging").fetchone()[0] > 0
+    assert not mem_db.in_transaction
 
 
 def test_upload_empty_csv_returns_visible_error(mem_db):

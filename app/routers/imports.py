@@ -123,6 +123,11 @@ async def upload(
             (session_key, row_type, row_json, status, error_msg, now),
         )
 
+    # The next browser request follows this redirect immediately. Commit the
+    # staging rows before returning it: FastAPI finalizes yield-dependencies
+    # after sending a response, which otherwise lets /preview race this write
+    # and render an empty table.
+    conn.commit()
     request.session["import_session"] = session_key
     request.session["import_filename"] = filename
     request.session["import_file_type"] = file_type
