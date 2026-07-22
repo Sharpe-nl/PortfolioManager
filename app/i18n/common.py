@@ -19,6 +19,7 @@ NL = {
     "nav.menu": "Menu",
 
     # ── Range selector (dashboard/dividends/benchmark) ───────────────────
+    "range.1d": "1D",
     "range.1m": "1M",
     "range.ytd": "YTD",
     "range.1y": "1J",
@@ -61,6 +62,7 @@ EN = {
     "nav.logout": "Log out",
     "nav.menu": "Menu",
 
+    "range.1d": "1D",
     "range.1m": "1M",
     "range.ytd": "YTD",
     "range.1y": "1Y",

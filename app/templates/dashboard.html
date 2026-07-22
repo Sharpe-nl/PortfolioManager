@@ -9,6 +9,7 @@
     <label><input type="checkbox" name="include_in_dashboard" value="1" {% if include_in_dashboard %}checked{% endif %} onchange="this.form.submit()"> {{ t(request, 'savings.dashboard') }}</label>
   </form>
   <span class="range-selector">
+    <button onclick="setRange(this,'1D')" data-range="1D">{{ t(request, 'range.1d') }}</button>
     <button onclick="setRange(this,'1M')" data-range="1M">{{ t(request, 'range.1m') }}</button>
     <button onclick="setRange(this,'YTD')" data-range="YTD">{{ t(request, 'range.ytd') }}</button>
     <button onclick="setRange(this,'1Y')" class="active" data-range="1Y">{{ t(request, 'range.1y') }}</button>

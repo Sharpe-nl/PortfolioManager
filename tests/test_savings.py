@@ -3,7 +3,7 @@ from datetime import date
 from decimal import Decimal
 
 from app.routers.savings import _cash_movements, _signed_cash_amount
-from app.services.savings import account_interest, savings_accounts
+from app.services.savings import account_interest, savings_accounts, savings_value_series
 from app.services.portfolio import get_allocation, get_portfolio_summary
 
 
@@ -76,6 +76,15 @@ def test_first_deposit_can_create_a_savings_balance_without_snapshot(mem_db):
     mem_db.commit()
     result = account_interest(mem_db, 3, date(2026, 1, 2))
     assert result["balance"] == Decimal("250.00")
+
+
+def test_savings_value_series_starts_from_balance_and_carries_interest(mem_db):
+    _savings_account(mem_db)
+
+    series = savings_value_series(mem_db)
+
+    assert series[0] == {"date": "2026-01-01", "value": Decimal("1000.00")}
+    assert series[-1]["value"] == account_interest(mem_db, 2)["balance"]
 
 
 def test_bonus_rate_applies_only_to_the_balance_above_its_threshold(mem_db):
