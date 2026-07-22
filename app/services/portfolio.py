@@ -693,6 +693,7 @@ def get_portfolio_value_series(
                 FROM (
                     SELECT account_id,
                            balance_eur,
+                           date,
                            ROW_NUMBER() OVER (PARTITION BY account_id ORDER BY date DESC) AS rn
                     FROM balance_snapshots bs
                     JOIN accounts a ON a.id=bs.account_id

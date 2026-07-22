@@ -12,6 +12,7 @@ from app.services.portfolio import (
     get_allocation,
     get_allocation_details,
     get_portfolio_summary,
+    get_portfolio_value_series,
 )
 
 
@@ -140,6 +141,10 @@ def test_stale_sale_cash_snapshot_is_not_counted_next_to_later_purchase(mem_db):
     assert summary["holdings_value"] == Decimal("1200.00")
     assert summary["cash_balance"] == Decimal("0")
     assert summary["total_pl"] == Decimal("200.00")
+    # The dashboard chart uses the same stale-cash protection and must remain
+    # queryable after a snapshot is present.
+    series = get_portfolio_value_series(mem_db)
+    assert series[-1]["value"] == Decimal("1200.00")
 
 
 class TestRealizedPL:
