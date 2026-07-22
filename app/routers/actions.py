@@ -1,6 +1,8 @@
 """Actions: unified timeline of all transactions and cash events."""
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 
@@ -93,6 +95,19 @@ async def actions_page(
     else:  # all
         rows = _fetch(txn_sql) + _fetch(cash_sql)
         events = sorted(rows, key=lambda x: x["ts"] or "", reverse=True)[:500]
+
+    # The action badge already communicates buy versus sell. Displaying a
+    # second minus sign in the quantity column is redundant and makes a sale
+    # look like a negative number rather than a quantity of sold units.
+    for event in events:
+        quantity = event.get("quantity")
+        if quantity is None:
+            event["display_quantity"] = None
+            continue
+        try:
+            event["display_quantity"] = abs(Decimal(str(quantity)))
+        except (InvalidOperation, ValueError):
+            event["display_quantity"] = quantity
 
     # count flagged for the badge
     flagged_count = conn.execute(

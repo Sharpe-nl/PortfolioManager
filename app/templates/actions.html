@@ -91,7 +91,7 @@
         {% if is_flagged %}<span class="flag-icon" title="{{ t(request, 'actions.flag_tooltip') }}">⚠</span>{% endif %}
       </td>
       <td class="num">
-        {% if ev.quantity is not none %}{{ ev.quantity | qty }}{% else %}—{% endif %}
+        {% if ev.display_quantity is not none %}{{ ev.display_quantity | qty }}{% else %}—{% endif %}
       </td>
       <td class="num">
         {% if ev.price is not none and ev.price|float != 0 %}
