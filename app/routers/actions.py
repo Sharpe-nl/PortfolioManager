@@ -46,7 +46,8 @@ async def actions_page(
         FROM transactions t
         JOIN accounts    a ON a.id = t.account_id
         JOIN instruments i ON i.id = t.instrument_id
-        WHERE (:acct IS NULL OR t.account_id = :acct)
+        WHERE a.type IN ('broker', 'pension')
+          AND (:acct IS NULL OR t.account_id = :acct)
     """
 
     # --- cash events query --------------------------------------------------
@@ -69,7 +70,8 @@ async def actions_page(
         FROM cash_events ce
         JOIN accounts    a ON a.id  = ce.account_id
         LEFT JOIN instruments i ON i.id = ce.instrument_id
-        WHERE (:acct IS NULL OR ce.account_id = :acct)
+        WHERE a.type IN ('broker', 'pension')
+          AND (:acct IS NULL OR ce.account_id = :acct)
     """
 
     flagged_txn_where  = " AND CAST(t.price AS REAL) = 0"
@@ -97,11 +99,15 @@ async def actions_page(
         """
         SELECT COUNT(*) AS n FROM (
             SELECT t.ts FROM transactions t
-            WHERE (:acct IS NULL OR t.account_id = :acct)
+            JOIN accounts a ON a.id = t.account_id
+            WHERE a.type IN ('broker', 'pension')
+              AND (:acct IS NULL OR t.account_id = :acct)
               AND CAST(t.price AS REAL) = 0
             UNION ALL
             SELECT ce.ts FROM cash_events ce
-            WHERE (:acct IS NULL OR ce.account_id = :acct)
+            JOIN accounts a ON a.id = ce.account_id
+            WHERE a.type IN ('broker', 'pension')
+              AND (:acct IS NULL OR ce.account_id = :acct)
               AND ce.type = 'other'
         )
         """,
@@ -111,7 +117,7 @@ async def actions_page(
     return templates.TemplateResponse("actions.html", {
         "request":          request,
         "events":           events,
-        "accounts":         list_accounts(conn),
+        "accounts":         [acc for acc in list_accounts(conn) if acc.type in ("broker", "pension")],
         "selected_account": account,
         "filter":           filter,
         "flagged_count":    flagged_count,
