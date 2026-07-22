@@ -20,6 +20,18 @@ _STAGING_TTL_MINUTES = 60
 _MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 
+def _upload_error(request: Request, message: str, filename: str = "upload.csv") -> RedirectResponse:
+    """Show a useful error instead of leaving an empty import preview."""
+    request.session["import_result"] = {
+        "imported": 0,
+        "skipped": 0,
+        "errors": 1,
+        "error_details": [message],
+        "filename": filename,
+    }
+    return RedirectResponse(url="/import?result=1", status_code=303)
+
+
 # ---------------------------------------------------------------------------
 # Import landing page
 # ---------------------------------------------------------------------------
@@ -65,34 +77,41 @@ async def upload(
     account_id: int = Form(...),
     file: UploadFile = File(...),
 ):
+    filename = file.filename or "upload.csv"
+    if not file.filename:
+        return _upload_error(request, t(request, "imports.file_required"), filename)
+    account_exists = conn.execute("SELECT 1 FROM accounts WHERE id=?", (account_id,)).fetchone()
+    if not account_exists:
+        return _upload_error(request, t(request, "imports.account_not_found"), filename)
+
     # Imports are parsed in memory; bound the input before decoding it so a
     # large upload cannot exhaust the small home-server process.
     raw_bytes = await file.read(_MAX_UPLOAD_BYTES + 1)
     if len(raw_bytes) > _MAX_UPLOAD_BYTES:
-        request.session["import_result"] = {
-            "imported": 0,
-            "skipped": 0,
-            "errors": 1,
-            "error_details": [t(request, "imports.file_too_large")],
-            "filename": file.filename or "upload.csv",
-        }
-        return RedirectResponse(url="/import?result=1", status_code=303)
+        return _upload_error(request, t(request, "imports.file_too_large"), filename)
+    if not raw_bytes:
+        return _upload_error(request, t(request, "imports.file_empty"), filename)
     try:
         content = raw_bytes.decode("utf-8-sig")  # handles BOM
     except UnicodeDecodeError:
         content = raw_bytes.decode("latin-1")
-
-    filename = file.filename or "upload.csv"
+    if not content.strip():
+        return _upload_error(request, t(request, "imports.file_empty"), filename)
 
     # Auto-detect file type
-    if degiro_account.is_account_csv(content):
-        file_type = "degiro_account"
-        parse_result = degiro_account.parse(content)
-        rows = _stage_account_events(parse_result, account_id, conn)
-    else:
-        file_type = "generic"
-        parse_result = generic.parse(content)
-        rows = _stage_generic(parse_result, account_id, conn)
+    try:
+        if degiro_account.is_account_csv(content):
+            file_type = "degiro_account"
+            parse_result = degiro_account.parse(content)
+            rows = _stage_account_events(parse_result, account_id, conn)
+        else:
+            file_type = "generic"
+            parse_result = generic.parse(content)
+            rows = _stage_generic(parse_result, account_id, conn)
+    except (ValueError, UnicodeError):
+        return _upload_error(request, t(request, "imports.file_invalid"), filename)
+    if not rows:
+        return _upload_error(request, t(request, "imports.no_importable_rows"), filename)
 
     session_key = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()

@@ -44,7 +44,7 @@
     <a href="/accounts">{{ t(request, 'imports.create_account_first') }}</a> {{ t(request, 'imports.create_account_before') }}
   </div>
   {% else %}
-  <form method="post" action="/import/upload" enctype="multipart/form-data">
+  <form id="import-upload-form" method="post" action="/import/upload" enctype="multipart/form-data">
     <div class="form-grid">
       <label>{{ t(request, 'common.account') }}
         <select name="account_id" required>
@@ -58,9 +58,10 @@
     </div>
     <input id="import-csv-file" class="sr-only" type="file" name="file" accept=".csv,text/csv" required tabindex="-1">
     <div class="import-dropzone" id="importDropzone" tabindex="0" role="button" aria-controls="import-csv-file">
-      <strong>{{ t(request, 'imports.dropzone_title') }}</strong>
-      <small>{{ t(request, 'imports.dropzone_hint') }}</small>
+      <strong id="import-dropzone-title">{{ t(request, 'imports.dropzone_title') }}</strong>
+      <small id="import-dropzone-hint">{{ t(request, 'imports.dropzone_hint') }}</small>
     </div>
+    <p id="import-file-status" class="import-file-status" role="status" aria-live="polite" hidden></p>
     <p class="hint">
       <strong>Account.csv</strong> → {{ t(request, 'imports.hint_account_statement') }}
     </p>
@@ -267,20 +268,50 @@ function openDegiroCsvTutorial() {
 document.addEventListener('DOMContentLoaded', () => {
   const input = document.getElementById('import-csv-file');
   const dropzone = document.getElementById('importDropzone');
+  const form = document.getElementById('import-upload-form');
+  const fileStatus = document.getElementById('import-file-status');
+  const dropzoneTitle = document.getElementById('import-dropzone-title');
+  const dropzoneHint = document.getElementById('import-dropzone-hint');
   const tutorial = document.getElementById('degiroCsvTutorialDialog');
   if (tutorial) tutorial.addEventListener('click', event => {
     if (event.target === tutorial) tutorial.close();
   });
   if (!input || !dropzone) return;
 
+  const uploadI18n = {
+    selected: {{ t(request, 'imports.dropzone_selected') | tojson }},
+    invalid: {{ t(request, 'imports.dropzone_invalid') | tojson }},
+    missing: {{ t(request, 'imports.dropzone_missing') | tojson }},
+  };
+
+  const showStatus = (message, isError = false) => {
+    fileStatus.hidden = false;
+    fileStatus.textContent = message;
+    fileStatus.classList.toggle('error', isError);
+  };
+  const formatBytes = bytes => bytes < 1024
+    ? `${bytes} B`
+    : `${(bytes / 1024).toFixed(bytes < 1024 * 1024 ? 0 : 1)} ${bytes < 1024 * 1024 ? 'KB' : 'MB'}`;
+  const showSelectedFile = file => {
+    dropzone.classList.add('has-file');
+    dropzoneTitle.textContent = file.name;
+    dropzoneHint.textContent = uploadI18n.selected.replace('{size}', formatBytes(file.size));
+    showStatus(`✓ ${file.name} · ${formatBytes(file.size)}`);
+  };
   const selectFiles = files => {
     const csv = [...files].find(file => file.name.toLowerCase().endsWith('.csv'));
-    if (!csv) return;
+    if (!csv) {
+      showStatus(uploadI18n.invalid, true);
+      return;
+    }
     const transfer = new DataTransfer();
     transfer.items.add(csv);
     input.files = transfer.files;
-    input.dispatchEvent(new Event('change', { bubbles: true }));
+    showSelectedFile(csv);
   };
+  input.addEventListener('change', () => {
+    if (input.files && input.files.length) showSelectedFile(input.files[0]);
+  });
   dropzone.addEventListener('click', () => input.click());
   dropzone.addEventListener('keydown', event => {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -297,6 +328,13 @@ document.addEventListener('DOMContentLoaded', () => {
     dropzone.classList.remove('is-dragging');
   }));
   dropzone.addEventListener('drop', event => selectFiles(event.dataTransfer.files));
+  form.addEventListener('submit', event => {
+    if (!input.files || !input.files.length) {
+      event.preventDefault();
+      showStatus(uploadI18n.missing, true);
+      dropzone.focus();
+    }
+  });
 });
 </script>
 {% endblock %}

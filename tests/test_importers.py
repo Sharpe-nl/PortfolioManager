@@ -1,6 +1,7 @@
 """Tests for DeGiro CSV importers."""
 from __future__ import annotations
 
+import asyncio
 from decimal import Decimal
 from pathlib import Path
 
@@ -8,6 +9,46 @@ import pytest
 
 from app.importers import degiro_account as acc_parser
 from app.importers import generic as gen_parser
+from app.routers import imports as imports_router
+
+
+class _UploadRequest:
+    """Minimal request object needed by the upload route in these unit tests."""
+    def __init__(self):
+        self.session = {}
+        self.cookies = {}
+
+
+class _UploadFile:
+    def __init__(self, filename: str, content: bytes):
+        self.filename = filename
+        self._content = content
+
+    async def read(self, _size: int = -1) -> bytes:
+        return self._content if _size < 0 else self._content[:_size]
+
+
+def test_upload_stages_account_csv_and_redirects_to_preview(mem_db, account_csv):
+    request = _UploadRequest()
+    upload = _UploadFile("Account.csv", account_csv.encode("utf-8"))
+
+    response = asyncio.run(imports_router.upload(request, mem_db, None, 1, upload))
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/import/preview"
+    assert request.session["import_file_type"] == "degiro_account"
+    assert mem_db.execute("SELECT COUNT(*) FROM import_staging").fetchone()[0] > 0
+
+
+def test_upload_empty_csv_returns_visible_error(mem_db):
+    request = _UploadRequest()
+    upload = _UploadFile("Account.csv", b"")
+
+    response = asyncio.run(imports_router.upload(request, mem_db, None, 1, upload))
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/import?result=1"
+    assert request.session["import_result"]["errors"] == 1
 
 # ── Account.csv ──────────────────────────────────────────────────────────────
 

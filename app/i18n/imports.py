@@ -13,6 +13,11 @@ NL = {
     "imports.rows_added_word": "rijen toegevoegd",
     "imports.error_details_summary": "Foutdetails",
     "imports.file_too_large": "Het CSV-bestand is groter dan de importlimiet van 10 MB.",
+    "imports.file_required": "Selecteer eerst een CSV-bestand.",
+    "imports.file_empty": "Het gekozen CSV-bestand is leeg.",
+    "imports.file_invalid": "Dit CSV-bestand kon niet worden gelezen.",
+    "imports.no_importable_rows": "Er staan geen importeerbare rijen in dit CSV-bestand.",
+    "imports.account_not_found": "Het gekozen account bestaat niet meer. Kies opnieuw een account.",
 
     # ── import.html: upload form ─────────────────────────────────────────
     "imports.upload_header": "CSV uploaden",
@@ -33,6 +38,9 @@ NL = {
     "imports.csv_file_label": "CSV-bestand",
     "imports.dropzone_title": "Sleep je Account.csv hierheen",
     "imports.dropzone_hint": "of klik om een CSV-bestand te kiezen",
+    "imports.dropzone_selected": "Klaar om te uploaden · {size}",
+    "imports.dropzone_invalid": "Kies een CSV-bestand om te importeren.",
+    "imports.dropzone_missing": "Selecteer eerst een CSV-bestand.",
     "imports.hint_account_statement": "alle transacties (koop/verkoop), dividenden, stortingen en kosten.",
     "imports.upload_button": "Uploaden & bekijken →",
 
@@ -95,6 +103,11 @@ EN = {
     "imports.rows_added_word": "rows added",
     "imports.error_details_summary": "Error details",
     "imports.file_too_large": "The CSV file is larger than the 10 MB import limit.",
+    "imports.file_required": "Select a CSV file first.",
+    "imports.file_empty": "The selected CSV file is empty.",
+    "imports.file_invalid": "This CSV file could not be read.",
+    "imports.no_importable_rows": "There are no importable rows in this CSV file.",
+    "imports.account_not_found": "The selected account no longer exists. Choose an account again.",
 
     # ── import.html: upload form ─────────────────────────────────────────
     "imports.upload_header": "Upload CSV",
@@ -115,6 +128,9 @@ EN = {
     "imports.csv_file_label": "CSV file",
     "imports.dropzone_title": "Drop your Account.csv here",
     "imports.dropzone_hint": "or click to choose a CSV file",
+    "imports.dropzone_selected": "Ready to upload · {size}",
+    "imports.dropzone_invalid": "Choose a CSV file to import.",
+    "imports.dropzone_missing": "Select a CSV file first.",
     "imports.hint_account_statement": "all transactions (buy/sell), dividends, deposits and fees.",
     "imports.upload_button": "Upload & preview →",
 
