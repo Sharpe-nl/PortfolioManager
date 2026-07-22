@@ -107,6 +107,41 @@ def test_stock_result_excludes_savings_deposits(mem_db):
     assert summary["total_pl"] == Decimal("-52.00")
 
 
+def test_stale_sale_cash_snapshot_is_not_counted_next_to_later_purchase(mem_db):
+    """Selling and reinvesting must not turn the temporary cash into growth."""
+    mem_db.execute(
+        "INSERT INTO instruments(id,isin,name,symbol) VALUES(1,'IE00B3RBWM25','VWRL','VWRL.AS')"
+    )
+    mem_db.execute(
+        "INSERT INTO prices(instrument_id,date,close,currency,fetched_at) "
+        "VALUES(1,'2025-06-01','100','EUR',datetime('now'))"
+    )
+    mem_db.execute(
+        "INSERT INTO cash_events(account_id,ts,type,amount_eur) "
+        "VALUES(1,'2025-01-01T00:00:00','deposit','1000')"
+    )
+    mem_db.executemany(
+        """INSERT INTO transactions(account_id,instrument_id,ts,quantity,price,local_currency,value_eur,fees_eur,source)
+           VALUES(1,1,?,?,?,?,?,?, 'degiro_account_csv')""",
+        [
+            ('2025-01-01T10:00:00', '10', '100', 'EUR', '-1000', '0'),
+            ('2025-02-01T10:00:00', '-10', '120', 'EUR', '1200', '0'),
+            ('2025-03-01T10:00:00', '12', '100', 'EUR', '-1200', '0'),
+        ],
+    )
+    # This was the cash immediately after the sale, before the March purchase.
+    mem_db.execute(
+        "INSERT INTO balance_snapshots(account_id,date,balance_eur) VALUES(1,'2025-02-01','1200')"
+    )
+    mem_db.commit()
+
+    summary = get_portfolio_summary(mem_db)
+
+    assert summary["holdings_value"] == Decimal("1200.00")
+    assert summary["cash_balance"] == Decimal("0")
+    assert summary["total_pl"] == Decimal("200.00")
+
+
 class TestRealizedPL:
     def test_realized_pl_zero_before_any_sell(self, mem_db):
         _seed_data(mem_db)

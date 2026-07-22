@@ -276,11 +276,13 @@ def get_cash_balances(
     account_id: int | None = None,
     include_savings: bool = True,
 ) -> list[dict]:
-    """Return each account's latest known uninvested cash balance (EUR).
+    """Return each account's latest current uninvested cash balance (EUR).
 
     Populated from balance_snapshots — written on every DeGiro Account.csv
-    import (from the running "Saldo" column) and on manual/generic account
-    balance entries.
+    import (from the running "Saldo" column). A snapshot predating a later
+    transaction or cash event is stale: for example, it may contain proceeds
+    from a sale that were subsequently used for a purchase. Counting it next
+    to the later holding would double-count that money, so it is excluded.
     """
     sql = """
         SELECT a.id AS account_id, a.name AS account_name,
@@ -294,6 +296,21 @@ def get_cash_balances(
         JOIN accounts a ON a.id = latest.account_id
         WHERE latest.rn = 1
           AND (a.type != 'savings' OR :include_savings = 1)
+          AND (
+              a.type = 'savings'
+              OR (
+                  NOT EXISTS (
+                      SELECT 1 FROM transactions t
+                      WHERE t.account_id = latest.account_id
+                        AND t.ts > latest.date || 'T23:59:59'
+                  )
+                  AND NOT EXISTS (
+                      SELECT 1 FROM cash_events ce
+                      WHERE ce.account_id = latest.account_id
+                        AND ce.ts > latest.date || 'T23:59:59'
+                  )
+              )
+          )
         ORDER BY a.name
     """
     rows = conn.execute(sql, {"acct": account_id, "include_savings": int(include_savings)}).fetchall()
@@ -667,7 +684,9 @@ def get_portfolio_value_series(
             if price_row:
                 total += Decimal(str(h["qty"])) * _d(price_row["close"])
 
-        # Add ordinary cash snapshots; savings are shown separately on the dashboard.
+        # Add ordinary cash snapshots only while they are current as of this
+        # date. A stale snapshot can contain sale proceeds that a later buy
+        # has already turned into a holding, which would double-count wealth.
         if account_id is None:
             snap_sql = """
                 SELECT SUM(CAST(balance_eur AS REAL)) AS total_balance
@@ -678,9 +697,21 @@ def get_portfolio_value_series(
                     FROM balance_snapshots bs
                     JOIN accounts a ON a.id=bs.account_id
                     WHERE date <= ? AND a.type != 'savings'
-                ) WHERE rn = 1
+                ) latest WHERE latest.rn = 1
+                  AND NOT EXISTS (
+                      SELECT 1 FROM transactions t
+                      WHERE t.account_id = latest.account_id
+                        AND t.ts > latest.date || 'T23:59:59'
+                        AND t.ts <= ? || 'T23:59:59'
+                  )
+                  AND NOT EXISTS (
+                      SELECT 1 FROM cash_events ce
+                      WHERE ce.account_id = latest.account_id
+                        AND ce.ts > latest.date || 'T23:59:59'
+                        AND ce.ts <= ? || 'T23:59:59'
+                  )
             """
-            snap = conn.execute(snap_sql, (d,)).fetchone()
+            snap = conn.execute(snap_sql, (d, d, d)).fetchone()
             if snap and snap["total_balance"]:
                 total += Decimal(str(snap["total_balance"]))
 
