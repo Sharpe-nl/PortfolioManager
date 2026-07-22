@@ -386,6 +386,7 @@ input[type="button"] {
 }
 .import-file-status { margin: -.25rem 0 .75rem; color: var(--green); font-size: .8rem; }
 .import-file-status.error { color: var(--red); }
+.import-preview-actions-top { margin-top: 1rem; }
 .import-tutorial-dialog p { line-height: 1.6; }
 .import-tutorial-steps { display: grid; gap: .9rem; padding-left: 1.35rem; }
 .import-tutorial-steps li::marker { color: var(--primary); font-weight: 700; }
