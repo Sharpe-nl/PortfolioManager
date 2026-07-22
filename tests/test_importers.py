@@ -190,6 +190,21 @@ class TestAccountParser:
         assert len(result.rows) == 1
         assert result.rows[0].order_id is None
 
+    def test_pending_ideal_reservation_does_not_inflate_cash_snapshot(self):
+        content = (
+            "Datum,Tijd,Valutadatum,Product,ISIN,Omschrijving,FX,Mutatie,,Saldo,,Order Id\n"
+            "16-01-2025,04:51,16-01-2025,,,iDEAL storting,,EUR,\"100,00\",EUR,\"100,00\",\n"
+            "17-01-2025,04:51,17-01-2025,,,Reservation iDEAL,,EUR,\"100,00\",EUR,\"200,00\",\n"
+        )
+
+        result = acc_parser.parse(content)
+
+        assert len(result.rows) == 1
+        assert result.rows[0].event_type == "deposit"
+        # The reservation has not settled yet, so its cash must not be shown
+        # as portfolio value before its matching iDEAL deposit exists.
+        assert result.cash_balances_raw == {"EUR": Decimal("100.00")}
+
 
 # ── Generic CSV ───────────────────────────────────────────────────────────────
 

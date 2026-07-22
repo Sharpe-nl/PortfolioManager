@@ -111,6 +111,11 @@ _SKIP_KEYWORDS = (
     "geldrekening bij flatexdegiro",
 )
 
+
+def _is_pending_ideal_reservation(description: str) -> bool:
+    """Whether a row is DEGIRO's temporary, not-yet-settled iDEAL credit."""
+    return "reservation ideal" in description.casefold()
+
 _TYPE_KEYWORDS: list[tuple[str, str]] = [
     ("dividend tax",        "dividend_tax"),
     ("dividendbelasting",    "dividend_tax"),
@@ -284,8 +289,10 @@ def parse(content: str) -> AccountParseResult:
     # Pass 2 – parse rows
     for raw in data_rows:
         try:
+            description = col.get(raw, "Omschrijving")
+            pending_ideal_reservation = _is_pending_ideal_reservation(description)
             datum = col.get(raw, "Datum")
-            if datum:
+            if datum and not pending_ideal_reservation:
                 datum_iso = parse_dutch_date(datum)
                 tijd = col.get(raw, "Tijd")
                 ts = f"{datum_iso}T{tijd}:00" if tijd else f"{datum_iso}T00:00:00"
@@ -300,7 +307,7 @@ def parse(content: str) -> AccountParseResult:
                     if prev is None or ts >= prev[0]:
                         latest_balance[saldo_ccy] = (ts, saldo_val)
 
-            row_type = classify_row(col.get(raw, "Omschrijving"))
+            row_type = classify_row(description)
             if row_type is None:
                 result.skipped += 1
             elif row_type == "transaction":
