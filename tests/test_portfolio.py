@@ -11,6 +11,7 @@ from app.services.portfolio import (
     get_realized_pl_events,
     get_allocation,
     get_allocation_details,
+    get_cash_balance,
     get_portfolio_summary,
     get_portfolio_value_series,
 )
@@ -145,6 +146,39 @@ def test_stale_sale_cash_snapshot_is_not_counted_next_to_later_purchase(mem_db):
     # queryable after a snapshot is present.
     series = get_portfolio_value_series(mem_db)
     assert series[-1]["value"] == Decimal("1200.00")
+
+
+def test_cash_snapshot_is_carried_forward_with_later_activity(mem_db):
+    """An incremental import after a snapshot must not make cash disappear."""
+    mem_db.execute(
+        "INSERT INTO instruments(id,isin,name,symbol) VALUES(1,'IE00B3RBWM25','VWRL','VWRL.AS')"
+    )
+    mem_db.execute(
+        "INSERT INTO prices(instrument_id,date,close,currency,fetched_at) "
+        "VALUES(1,'2025-06-01','100','EUR',datetime('now'))"
+    )
+    mem_db.execute(
+        "INSERT INTO cash_events(account_id,ts,type,amount_eur) "
+        "VALUES(1,'2025-01-01T00:00:00','deposit','1000')"
+    )
+    mem_db.execute(
+        "INSERT INTO balance_snapshots(account_id,date,balance_eur) VALUES(1,'2025-01-01','1000')"
+    )
+    mem_db.execute(
+        """INSERT INTO transactions(account_id,instrument_id,ts,quantity,price,local_currency,value_eur,fees_eur,source)
+           VALUES(1,1,'2025-01-02T10:00:00','5','100','EUR','-500','0','degiro_account_csv')"""
+    )
+    mem_db.execute(
+        "INSERT INTO cash_events(account_id,ts,type,amount_eur) "
+        "VALUES(1,'2025-01-03T00:00:00','dividend','25')"
+    )
+    mem_db.commit()
+
+    summary = get_portfolio_summary(mem_db)
+    assert get_cash_balance(mem_db) == Decimal("525.00")
+    assert summary["total_value"] == Decimal("1025.00")
+    assert summary["total_pl"] == Decimal("25.00")
+    assert get_portfolio_value_series(mem_db)[-1]["value"] == Decimal("1025.00")
 
 
 class TestRealizedPL:

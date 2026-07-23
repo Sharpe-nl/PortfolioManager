@@ -279,10 +279,10 @@ def get_cash_balances(
     """Return each account's latest current uninvested cash balance (EUR).
 
     Populated from balance_snapshots — written on every DeGiro Account.csv
-    import (from the running "Saldo" column). A snapshot predating a later
-    transaction or cash event is stale: for example, it may contain proceeds
-    from a sale that were subsequently used for a purchase. Counting it next
-    to the later holding would double-count that money, so it is excluded.
+    import (from the running "Saldo" column). When a later incremental import
+    contains new activity, its cash effects are applied to the last snapshot.
+    This keeps a balance current without counting sale proceeds twice beside a
+    later purchase.
     """
     sql = """
         SELECT a.id AS account_id, a.name AS account_name,
@@ -296,33 +296,54 @@ def get_cash_balances(
         JOIN accounts a ON a.id = latest.account_id
         WHERE latest.rn = 1
           AND (a.type != 'savings' OR :include_savings = 1)
-          AND (
-              a.type = 'savings'
-              OR (
-                  NOT EXISTS (
-                      SELECT 1 FROM transactions t
-                      WHERE t.account_id = latest.account_id
-                        AND t.ts > latest.date || 'T23:59:59'
-                  )
-                  AND NOT EXISTS (
-                      SELECT 1 FROM cash_events ce
-                      WHERE ce.account_id = latest.account_id
-                        AND ce.ts > latest.date || 'T23:59:59'
-                  )
-              )
-          )
         ORDER BY a.name
     """
     rows = conn.execute(sql, {"acct": account_id, "include_savings": int(include_savings)}).fetchall()
-    return [
-        {
+    balances = []
+    for r in rows:
+        balance = _cash_balance_from_snapshot(
+            conn, r["account_id"], r["date"], Decimal(str(r["balance_eur"]))
+        )
+        balances.append({
             "account_id": r["account_id"],
             "account_name": r["account_name"],
-            "balance_eur": Decimal(str(r["balance_eur"])).quantize(_TWO, ROUND_HALF_UP),
+            "balance_eur": balance.quantize(_TWO, ROUND_HALF_UP),
             "date": r["date"],
-        }
-        for r in rows
-    ]
+        })
+    return balances
+
+
+def _cash_balance_from_snapshot(
+    conn: sqlite3.Connection,
+    account_id: int,
+    snapshot_date: str,
+    snapshot_balance: Decimal,
+    through_date: str | None = None,
+) -> Decimal:
+    """Apply ledger activity after an end-of-day cash snapshot.
+
+    DeGiro reports the trade amount and its commission as separate ledger
+    entries. Therefore transaction ``value_eur`` is applied here while fees
+    are supplied by their corresponding cash event, avoiding a double count.
+    """
+    end_ts = f"{through_date or '9999-12-31'}T23:59:59"
+    transaction_delta = conn.execute(
+        """SELECT COALESCE(SUM(CAST(value_eur AS REAL)), 0) AS total
+           FROM transactions
+           WHERE account_id=? AND ts > ? AND ts <= ?""",
+        (account_id, f"{snapshot_date}T23:59:59", end_ts),
+    ).fetchone()
+    event_delta = conn.execute(
+        """SELECT COALESCE(SUM(CAST(amount_eur AS REAL)), 0) AS total
+           FROM cash_events
+           WHERE account_id=? AND ts > ? AND ts <= ?""",
+        (account_id, f"{snapshot_date}T23:59:59", end_ts),
+    ).fetchone()
+    return (
+        snapshot_balance
+        + Decimal(str(transaction_delta["total"] or 0))
+        + Decimal(str(event_delta["total"] or 0))
+    )
 
 
 def get_cash_balance(
@@ -684,37 +705,29 @@ def get_portfolio_value_series(
             if price_row:
                 total += Decimal(str(h["qty"])) * _d(price_row["close"])
 
-        # Add ordinary cash snapshots only while they are current as of this
-        # date. A stale snapshot can contain sale proceeds that a later buy
-        # has already turned into a holding, which would double-count wealth.
-        if account_id is None:
-            snap_sql = """
-                SELECT SUM(CAST(balance_eur AS REAL)) AS total_balance
-                FROM (
-                    SELECT account_id,
-                           balance_eur,
-                           date,
-                           ROW_NUMBER() OVER (PARTITION BY account_id ORDER BY date DESC) AS rn
-                    FROM balance_snapshots bs
-                    JOIN accounts a ON a.id=bs.account_id
-                    WHERE date <= ? AND a.type != 'savings'
-                ) latest WHERE latest.rn = 1
-                  AND NOT EXISTS (
-                      SELECT 1 FROM transactions t
-                      WHERE t.account_id = latest.account_id
-                        AND t.ts > latest.date || 'T23:59:59'
-                        AND t.ts <= ? || 'T23:59:59'
-                  )
-                  AND NOT EXISTS (
-                      SELECT 1 FROM cash_events ce
-                      WHERE ce.account_id = latest.account_id
-                        AND ce.ts > latest.date || 'T23:59:59'
-                        AND ce.ts <= ? || 'T23:59:59'
-                  )
-            """
-            snap = conn.execute(snap_sql, (d, d, d)).fetchone()
-            if snap and snap["total_balance"]:
-                total += Decimal(str(snap["total_balance"]))
+        # Cash snapshots are end-of-day values. Apply later activity up to
+        # this chart date, so an incremental import neither loses cash nor
+        # double-counts sale proceeds that were subsequently reinvested.
+        snap_sql = """
+            SELECT account_id, balance_eur, date
+            FROM (
+                SELECT bs.account_id, bs.balance_eur, bs.date,
+                       ROW_NUMBER() OVER (PARTITION BY bs.account_id ORDER BY bs.date DESC, bs.id DESC) AS rn
+                FROM balance_snapshots bs
+                JOIN accounts a ON a.id=bs.account_id
+                WHERE bs.date <= ? AND a.type != 'savings'
+                  AND (? IS NULL OR bs.account_id = ?)
+            ) latest
+            WHERE rn = 1
+        """
+        for snap in conn.execute(snap_sql, (d, account_id, account_id)).fetchall():
+            total += _cash_balance_from_snapshot(
+                conn,
+                snap["account_id"],
+                snap["date"],
+                Decimal(str(snap["balance_eur"])),
+                through_date=d,
+            )
 
         if total > _ZERO:
             result.append({"date": d, "value": total.quantize(_TWO, ROUND_HALF_UP)})
