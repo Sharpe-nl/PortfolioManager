@@ -5,6 +5,7 @@
 <div class="page-header">
   <h1>{{ instrument.name }}</h1>
   {% if instrument.isin %}<span class="badge">{{ instrument.isin }}</span>{% endif %}
+  {% if instrument.trading_currency %}<span class="badge secondary">{{ instrument.trading_currency }}</span>{% endif %}
   {% if instrument.symbol %}<span class="badge secondary">{{ instrument.symbol }}</span>{% endif %}
 </div>
 
@@ -143,6 +144,10 @@
       <label>{{ t(request, 'instrument.field_ticker') }}
         <input type="text" name="symbol" value="{{ instrument.symbol or '' }}"
                placeholder="{{ t(request, 'instrument.ticker_placeholder') }}">
+      </label>
+      <label>{{ t(request, 'instrument.field_exchange') }}
+        <input type="text" name="exchange" value="{{ instrument.exchange or '' }}"
+               placeholder="bijv. XAMS, XETR, XLON">
       </label>
       <label>Sector
         <input type="text" name="sector" value="{{ instrument.sector or '' }}">

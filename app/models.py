@@ -22,6 +22,7 @@ class Instrument:
     symbol: Optional[str] = None
     exchange: Optional[str] = None
     currency: Optional[str] = None
+    trading_currency: Optional[str] = None
     asset_type: str = "other"
     sector: Optional[str] = None
     region: Optional[str] = None

@@ -158,6 +158,23 @@ class TestAccountParser:
         assert imp > 0
         assert errors == []
 
+    def test_same_isin_in_two_currencies_creates_separate_trade_lines(self, mem_db):
+        content = (
+            "Datum,Tijd,Valutadatum,Product,ISIN,Omschrijving,FX,Mutatie,,Saldo,,Order Id\n"
+            "01-01-2025,10:00,01-01-2025,Example ETF,IE00TEST0001,Koop 1 @ 100 EUR,,EUR,-100,EUR,900,order-eur\n"
+            "02-01-2025,10:00,02-01-2025,Example ETF,IE00TEST0001,Koop 1 @ 100 USD,1.1,USD,-100,EUR,800,order-usd\n"
+        )
+        result = acc_parser.parse(content)
+        imported, _, errors = acc_parser.commit_account_events(mem_db, result, account_id=1)
+        mem_db.commit()
+
+        assert imported == 2
+        assert errors == []
+        lines = mem_db.execute(
+            "SELECT trading_currency FROM instruments WHERE isin='IE00TEST0001' ORDER BY trading_currency"
+        ).fetchall()
+        assert [row["trading_currency"] for row in lines] == ["EUR", "USD"]
+
     def test_reimport_idempotent(self, account_csv, mem_db):
         result = acc_parser.parse(account_csv)
         acc_parser.commit_account_events(mem_db, result, account_id=1)

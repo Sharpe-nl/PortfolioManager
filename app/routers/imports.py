@@ -317,7 +317,9 @@ def _stage_transactions(parse_result, account_id: int, conn) -> list[tuple]:
             dedup_hash=getattr(txn, 'dedup_hash', None),
         )
         status = "duplicate" if is_dup else "new"
-        instrument_id = _get_or_create_instrument(conn, txn.isin or txn.product)
+        instrument_id = _get_or_create_instrument(
+            conn, txn.isin or txn.product, txn.local_currency
+        )
         direction = "Koop" if txn.quantity > 0 else "Verkoop"
         desc = f"{txn.ts[:10]}  {txn.product}  {direction} {abs(txn.quantity)}x  @{txn.price} {txn.price_currency}"
         row_json = json.dumps({
@@ -362,7 +364,9 @@ def _stage_account_events(parse_result, account_id: int, conn) -> list[tuple]:
             dedup_hash=txn.dedup_hash,
         )
         status = "duplicate" if is_dup else "new"
-        instrument_id = _get_or_create_instrument(conn, txn.isin or txn.product)
+        instrument_id = _get_or_create_instrument(
+            conn, txn.isin or txn.product, txn.local_currency
+        )
         direction = "Koop" if txn.quantity > 0 else "Verkoop"
         desc = (f"{txn.ts[:10]}  {txn.product}  {direction} {abs(txn.quantity)}x"
                 f"  @{txn.price} {txn.price_currency}")
@@ -401,7 +405,9 @@ def _stage_account_events(parse_result, account_id: int, conn) -> list[tuple]:
             bought_isins.add(r["isin"])
 
     for ca in parse_result.corporate_actions:
-        instrument_id = _get_or_create_instrument(conn, ca.isin or ca.product)
+        instrument_id = _get_or_create_instrument(
+            conn, ca.isin or ca.product, ca.price_currency
+        )
 
         has_position = bool(ca.isin and ca.isin in bought_isins)
         if has_position:
@@ -448,7 +454,9 @@ def _stage_account_events(parse_result, account_id: int, conn) -> list[tuple]:
         seen_event_hashes.add(row.dedup_hash)
         is_dup = in_session or _check_event_dup(conn, row.dedup_hash)
         status = "duplicate" if is_dup else "new"
-        instrument_id = _get_instrument_id(conn, row.isin, row.product)
+        instrument_id = _get_instrument_id(
+            conn, row.isin, row.product, row.amount_currency
+        )
         desc = f"{row.ts[:10]}  {row.description}  {row.amount_eur} EUR"
         row_json = json.dumps({
             "_label": desc,

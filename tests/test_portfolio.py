@@ -14,6 +14,7 @@ from app.services.portfolio import (
     get_cash_balance,
     get_portfolio_summary,
     get_portfolio_value_series,
+    get_unrealized_pl_series,
 )
 
 
@@ -179,6 +180,27 @@ def test_cash_snapshot_is_carried_forward_with_later_activity(mem_db):
     assert summary["total_value"] == Decimal("1025.00")
     assert summary["total_pl"] == Decimal("25.00")
     assert get_portfolio_value_series(mem_db)[-1]["value"] == Decimal("1025.00")
+
+
+def test_reopened_position_uses_only_its_new_cost_basis(mem_db):
+    """A fully sold position must not affect a later repurchase's average cost."""
+    _seed_data(mem_db)
+    mem_db.executemany(
+        """INSERT INTO transactions(account_id,instrument_id,ts,quantity,price,local_currency,value_eur,fees_eur,source)
+           VALUES(1,1,?,?,?,?,?,?, 'degiro_account_csv')""",
+        [
+            ('2025-02-01T10:00:00', '-8', '120', 'EUR', '960', '0'),
+            ('2025-03-01T10:00:00', '4', '150', 'EUR', '-600', '0'),
+        ],
+    )
+    mem_db.commit()
+
+    holding = get_holdings(mem_db)[0]
+    assert holding.quantity == Decimal("4")
+    assert holding.avg_cost == Decimal("150.00")
+    assert holding.unrealized_pl == Decimal("-126.00")
+    assert get_realized_pl(mem_db) == Decimal("59.40")
+    assert Decimal(get_unrealized_pl_series(mem_db)[-1]["value"]) == Decimal("-126.00")
 
 
 class TestRealizedPL:

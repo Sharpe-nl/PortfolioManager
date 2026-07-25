@@ -118,18 +118,28 @@ def _parse_positional_row(raw: list[str]) -> Optional[GenericRow]:
 # Database helpers
 # ---------------------------------------------------------------------------
 
-def _get_or_create_instrument(conn: sqlite3.Connection, isin_or_name: str) -> int:
-    """Resolve by ISIN first, then name.  Create if missing."""
+def _get_or_create_instrument(
+    conn: sqlite3.Connection,
+    isin_or_name: str,
+    trading_currency: str | None = None,
+) -> int:
+    """Resolve an ISIN within its trading currency, then create if missing."""
     # Try ISIN lookup
     if len(isin_or_name) == 12 and isin_or_name[:2].isalpha():
-        row = conn.execute(
-            "SELECT id FROM instruments WHERE isin=?", (isin_or_name,)
-        ).fetchone()
+        if trading_currency:
+            row = conn.execute(
+                "SELECT id FROM instruments WHERE isin=? AND trading_currency=?",
+                (isin_or_name, trading_currency),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT id FROM instruments WHERE isin=? ORDER BY id LIMIT 1", (isin_or_name,)
+            ).fetchone()
         if row:
             return row["id"]
         cur = conn.execute(
-            "INSERT INTO instruments(isin, name) VALUES (?,?)",
-            (isin_or_name, isin_or_name),
+            "INSERT INTO instruments(isin, name, trading_currency) VALUES (?,?,?)",
+            (isin_or_name, isin_or_name, trading_currency),
         )
         return cur.lastrowid  # type: ignore[return-value]
     # Name lookup
@@ -155,7 +165,7 @@ def commit_generic_rows(
 
     for row in parse_result.rows:
         try:
-            instrument_id = _get_or_create_instrument(conn, row.isin_or_name)
+            instrument_id = _get_or_create_instrument(conn, row.isin_or_name, "EUR")
             if row.row_type == TRANSACTION_TYPE:
                 if row.quantity is None or row.price is None:
                     errors.append(

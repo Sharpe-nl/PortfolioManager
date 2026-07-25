@@ -363,7 +363,7 @@ async def instrument_update(
     """Update ticker mapping, sector, region, asset_type overrides."""
     form = await request.form()
     fields = {}
-    for col in ("symbol", "sector", "region", "asset_type"):
+    for col in ("symbol", "exchange", "sector", "region", "asset_type"):
         if col in form:
             val = str(form[col]).strip() or None
             fields[col] = val

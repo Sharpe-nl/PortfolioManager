@@ -516,17 +516,29 @@ def _parse_event_row(
 # Database helpers
 # ---------------------------------------------------------------------------
 
-def _get_instrument_id(conn: sqlite3.Connection, isin: str | None,
-                        name: str) -> int | None:
+def _get_instrument_id(
+    conn: sqlite3.Connection,
+    isin: str | None,
+    name: str,
+    trading_currency: str | None = None,
+) -> int | None:
+    """Return the trade line for an ISIN and its transaction currency."""
     if not isin:
         return None
-    row = conn.execute(
-        "SELECT id FROM instruments WHERE isin=?", (isin,)
-    ).fetchone()
+    if trading_currency:
+        row = conn.execute(
+            "SELECT id FROM instruments WHERE isin=? AND trading_currency=?",
+            (isin, trading_currency),
+        ).fetchone()
+    else:
+        row = conn.execute(
+            "SELECT id FROM instruments WHERE isin=? ORDER BY id LIMIT 1", (isin,)
+        ).fetchone()
     if row:
         return row["id"]
     cur = conn.execute(
-        "INSERT INTO instruments(isin, name) VALUES (?,?)", (isin, name)
+        "INSERT INTO instruments(isin, name, trading_currency) VALUES (?,?,?)",
+        (isin, name, trading_currency),
     )
     return cur.lastrowid  # type: ignore[return-value]
 
@@ -545,7 +557,9 @@ def commit_account_events(
 
     for txn in result.txn_rows:
         try:
-            instrument_id = _get_instrument_id(conn, txn.isin, txn.product)
+            instrument_id = _get_instrument_id(
+                conn, txn.isin, txn.product, txn.local_currency
+            )
             if instrument_id is None:
                 raise ValueError("transaction has no ISIN")
             cur = conn.execute(
@@ -567,7 +581,9 @@ def commit_account_events(
 
     for row in result.rows:
         try:
-            instrument_id = _get_instrument_id(conn, row.isin, row.product)
+            instrument_id = _get_instrument_id(
+                conn, row.isin, row.product, row.amount_currency
+            )
             cur = conn.execute(
                 """INSERT OR IGNORE INTO cash_events
                    (account_id, instrument_id, ts, type, amount_eur, description, dedup_hash)

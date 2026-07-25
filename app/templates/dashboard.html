@@ -217,7 +217,7 @@
         onclick="window.location='/instrument/{{ h.instrument.id }}'">
       <td><a href="/instrument/{{ h.instrument.id }}" class="instrument-name-with-logo">
         <span data-instrument-logo data-isin="{{ h.instrument.isin or '' }}" data-symbol="{{ h.instrument.symbol or '' }}" data-name="{{ h.instrument.name }}"></span>
-        <span>{{ h.instrument.name }}</span>
+        <span>{{ h.instrument.name }}{% if h.instrument.trading_currency %} <small class="muted">{{ h.instrument.trading_currency }}</small>{% endif %}</span>
       </a></td>
       <td>{{ h.account_name }}</td>
       <td class="num hv-value">{{ h.current_value | eur }}</td>

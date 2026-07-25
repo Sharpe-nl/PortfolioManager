@@ -56,6 +56,9 @@
           <span>{{ h.instrument.name }}</span>
         </a>
         {% if h.instrument.isin %}<br><small class="muted">{{ h.instrument.isin }}</small>{% endif %}
+        {% if h.instrument.trading_currency %}
+        <br><small class="muted badge-currency">{{ h.instrument.trading_currency }}</small>
+        {% endif %}
         {% if h.instrument.currency and h.instrument.currency != 'EUR' %}
         <br><small class="muted badge-currency">{{ h.instrument.currency }}</small>
         {% endif %}

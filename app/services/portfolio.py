@@ -39,6 +39,7 @@ def _row_to_instrument(row: sqlite3.Row) -> Instrument:
         symbol=row["symbol"],
         exchange=row["exchange"],
         currency=row["currency"],
+        trading_currency=row["trading_currency"],
         asset_type=row["asset_type"] or "other",
         sector=row["sector"],
         region=row["region"],
@@ -70,6 +71,64 @@ def get_account(conn: sqlite3.Connection, account_id: int) -> Optional[Account]:
 # Holdings
 # ---------------------------------------------------------------------------
 
+def _position_accounting(
+    conn: sqlite3.Connection,
+    account_id: int | None = None,
+    through_ts: str | None = None,
+) -> tuple[dict[tuple[int, int], dict], list[dict]]:
+    """Calculate moving-average cost and realized P/L in chronological order.
+
+    Cost must be reduced when shares are sold.  Averaging every buy ever made
+    gives incorrect results after a position was completely sold and opened
+    again, which was especially visible when the same ISIN was traded on more
+    than one listing.
+    """
+    rows = conn.execute(
+        """SELECT id, account_id, instrument_id, ts, quantity, value_eur, fees_eur
+           FROM transactions
+           WHERE (:acct IS NULL OR account_id = :acct)
+             AND (:through_ts IS NULL OR ts <= :through_ts)
+           ORDER BY account_id, instrument_id, ts, id""",
+        {"acct": account_id, "through_ts": through_ts},
+    ).fetchall()
+    states: dict[tuple[int, int], dict] = {}
+    sale_events: list[dict] = []
+    for row in rows:
+        key = (row["account_id"], row["instrument_id"])
+        state = states.setdefault(key, {"quantity": _ZERO, "cost": _ZERO, "realized": _ZERO})
+        quantity = _d(row["quantity"])
+        value = _d(row["value_eur"])
+        fees = _d(row["fees_eur"])
+        if quantity > _ZERO:
+            state["quantity"] += quantity
+            state["cost"] += -(value + fees)
+            continue
+        if quantity >= _ZERO:
+            continue
+
+        sell_qty = -quantity
+        held_qty = state["quantity"]
+        matched_qty = min(sell_qty, max(held_qty, _ZERO))
+        average_cost = state["cost"] / held_qty if held_qty > _ZERO else _ZERO
+        cost_of_sold = average_cost * matched_qty
+        proceeds = value + fees
+        realized = proceeds - cost_of_sold
+        state["quantity"] -= sell_qty
+        state["cost"] -= cost_of_sold
+        if abs(state["quantity"]) < Decimal("0.000001"):
+            state["quantity"] = _ZERO
+            state["cost"] = _ZERO
+        state["realized"] += realized
+        sale_events.append({
+            "transaction_id": row["id"],
+            "account_id": row["account_id"],
+            "instrument_id": row["instrument_id"],
+            "quantity": sell_qty,
+            "proceeds": proceeds,
+            "realized_pl": realized,
+        })
+    return states, sale_events
+
 def get_holdings(
     conn: sqlite3.Connection,
     account_id: int | None = None,
@@ -83,17 +142,7 @@ def get_holdings(
             t.account_id,
             a.name AS account_name,
             t.instrument_id,
-            SUM(CAST(t.quantity AS REAL)) AS total_qty,
-            -- average cost = sum(buy_value_eur + buy_fees) / sum(buy_qty) —
-            -- fees_eur is stored negative (money out), same sign as
-            -- value_eur, so adding it before flipping the sign correctly
-            -- increases the cost basis by what you actually paid in fees.
-            SUM(CASE WHEN CAST(t.quantity AS REAL) > 0
-                     THEN (CAST(t.value_eur AS REAL) + CAST(t.fees_eur AS REAL)) * -1
-                     ELSE 0 END) AS total_cost,
-            SUM(CASE WHEN CAST(t.quantity AS REAL) > 0
-                     THEN CAST(t.quantity AS REAL)
-                     ELSE 0 END) AS total_buy_qty
+            SUM(CAST(t.quantity AS REAL)) AS total_qty
         FROM transactions t
         JOIN accounts a ON a.id = t.account_id
         WHERE (:acct IS NULL OR t.account_id = :acct)
@@ -103,11 +152,12 @@ def get_holdings(
     """
     rows = conn.execute(sql, {"acct": account_id}).fetchall()
 
+    states, _ = _position_accounting(conn, account_id)
     instrument_ids = list({r["instrument_id"] for r in rows})
     instruments: dict[int, Instrument] = {}
     for iid in instrument_ids:
         irow = conn.execute(
-            "SELECT id,isin,name,symbol,exchange,currency,asset_type,sector,region "
+            "SELECT id,isin,name,symbol,exchange,currency,trading_currency,asset_type,sector,region "
             "FROM instruments WHERE id=?",
             (iid,),
         ).fetchone()
@@ -117,11 +167,10 @@ def get_holdings(
     holdings: list[Holding] = []
     for r in rows:
         total_qty = Decimal(str(r["total_qty"]))
-        total_cost = Decimal(str(r["total_cost"]))
-        total_buy_qty = Decimal(str(r["total_buy_qty"])) if r["total_buy_qty"] else _ZERO
-
-        avg_cost = (total_cost / total_buy_qty).quantize(_TWO, ROUND_HALF_UP) \
-            if total_buy_qty else _ZERO
+        state = states.get((r["account_id"], r["instrument_id"]), {})
+        total_cost = state.get("cost", _ZERO)
+        avg_cost = (total_cost / total_qty).quantize(_TWO, ROUND_HALF_UP) \
+            if total_qty else _ZERO
 
         inst = instruments.get(r["instrument_id"])
         if not inst:
@@ -176,93 +225,41 @@ def get_holdings(
 # ---------------------------------------------------------------------------
 
 def get_realized_pl(conn: sqlite3.Connection, account_id: int | None = None) -> Decimal:
-    """Calculate total realized P/L using average cost method.
-
-    Sells are matched against the rolling average cost at the time of the sale.
-    This is an approximation; a proper implementation would need FIFO/avg cost
-    tracking per-sale.  We approximate by: total sell proceeds + total buy cost.
-    """
-    sql = """
-        SELECT
-            t.instrument_id,
-            SUM(CASE WHEN CAST(t.quantity AS REAL) > 0
-                     THEN (CAST(t.value_eur AS REAL) + CAST(t.fees_eur AS REAL)) * -1 ELSE 0 END) AS buy_eur,
-            SUM(CASE WHEN CAST(t.quantity AS REAL) < 0
-                     THEN CAST(t.value_eur AS REAL) + CAST(t.fees_eur AS REAL) ELSE 0 END) AS sell_eur,
-            SUM(CAST(t.quantity AS REAL)) AS net_qty,
-            SUM(CASE WHEN CAST(t.quantity AS REAL) > 0 THEN CAST(t.quantity AS REAL) ELSE 0 END) AS buy_qty,
-            SUM(CASE WHEN CAST(t.quantity AS REAL) < 0 THEN ABS(CAST(t.quantity AS REAL)) ELSE 0 END) AS sell_qty
-        FROM transactions t
-        WHERE (:acct IS NULL OR t.account_id = :acct)
-        GROUP BY t.instrument_id
-        HAVING sell_qty > 0
-    """
-    rows = conn.execute(sql, {"acct": account_id}).fetchall()
-    total = _ZERO
-    for r in rows:
-        buy_eur = Decimal(str(r["buy_eur"]))
-        sell_eur = Decimal(str(r["sell_eur"]))
-        buy_qty = Decimal(str(r["buy_qty"])) if r["buy_qty"] else _ZERO
-        sell_qty = Decimal(str(r["sell_qty"]))
-        avg_cost = (buy_eur / buy_qty) if buy_qty else _ZERO
-        cost_of_sold = avg_cost * sell_qty
-        total += (sell_eur - cost_of_sold).quantize(_TWO, ROUND_HALF_UP)
-    return total
+    """Return realized P/L using the moving average at every sale."""
+    _, events = _position_accounting(conn, account_id)
+    return sum((event["realized_pl"] for event in events), _ZERO).quantize(_TWO, ROUND_HALF_UP)
 
 
 def get_realized_pl_events(
     conn: sqlite3.Connection,
     account_id: int | None = None,
 ) -> list[dict]:
-    """Per-sale realized P/L events, for period filtering and display.
-
-    Uses the same whole-history average-cost approximation as get_realized_pl
-    (see its docstring), just broken out per sell transaction instead of
-    summed, so a caller can filter/sum by date range client-side. Summing
-    every event's realized_pl equals get_realized_pl()'s total.
-    """
-    avg_cost_sql = """
-        SELECT
-            instrument_id,
-            SUM(CASE WHEN CAST(quantity AS REAL) > 0
-                     THEN (CAST(value_eur AS REAL) + CAST(fees_eur AS REAL)) * -1 ELSE 0 END) AS buy_eur,
-            SUM(CASE WHEN CAST(quantity AS REAL) > 0 THEN CAST(quantity AS REAL) ELSE 0 END) AS buy_qty
-        FROM transactions
-        WHERE (:acct IS NULL OR account_id = :acct)
-        GROUP BY instrument_id
-        HAVING buy_qty > 0
-    """
-    avg_costs: dict[int, Decimal] = {}
-    for r in conn.execute(avg_cost_sql, {"acct": account_id}).fetchall():
-        buy_qty = Decimal(str(r["buy_qty"]))
-        avg_costs[r["instrument_id"]] = Decimal(str(r["buy_eur"])) / buy_qty if buy_qty else _ZERO
-
-    sell_sql = """
-        SELECT t.ts, t.instrument_id, t.quantity, t.value_eur, t.fees_eur,
-               i.name AS instrument_name, i.isin, i.symbol, a.name AS account_name
-        FROM transactions t
-        JOIN instruments i ON i.id = t.instrument_id
-        JOIN accounts a ON a.id = t.account_id
-        WHERE CAST(t.quantity AS REAL) < 0
-          AND (:acct IS NULL OR t.account_id = :acct)
-        ORDER BY t.ts
-    """
+    """Per-sale realized P/L events using the cost at the moment of sale."""
+    _, accounting_events = _position_accounting(conn, account_id)
+    rows = conn.execute(
+        """SELECT t.id, t.ts, i.name AS instrument_name, i.isin, i.symbol,
+                  a.name AS account_name
+           FROM transactions t
+           JOIN instruments i ON i.id=t.instrument_id
+           JOIN accounts a ON a.id=t.account_id
+           WHERE CAST(t.quantity AS REAL) < 0
+             AND (:acct IS NULL OR t.account_id=:acct)""",
+        {"acct": account_id},
+    ).fetchall()
+    details = {row["id"]: row for row in rows}
     events = []
-    for r in conn.execute(sell_sql, {"acct": account_id}).fetchall():
-        avg_cost = avg_costs.get(r["instrument_id"], _ZERO)
-        sell_qty = abs(Decimal(str(r["quantity"])))
-        sell_value = Decimal(str(r["value_eur"])) + Decimal(str(r["fees_eur"] or "0"))
-        realized = (sell_value - avg_cost * sell_qty).quantize(_TWO, ROUND_HALF_UP)
+    for event in accounting_events:
+        row = details[event["transaction_id"]]
         events.append({
-            "ts": r["ts"],
-            "instrument_id": r["instrument_id"],
-            "instrument_name": r["instrument_name"],
-            "isin": r["isin"],
-            "symbol": r["symbol"],
-            "account_name": r["account_name"],
-            "quantity": sell_qty,
-            "proceeds": sell_value.quantize(_TWO, ROUND_HALF_UP),
-            "realized_pl": realized,
+            "ts": row["ts"],
+            "instrument_id": event["instrument_id"],
+            "instrument_name": row["instrument_name"],
+            "isin": row["isin"],
+            "symbol": row["symbol"],
+            "account_name": row["account_name"],
+            "quantity": event["quantity"],
+            "proceeds": event["proceeds"].quantize(_TWO, ROUND_HALF_UP),
+            "realized_pl": event["realized_pl"].quantize(_TWO, ROUND_HALF_UP),
         })
     return events
 
@@ -571,24 +568,31 @@ def get_holdings_value_series(
 
         series = []
         txn_idx = 0
-        cum_qty = 0.0
-        cum_buy_eur = 0.0
-        cum_buy_qty = 0.0
+        cum_qty = _ZERO
+        cum_cost = _ZERO
         for prow in price_rows:
             date_cutoff = f"{prow['date']}T23:59:59"
             while txn_idx < len(txn_rows) and txn_rows[txn_idx]["ts"] <= date_cutoff:
                 t = txn_rows[txn_idx]
-                cum_qty += t["qty"]
-                if t["qty"] > 0:
-                    cum_buy_eur += -(t["value_eur"] + t["fees_eur"])  # both negative for buys
-                    cum_buy_qty += t["qty"]
+                quantity = Decimal(str(t["qty"]))
+                value = Decimal(str(t["value_eur"]))
+                fees = Decimal(str(t["fees_eur"] or 0))
+                if quantity > _ZERO:
+                    cum_qty += quantity
+                    cum_cost += -(value + fees)
+                elif quantity < _ZERO and cum_qty > _ZERO:
+                    sold = min(-quantity, cum_qty)
+                    cum_cost -= (cum_cost / cum_qty) * sold
+                    cum_qty -= sold
+                    if abs(cum_qty) < Decimal("0.000001"):
+                        cum_qty = _ZERO
+                        cum_cost = _ZERO
                 txn_idx += 1
-            if abs(cum_qty) > 0.000001:
-                qty = Decimal(str(cum_qty))
+            if abs(cum_qty) > Decimal("0.000001"):
+                qty = cum_qty
                 price = _d(prow["close"])
                 value = qty * price
-                avg_cost = (Decimal(str(cum_buy_eur)) / Decimal(str(cum_buy_qty))) if cum_buy_qty else _ZERO
-                unrealized = value - qty * avg_cost
+                unrealized = value - cum_cost
                 series.append({
                     "date": prow["date"],
                     "value": str(value.quantize(_TWO, ROUND_HALF_UP)),
@@ -618,35 +622,23 @@ def get_unrealized_pl_series(
 
     result = []
     for d in dates:
-        sql = """
-            SELECT
-                instrument_id,
-                SUM(CAST(quantity AS REAL)) AS qty,
-                SUM(CASE WHEN CAST(quantity AS REAL) > 0
-                         THEN (CAST(value_eur AS REAL) + CAST(fees_eur AS REAL)) * -1 ELSE 0 END) AS buy_eur,
-                SUM(CASE WHEN CAST(quantity AS REAL) > 0 THEN CAST(quantity AS REAL) ELSE 0 END) AS buy_qty
-            FROM transactions
-            WHERE ts <= ? AND (? IS NULL OR account_id = ?)
-            GROUP BY instrument_id
-            HAVING ABS(SUM(CAST(quantity AS REAL))) > 0.000001
-        """
-        rows = conn.execute(sql, (f"{d}T23:59:59", account_id, account_id)).fetchall()
+        states, _ = _position_accounting(conn, account_id, f"{d}T23:59:59")
 
         total_unrealized = _ZERO
         any_holding = False
-        for r in rows:
+        for (_, instrument_id), state in states.items():
+            qty = state["quantity"]
+            if abs(qty) < Decimal("0.000001"):
+                continue
             price_row = conn.execute(
                 "SELECT close FROM prices WHERE instrument_id=? AND date<=? ORDER BY date DESC LIMIT 1",
-                (r["instrument_id"], d),
+                (instrument_id, d),
             ).fetchone()
             if not price_row:
                 continue
             any_holding = True
-            qty = Decimal(str(r["qty"]))
-            buy_qty = Decimal(str(r["buy_qty"])) if r["buy_qty"] else _ZERO
-            avg_cost = (Decimal(str(r["buy_eur"])) / buy_qty) if buy_qty else _ZERO
             value = qty * _d(price_row["close"])
-            total_unrealized += value - qty * avg_cost
+            total_unrealized += value - state["cost"]
 
         if any_holding:
             result.append({"date": d, "value": str(total_unrealized.quantize(_TWO, ROUND_HALF_UP))})
@@ -831,23 +823,25 @@ def get_closed_positions(
         ORDER BY MAX(t.ts) DESC
     """
     rows = conn.execute(sql, {"acct": account_id}).fetchall()
+    _, sale_events = _position_accounting(conn, account_id)
+    events_by_position: dict[tuple[int, int], list[dict]] = defaultdict(list)
+    for event in sale_events:
+        events_by_position[(event["account_id"], event["instrument_id"])].append(event)
     result: list[dict] = []
     for r in rows:
         irow = conn.execute(
-            "SELECT id,isin,name,symbol,exchange,currency,asset_type,sector,region "
+            "SELECT id,isin,name,symbol,exchange,currency,trading_currency,asset_type,sector,region "
             "FROM instruments WHERE id=?",
             (r["instrument_id"],),
         ).fetchone()
         if not irow:
             continue
 
-        buy_eur  = Decimal(str(r["buy_eur"]))
-        sell_eur = Decimal(str(r["sell_eur"]))
-        buy_qty  = Decimal(str(r["buy_qty"])) if r["buy_qty"] else _ZERO
-        sell_qty = Decimal(str(r["sell_qty"]))
-        avg_cost     = (buy_eur / buy_qty) if buy_qty else _ZERO
-        cost_of_sold = (avg_cost * sell_qty).quantize(_TWO, ROUND_HALF_UP)
-        realized_pl  = (sell_eur - cost_of_sold).quantize(_TWO, ROUND_HALF_UP)
+        position_events = events_by_position[(r["account_id"], r["instrument_id"])]
+        sell_eur = sum((event["proceeds"] for event in position_events), _ZERO)
+        realized_pl = sum((event["realized_pl"] for event in position_events), _ZERO).quantize(_TWO, ROUND_HALF_UP)
+        cost_of_sold = (sell_eur - realized_pl).quantize(_TWO, ROUND_HALF_UP)
+        buy_eur = cost_of_sold
         realized_pct = (
             (realized_pl / cost_of_sold * 100).quantize(_TWO, ROUND_HALF_UP)
             if cost_of_sold else _ZERO
