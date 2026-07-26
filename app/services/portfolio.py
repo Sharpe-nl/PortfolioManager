@@ -264,6 +264,24 @@ def get_realized_pl_events(
     return events
 
 
+def get_fee_events(
+    conn: sqlite3.Connection,
+    account_id: int | None = None,
+) -> list[dict]:
+    """Return booked account fees for period-aware dashboard totals."""
+    rows = conn.execute(
+        """SELECT ts, amount_eur
+           FROM cash_events
+           WHERE type='fee' AND (:acct IS NULL OR account_id=:acct)
+           ORDER BY ts""",
+        {"acct": account_id},
+    ).fetchall()
+    return [
+        {"ts": row["ts"], "amount_eur": _d(row["amount_eur"]).quantize(_TWO, ROUND_HALF_UP)}
+        for row in rows
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Cash balance
 # ---------------------------------------------------------------------------

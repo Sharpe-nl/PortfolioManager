@@ -9,6 +9,7 @@ from app.services.portfolio import (
     get_holdings,
     get_realized_pl,
     get_realized_pl_events,
+    get_fee_events,
     get_allocation,
     get_allocation_details,
     get_cash_balance,
@@ -108,6 +109,18 @@ def test_stock_result_excludes_savings_deposits(mem_db):
     summary = get_portfolio_summary(mem_db)
     assert summary["net_deposits"] == Decimal("1000.0")
     assert summary["total_pl"] == Decimal("-52.00")
+
+
+def test_fee_events_include_only_booked_account_fees(mem_db):
+    mem_db.executemany(
+        "INSERT INTO cash_events(account_id,ts,type,amount_eur) VALUES(1,?,?,?)",
+        [
+            ("2025-01-01T00:00:00", "fee", "-1.50"),
+            ("2025-01-02T00:00:00", "dividend", "2.00"),
+        ],
+    )
+    mem_db.commit()
+    assert get_fee_events(mem_db) == [{"ts": "2025-01-01T00:00:00", "amount_eur": Decimal("-1.50")}]
 
 
 def test_stale_sale_cash_snapshot_is_not_counted_next_to_later_purchase(mem_db):

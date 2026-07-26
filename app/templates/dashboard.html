@@ -162,6 +162,10 @@
         {{ trailing_12m_income | eur }}
       </button>
     </div>
+    <div class="portfolio-hero-stat">
+      <div class="portfolio-hero-stat-label">{{ t(request, 'dashboard.fees') }}</div>
+      <div class="portfolio-hero-stat-value pl-negative" id="stat-fees">€ 0,00</div>
+    </div>
   </div>
 </div>
 
@@ -252,6 +256,7 @@
 // chart) follows the selected period without a server round-trip.
 const valueSeriesAll = {{ value_series | tojson }};
 const realizedEventsAll = {{ realized_events | tojson }};
+const feeEventsAll = {{ fee_events | tojson }};
 const dividendEventsAll = {{ dividend_events | tojson }};
 const dividendEventsDetailAll = {{ dividend_events_detail | tojson }};
 const holdingsValueSeriesAll = {{ holdings_value_series | tojson }};
@@ -352,6 +357,7 @@ function updateDashboard(range) {
   updateUnrealized(start, end);
   updateRealized(start, end);
   updateDividend(start, end);
+  updateFees(start, end);
   updateHoldings(start, end);
 }
 
@@ -493,6 +499,14 @@ function updateDividend(start, end) {
     .filter(e => inRange(e.ts, start, end))
     .reduce((sum, e) => sum + parseFloat(e.amount_eur), 0);
   document.getElementById('stat-dividend').textContent = fmtEur(total);
+}
+
+// ── Account fees within period ─────────────────────────────────────────
+function updateFees(start, end) {
+  const total = feeEventsAll
+    .filter(e => inRange(e.ts, start, end))
+    .reduce((sum, e) => sum + parseFloat(e.amount_eur), 0);
+  setPlText(document.getElementById('stat-fees'), total, fmtEur(total));
 }
 
 // ── Per-holding value + unrealized P/L change over the period ───────────

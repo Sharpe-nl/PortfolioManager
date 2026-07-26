@@ -159,6 +159,7 @@ def _stock_dashboard_context(conn) -> dict:
     # a server round-trip.
     value_series = svc_portfolio.get_portfolio_value_series(conn)
     realized_events = svc_portfolio.get_realized_pl_events(conn)
+    fee_events = svc_portfolio.get_fee_events(conn)
     holdings_value_series = svc_portfolio.get_holdings_value_series(conn)
 
     # Unrealized P/L over time (value minus running avg-cost, no cash) for
@@ -173,6 +174,7 @@ def _stock_dashboard_context(conn) -> dict:
         "trailing_12m_income": trailing,
         "value_series": value_series,
         "realized_events": realized_events,
+        "fee_events": fee_events,
         "dividend_events": dividend_events,
         "dividend_events_detail": dividend_events_detail,
         "unrealized_series": unrealized_series,
