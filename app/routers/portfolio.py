@@ -266,7 +266,11 @@ async def holdings_page(
     }
     holdings.sort(key=key_map.get(sort, key_map["value"]))
     closed = svc_portfolio.get_closed_positions(conn, account_id=account)
-    cash_balances = svc_portfolio.get_cash_balances(conn, account_id=account)
+    # Savings has its own dashboard and must not look like uninvested broker
+    # cash on the holdings page.
+    cash_balances = svc_portfolio.get_cash_balances(
+        conn, account_id=account, include_savings=False
+    )
     summary = svc_portfolio.get_portfolio_summary(conn, account_id=account)
     return templates.TemplateResponse("holdings.html", {
         "request": request,

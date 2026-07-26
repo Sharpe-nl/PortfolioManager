@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from app.routers.savings import _cash_movements, _signed_cash_amount
 from app.services.savings import account_interest, savings_accounts, savings_value_series
-from app.services.portfolio import get_allocation, get_portfolio_summary
+from app.services.portfolio import get_allocation, get_cash_balances, get_portfolio_summary
 
 
 def _savings_account(conn):
@@ -118,3 +118,8 @@ def test_savings_stays_out_of_portfolio_total_and_allocation(mem_db):
     _savings_account(mem_db)
     assert get_portfolio_summary(mem_db)["total_value"] == Decimal("0")
     assert "savings" not in get_allocation(mem_db)["asset_type"]
+
+
+def test_savings_is_not_listed_as_broker_cash_when_excluded(mem_db):
+    _savings_account(mem_db)
+    assert get_cash_balances(mem_db, include_savings=False) == []
