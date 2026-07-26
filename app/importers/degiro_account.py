@@ -304,7 +304,12 @@ def parse(content: str) -> AccountParseResult:
                 if saldo_ccy and saldo_str and re.fullmatch(r"[A-Za-z]{3}", saldo_ccy):
                     saldo_val = parse_dutch_decimal(saldo_str)
                     prev = latest_balance.get(saldo_ccy)
-                    if prev is None or ts >= prev[0]:
+                    # DEGIRO exports newest entries first. Several linked
+                    # ledger events (iDEAL reservation/deposit and cash
+                    # sweep) may share an identical second; the first row is
+                    # then the final balance, while a later row is only an
+                    # intermediate balance. Keep the first value on a tie.
+                    if prev is None or ts > prev[0]:
                         latest_balance[saldo_ccy] = (ts, saldo_val)
 
             row_type = classify_row(description)

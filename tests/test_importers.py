@@ -222,6 +222,21 @@ class TestAccountParser:
         # as portfolio value before its matching iDEAL deposit exists.
         assert result.cash_balances_raw == {"EUR": Decimal("100.00")}
 
+    def test_cash_sweep_rows_keep_the_final_balance_when_timestamps_match(self):
+        """A cash sweep's intermediate €1,000 must not replace €106.79 cash."""
+        content = (
+            "Datum,Tijd,Valutadatum,Product,ISIN,Omschrijving,FX,Mutatie,,Saldo,,Order Id\n"
+            "23-07-2026,03:21,23-07-2026,,,Overboeking van uw geldrekening bij flatexDEGIRO Bank 893,21 EUR,,,EUR,\"106,79\",\n"
+            "23-07-2026,03:21,23-07-2026,,,Degiro Cash Sweep Transfer,,EUR,\"893,21\",EUR,\"1000,00\",\n"
+            "23-07-2026,02:40,22-07-2026,,,iDEAL Deposit,,EUR,\"1000,00\",EUR,\"106,79\",\n"
+            "23-07-2026,02:40,22-07-2026,,,Reservation iDEAL,,EUR,\"-1000,00\",EUR,\"-893,21\",\n"
+        )
+
+        result = acc_parser.parse(content)
+
+        assert result.cash_balances_raw == {"EUR": Decimal("106.79")}
+        assert result.cash_balance_eur == Decimal("106.79")
+
 
 # ── Generic CSV ───────────────────────────────────────────────────────────────
 
