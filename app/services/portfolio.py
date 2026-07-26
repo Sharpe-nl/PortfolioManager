@@ -270,14 +270,20 @@ def get_fee_events(
 ) -> list[dict]:
     """Return booked account fees for period-aware dashboard totals."""
     rows = conn.execute(
-        """SELECT ts, amount_eur
-           FROM cash_events
-           WHERE type='fee' AND (:acct IS NULL OR account_id=:acct)
+        """SELECT ce.ts, ce.amount_eur, ce.description, a.name AS account_name
+           FROM cash_events ce
+           JOIN accounts a ON a.id=ce.account_id
+           WHERE ce.type='fee' AND (:acct IS NULL OR ce.account_id=:acct)
            ORDER BY ts""",
         {"acct": account_id},
     ).fetchall()
     return [
-        {"ts": row["ts"], "amount_eur": _d(row["amount_eur"]).quantize(_TWO, ROUND_HALF_UP)}
+        {
+            "ts": row["ts"],
+            "amount_eur": _d(row["amount_eur"]).quantize(_TWO, ROUND_HALF_UP),
+            "description": row["description"] or "",
+            "account_name": row["account_name"],
+        }
         for row in rows
     ]
 

@@ -120,6 +120,23 @@
   </article>
 </dialog>
 
+<dialog id="feeDetailDialog" class="realized-actions-dialog">
+  <article style="margin:0;">
+    <header>
+      <button aria-label="{{ t(request, 'common.close') }}" rel="prev" type="button" onclick="document.getElementById('feeDetailDialog').close()"></button>
+      <strong>{{ t(request, 'dashboard.fees_title') }}</strong>
+      <small id="feeDetailPeriod" class="muted"></small>
+    </header>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>{{ t(request, 'common.date') }}</th><th>{{ t(request, 'common.account') }}</th><th>{{ t(request, 'common.description') }}</th><th class="num">{{ t(request, 'common.amount') }}</th></tr></thead>
+        <tbody id="feeDetailBody"></tbody>
+      </table>
+    </div>
+    <p id="feeDetailEmpty" class="muted" hidden>{{ t(request, 'dashboard.no_fees_period') }}</p>
+  </article>
+</dialog>
+
 <!-- Portfolio hero — left = static totals (don't move with the period selector) -->
 <div class="portfolio-hero">
   <div class="portfolio-hero-left">
@@ -164,7 +181,8 @@
     </div>
     <div class="portfolio-hero-stat">
       <div class="portfolio-hero-stat-label">{{ t(request, 'dashboard.fees') }}</div>
-      <div class="portfolio-hero-stat-value pl-negative" id="stat-fees">€ 0,00</div>
+      <button class="portfolio-hero-stat-value stat-action pl-negative" id="stat-fees" type="button"
+              onclick="openFeeDetail()">€ 0,00</button>
     </div>
   </div>
 </div>
@@ -506,7 +524,30 @@ function updateFees(start, end) {
   const total = feeEventsAll
     .filter(e => inRange(e.ts, start, end))
     .reduce((sum, e) => sum + parseFloat(e.amount_eur), 0);
-  setPlText(document.getElementById('stat-fees'), total, fmtEur(total));
+  // Costs are shown as a positive amount; their red treatment communicates
+  // that they reduce the result without a visually redundant minus sign.
+  setPlText(document.getElementById('stat-fees'), -Math.abs(total), fmtEur(Math.abs(total)));
+}
+
+function openFeeDetail() {
+  const { start, end } = getRangeBounds(selectedRange);
+  const events = feeEventsAll.filter(e => inRange(e.ts, start, end));
+  const body = document.getElementById('feeDetailBody');
+  body.replaceChildren();
+  events.slice().reverse().forEach(e => {
+    const row = document.createElement('tr');
+    const amount = Math.abs(parseFloat(e.amount_eur));
+    row.innerHTML = `<td class="nowrap">${e.ts.slice(0, 10)}</td>
+      <td class="muted small"></td><td></td>
+      <td class="num pl-negative">${fmtEur(amount)}</td>`;
+    row.children[1].textContent = e.account_name;
+    row.children[2].textContent = e.description || '—';
+    body.appendChild(row);
+  });
+  document.getElementById('feeDetailEmpty').hidden = events.length > 0;
+  document.getElementById('feeDetailPeriod').textContent =
+    selectedRange === 'ALL' ? I18N.allPeriods : I18N.selectedPeriod.replace('{range}', selectedRange);
+  document.getElementById('feeDetailDialog').showModal();
 }
 
 // ── Per-holding value + unrealized P/L change over the period ───────────

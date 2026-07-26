@@ -120,7 +120,12 @@ def test_fee_events_include_only_booked_account_fees(mem_db):
         ],
     )
     mem_db.commit()
-    assert get_fee_events(mem_db) == [{"ts": "2025-01-01T00:00:00", "amount_eur": Decimal("-1.50")}]
+    assert get_fee_events(mem_db) == [{
+        "ts": "2025-01-01T00:00:00",
+        "amount_eur": Decimal("-1.50"),
+        "description": "",
+        "account_name": "DeGiro",
+    }]
 
 
 def test_stale_sale_cash_snapshot_is_not_counted_next_to_later_purchase(mem_db):
