@@ -322,17 +322,14 @@ def get_cash_balances(
     rows = conn.execute(sql, {"acct": account_id, "include_savings": int(include_savings)}).fetchall()
     balances = []
     for r in rows:
-        components = _cash_balance_components(
+        balance = _cash_balance_from_snapshot(
             conn, r["account_id"], r["date"], Decimal(str(r["balance_eur"]))
         )
         balances.append({
             "account_id": r["account_id"],
             "account_name": r["account_name"],
-            "balance_eur": components["balance_eur"],
+            "balance_eur": balance.quantize(_TWO, ROUND_HALF_UP),
             "date": r["date"],
-            "snapshot_balance_eur": components["snapshot_balance_eur"],
-            "transactions_since_snapshot": components["transactions_since_snapshot"],
-            "cash_events_since_snapshot": components["cash_events_since_snapshot"],
         })
     return balances
 
@@ -350,19 +347,6 @@ def _cash_balance_from_snapshot(
     entries. Therefore transaction ``value_eur`` is applied here while fees
     are supplied by their corresponding cash event, avoiding a double count.
     """
-    return _cash_balance_components(
-        conn, account_id, snapshot_date, snapshot_balance, through_date
-    )["balance_eur"]
-
-
-def _cash_balance_components(
-    conn: sqlite3.Connection,
-    account_id: int,
-    snapshot_date: str,
-    snapshot_balance: Decimal,
-    through_date: str | None = None,
-) -> dict[str, Decimal]:
-    """Return the local, explainable components of an account's cash value."""
     end_ts = f"{through_date or '9999-12-31'}T23:59:59"
     transaction_delta = conn.execute(
         """SELECT COALESCE(SUM(CAST(value_eur AS REAL)), 0) AS total
@@ -376,15 +360,11 @@ def _cash_balance_components(
            WHERE account_id=? AND ts > ? AND ts <= ?""",
         (account_id, f"{snapshot_date}T23:59:59", end_ts),
     ).fetchone()
-    transactions = Decimal(str(transaction_delta["total"] or 0)).quantize(_TWO, ROUND_HALF_UP)
-    cash_events = Decimal(str(event_delta["total"] or 0)).quantize(_TWO, ROUND_HALF_UP)
-    snapshot = snapshot_balance.quantize(_TWO, ROUND_HALF_UP)
-    return {
-        "snapshot_balance_eur": snapshot,
-        "transactions_since_snapshot": transactions,
-        "cash_events_since_snapshot": cash_events,
-        "balance_eur": (snapshot + transactions + cash_events).quantize(_TWO, ROUND_HALF_UP),
-    }
+    return (
+        snapshot_balance
+        + Decimal(str(transaction_delta["total"] or 0))
+        + Decimal(str(event_delta["total"] or 0))
+    )
 
 
 def get_cash_balance(

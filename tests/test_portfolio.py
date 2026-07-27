@@ -13,7 +13,6 @@ from app.services.portfolio import (
     get_allocation,
     get_allocation_details,
     get_cash_balance,
-    get_cash_balances,
     get_portfolio_summary,
     get_portfolio_value_series,
     get_unrealized_pl_series,
@@ -199,10 +198,6 @@ def test_cash_snapshot_is_carried_forward_with_later_activity(mem_db):
     assert summary["total_value"] == Decimal("1025.00")
     assert summary["total_pl"] == Decimal("25.00")
     assert get_portfolio_value_series(mem_db)[-1]["value"] == Decimal("1025.00")
-    cash = get_cash_balances(mem_db, include_savings=False)[0]
-    assert cash["snapshot_balance_eur"] == Decimal("1000.00")
-    assert cash["transactions_since_snapshot"] == Decimal("-500.00")
-    assert cash["cash_events_since_snapshot"] == Decimal("25.00")
 
 
 def test_reopened_position_uses_only_its_new_cost_basis(mem_db):
