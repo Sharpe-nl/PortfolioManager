@@ -40,6 +40,19 @@
   </a>
 </div>
 
+<nav class="settings-section-nav" aria-label="{{ t(request, 'settings.title') }}">
+  <a href="#connections">{{ t(request, 'settings.group_connections') }}</a>
+  <a href="#security">{{ t(request, 'settings.group_security') }}</a>
+  <a href="#market-data">{{ t(request, 'settings.group_market_data') }}</a>
+  <a href="#danger-zone">{{ t(request, 'settings.section_danger') }}</a>
+</nav>
+
+<section id="connections" class="settings-section">
+  <div class="settings-section-heading">
+    <h2>{{ t(request, 'settings.group_connections') }}</h2>
+    <p>{{ t(request, 'settings.group_connections_hint') }}</p>
+  </div>
+  <div class="settings-card-grid settings-card-grid--connections">
 <!-- ── Logo settings ─────────────────────────────────────────────────── -->
 <article class="logo-settings-card">
   <form method="post" action="/settings/save" class="logo-key-row">
@@ -126,7 +139,15 @@
   {% endif %}
   <p class="muted update-settings-hint">{{ t(request, 'settings.update_hint') }}</p>
 </article>
+  </div>
+</section>
 
+<section id="security" class="settings-section">
+  <div class="settings-section-heading">
+    <h2>{{ t(request, 'settings.group_security') }}</h2>
+    <p>{{ t(request, 'settings.group_security_hint') }}</p>
+  </div>
+  <div class="settings-card-grid settings-card-grid--security">
 <!-- ── YubiKeys / beveiligingssleutels ─────────────────────────────────── -->
 <article>
   <header>{{ t(request, 'settings.section_yubikeys') }}</header>
@@ -189,7 +210,14 @@
   </p>
   <a href="/settings/backup" role="button" class="outline" download>{{ t(request, 'settings.download_backup') }}</a>
 </article>
+  </div>
+</section>
 
+<section id="market-data" class="settings-section">
+  <div class="settings-section-heading">
+    <h2>{{ t(request, 'settings.group_market_data') }}</h2>
+    <p>{{ t(request, 'settings.group_market_data_hint') }}</p>
+  </div>
 <!-- ── Ticker mapping overview ───────────────────────────────────────── -->
 <article>
   <header>{{ t(request, 'settings.section_ticker_mapping', count=mapped_instruments | length) }}</header>
@@ -263,8 +291,10 @@
   </ul>
 </article>
 {% endif %}
+</section>
 
 <!-- ── Danger zone: deliberately the final settings section ─────────── -->
+<section id="danger-zone" class="settings-section settings-section--danger">
 <article class="danger-zone-card">
   <header>{{ t(request, 'settings.section_danger') }}</header>
   <p class="muted">{{ t(request, 'settings.danger_intro') }}</p>
@@ -279,6 +309,7 @@
     </form>
   </div>
 </article>
+</section>
 </div>
 {% endblock %}
 

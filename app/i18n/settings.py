@@ -11,6 +11,12 @@ NL = {
     # ── Quick links ────────────────────────────────────────────────────
     "settings.quicklink_accounts": "Accounts",
     "settings.quicklink_import": "Importeren",
+    "settings.group_connections": "Koppelingen & automatisering",
+    "settings.group_connections_hint": "Externe diensten, ververstijden en app-updates.",
+    "settings.group_security": "Beveiliging & gegevens",
+    "settings.group_security_hint": "Toegangssleutels, lokale gegevens en back-ups.",
+    "settings.group_market_data": "Koersen & instrumenten",
+    "settings.group_market_data_hint": "Tickerkoppelingen en classificaties voor marktgegevens.",
 
     # ── General settings ──────────────────────────────────────────────
     "settings.section_logo": "Bedrijfslogo API keys",
@@ -124,6 +130,12 @@ EN = {
 
     "settings.quicklink_accounts": "Accounts",
     "settings.quicklink_import": "Import",
+    "settings.group_connections": "Connections & automation",
+    "settings.group_connections_hint": "External services, refresh times and app updates.",
+    "settings.group_security": "Security & data",
+    "settings.group_security_hint": "Access keys, local data and backups.",
+    "settings.group_market_data": "Prices & instruments",
+    "settings.group_market_data_hint": "Ticker mappings and classifications for market data.",
 
     "settings.section_logo": "Company logo API keys",
     "settings.label_logo_dev_key": "Logo.dev publishable key (optional)",

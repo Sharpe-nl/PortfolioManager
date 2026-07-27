@@ -1723,6 +1723,52 @@ option {
 .quicklink-label { flex: 1; }
 .quicklink-count { font-size: 0.75rem; color: var(--text-muted); }
 
+/* ── Settings information architecture ─────────────────────────────────── */
+.settings-section-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  margin: 0 0 1.5rem;
+  padding: .35rem;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface) 76%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+}
+
+.settings-section-nav a {
+  padding: .32rem .65rem;
+  border-radius: .5rem;
+  color: var(--text-muted) !important;
+  font-size: .78rem;
+  font-weight: 550;
+  text-decoration: none !important;
+}
+
+.settings-section-nav a:hover { background: var(--surface-2); color: var(--text) !important; }
+.settings-section { scroll-margin-top: 1rem; margin: 0 0 2rem; }
+.settings-section-heading { display: flex; align-items: baseline; gap: .7rem 1rem; flex-wrap: wrap; margin: 0 0 .7rem; }
+.settings-section-heading h2 { margin: 0; font-size: 1rem; letter-spacing: -.01em; }
+.settings-section-heading p { margin: 0; color: var(--text-muted); font-size: .78rem; }
+.settings-card-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: start; }
+.settings-card-grid--connections > .logo-settings-card,
+.settings-card-grid--connections > .api-credentials-card,
+.settings-card-grid--security > article:first-child { grid-column: 1 / -1; }
+.settings-card-grid > article { margin: 0; }
+.settings-section--danger { margin-top: 2.5rem; }
+
+@media (max-width: 760px) {
+  .settings-card-grid { grid-template-columns: 1fr; }
+  .settings-card-grid--connections > .logo-settings-card,
+  .settings-card-grid--connections > .api-credentials-card,
+  .settings-card-grid--security > article:first-child { grid-column: auto; }
+  .settings-section-heading { display: block; }
+  .settings-section-heading p { margin-top: .2rem; }
+}
+
 /* ── Extra utilities ─────────────────────────────────────────────────────── */
 .nowrap { white-space: nowrap; }
 
