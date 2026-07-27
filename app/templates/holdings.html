@@ -96,6 +96,32 @@
   </a>
   {% endfor %}
   </div>
+  <details class="cash-reconciliation">
+    <summary>{{ t(request, 'holdings.cash_check') }}</summary>
+    <div class="table-scroll">
+      <table>
+        <thead><tr>
+          <th>{{ t(request, 'common.account') }}</th>
+          <th>{{ t(request, 'holdings.cash_snapshot_date') }}</th>
+          <th class="num">{{ t(request, 'holdings.cash_snapshot') }}</th>
+          <th class="num">{{ t(request, 'holdings.cash_transactions') }}</th>
+          <th class="num">{{ t(request, 'holdings.cash_events') }}</th>
+          <th class="num">{{ t(request, 'holdings.cash_calculated') }}</th>
+        </tr></thead>
+        <tbody>
+        {% for c in cash_balances %}
+        <tr>
+          <td>{{ c.account_name }}</td><td>{{ c.date }}</td>
+          <td class="num">{{ c.snapshot_balance_eur | eur }}</td>
+          <td class="num {{ c.transactions_since_snapshot | pl_class }}">{{ c.transactions_since_snapshot | eur }}</td>
+          <td class="num {{ c.cash_events_since_snapshot | pl_class }}">{{ c.cash_events_since_snapshot | eur }}</td>
+          <td class="num">{{ c.balance_eur | eur }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
 </article>
 {% endif %}
 {% endmacro %}
