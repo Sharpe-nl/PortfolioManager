@@ -41,10 +41,10 @@
 </div>
 
 <nav class="settings-section-nav" aria-label="{{ t(request, 'settings.title') }}">
-  <a href="#connections">{{ t(request, 'settings.group_connections') }}</a>
-  <a href="#security">{{ t(request, 'settings.group_security') }}</a>
-  <a href="#market-data">{{ t(request, 'settings.group_market_data') }}</a>
-  <a href="#danger-zone">{{ t(request, 'settings.section_danger') }}</a>
+  <a href="#connections" data-settings-section="connections">{{ t(request, 'settings.group_connections') }}</a>
+  <a href="#security" data-settings-section="security">{{ t(request, 'settings.group_security') }}</a>
+  <a href="#market-data" data-settings-section="market-data">{{ t(request, 'settings.group_market_data') }}</a>
+  <a href="#danger-zone" data-settings-section="danger-zone">{{ t(request, 'settings.section_danger') }}</a>
 </nav>
 
 <section id="connections" class="settings-section">
@@ -322,6 +322,40 @@ const I18N = {
   keyAdded: {{ t(request, 'settings.js_key_added') | tojson }},
   errorPrefix: {{ t(request, 'settings.js_error_prefix') | tojson }},
 };
+
+function initialiseSettingsSections() {
+  const page = document.querySelector('.settings-page');
+  const links = [...document.querySelectorAll('[data-settings-section]')];
+  const sections = [...document.querySelectorAll('.settings-page > .settings-section')];
+  if (!page || !links.length || !sections.length) return;
+
+  const selectSection = (id, { updateHash = false } = {}) => {
+    const target = sections.find(section => section.id === id);
+    if (!target) return;
+    page.classList.add('settings-filter-ready');
+    sections.forEach(section => section.classList.toggle('is-active', section === target));
+    links.forEach(link => {
+      const active = link.dataset.settingsSection === id;
+      link.classList.toggle('active', active);
+      link.toggleAttribute('aria-current', active);
+    });
+    localStorage.setItem('settings-active-section', id);
+    if (updateHash) history.replaceState(null, '', `#${id}`);
+  };
+
+  const initial = window.location.hash.slice(1)
+    || localStorage.getItem('settings-active-section')
+    || links[0].dataset.settingsSection;
+  selectSection(initial);
+
+  links.forEach(link => link.addEventListener('click', event => {
+    event.preventDefault();
+    selectSection(link.dataset.settingsSection, { updateHash: true });
+  }));
+  window.addEventListener('hashchange', () => selectSection(window.location.hash.slice(1)));
+}
+
+initialiseSettingsSections();
 
 async function addYubikey() {
   const btn = document.getElementById('yk-add-btn');
