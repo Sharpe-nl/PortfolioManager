@@ -43,3 +43,18 @@ def test_trading_line_migration_splits_existing_isin_by_currency(tmp_path):
     ).fetchall()
     assert transactions[0]["instrument_id"] != transactions[1]["instrument_id"]
     assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
+
+
+def test_promotion_migration_reclassifies_existing_cash_event(tmp_path):
+    conn = sqlite3.connect(tmp_path / "portfolio.db")
+    conn.executescript((MIGRATIONS / "001_init.sql").read_text(encoding="utf-8"))
+    conn.execute("INSERT INTO accounts(id,name,type,currency) VALUES(1,'Broker','broker','EUR')")
+    conn.execute(
+        """INSERT INTO cash_events(account_id,ts,type,amount_eur,description)
+           VALUES(1,'2023-01-13T00:00:00','other','4.90','DEGIRO Verrekening Promotie')"""
+    )
+
+    conn.executescript((MIGRATIONS / "012_promotion_bonus.sql").read_text(encoding="utf-8"))
+
+    assert conn.execute("SELECT type FROM cash_events").fetchone()[0] == "bonus"
+    assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
