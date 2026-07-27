@@ -26,16 +26,7 @@
     </a>
     <nav class="topnav-links" aria-label="{{ t(request, 'nav.aria') }}">
       <a href="/" class="{% if request.url.path == '/' %}active{% endif %}">{{ t(request, 'nav.dashboard') }}</a>
-      <details class="topnav-dropdown {% if stocks_active %}active{% endif %}">
-        <summary><a href="/stocks" onclick="event.stopPropagation()">{{ t(request, 'nav.stocks') }}</a> <span aria-hidden="true">⌄</span></summary>
-        <div class="topnav-dropdown-menu">
-          <a href="/stocks" class="{% if request.url.path.startswith('/stocks') %}active{% endif %}">{{ t(request, 'nav.stocks') }}</a>
-          <a href="/holdings" class="{% if request.url.path.startswith('/holdings') or request.url.path.startswith('/instrument') %}active{% endif %}">{{ t(request, 'nav.holdings') }}</a>
-          <a href="/dividends" class="{% if request.url.path.startswith('/dividends') %}active{% endif %}">{{ t(request, 'nav.dividends') }}</a>
-          <a href="/benchmark" class="{% if request.url.path.startswith('/benchmark') %}active{% endif %}">{{ t(request, 'nav.benchmark') }}</a>
-          <a href="/actions" class="{% if request.url.path.startswith('/actions') %}active{% endif %}">{{ t(request, 'nav.actions') }}</a>
-        </div>
-      </details>
+      <a href="/stocks" class="{% if stocks_active %}active{% endif %}">{{ t(request, 'nav.stocks') }}</a>
       <a href="/crypto" class="{% if request.url.path.startswith('/crypto') %}active{% endif %}">{{ t(request, 'nav.crypto') }}</a>
       <a href="/savings" class="{% if request.url.path.startswith('/savings') %}active{% endif %}">{{ t(request, 'nav.savings') }}</a>
       <a href="/settings" class="{% if request.url.path.startswith('/settings') or request.url.path.startswith('/accounts') or request.url.path.startswith('/import') %}active{% endif %}">{{ t(request, 'nav.settings') }}</a>
@@ -71,16 +62,7 @@
 <!-- ── Mobile nav drawer ───────────────────────────────────────────────────── -->
 <div class="mobile-nav-drawer" id="mobileNavDrawer">
   <a href="/" class="{% if request.url.path == '/' %}active{% endif %}">🏠 {{ t(request, 'nav.dashboard') }}</a>
-  <details class="mobile-nav-group {% if stocks_active %}active{% endif %}" {% if stocks_active %}open{% endif %}>
-    <summary>📊 <a href="/stocks" onclick="event.stopPropagation()">{{ t(request, 'nav.stocks') }}</a><span class="mobile-nav-chevron" aria-hidden="true">⌄</span></summary>
-    <div class="mobile-nav-submenu">
-      <a href="/stocks" class="{% if request.url.path.startswith('/stocks') %}active{% endif %}">{{ t(request, 'nav.stocks') }}</a>
-      <a href="/holdings" class="{% if request.url.path.startswith('/holdings') or request.url.path.startswith('/instrument') %}active{% endif %}">{{ t(request, 'nav.holdings') }}</a>
-      <a href="/dividends" class="{% if request.url.path.startswith('/dividends') %}active{% endif %}">{{ t(request, 'nav.dividends') }}</a>
-      <a href="/benchmark" class="{% if request.url.path.startswith('/benchmark') %}active{% endif %}">{{ t(request, 'nav.benchmark') }}</a>
-      <a href="/actions" class="{% if request.url.path.startswith('/actions') %}active{% endif %}">{{ t(request, 'nav.actions') }}</a>
-    </div>
-  </details>
+  <a href="/stocks" class="{% if stocks_active %}active{% endif %}">📊 {{ t(request, 'nav.stocks') }}</a>
   <a href="/crypto" class="{% if request.url.path.startswith('/crypto') %}active{% endif %}">₿ {{ t(request, 'nav.crypto') }}</a>
   <a href="/savings" class="{% if request.url.path.startswith('/savings') %}active{% endif %}">💰 {{ t(request, 'nav.savings') }}</a>
   <a href="/settings" class="{% if request.url.path.startswith('/settings') or request.url.path.startswith('/accounts') or request.url.path.startswith('/import') %}active{% endif %}">⚙ {{ t(request, 'nav.settings') }}</a>
