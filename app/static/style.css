@@ -1567,7 +1567,7 @@ option {
   gap: .35rem;
   width: fit-content;
   max-width: 100%;
-  margin: -.25rem 0 1.25rem;
+  margin: 0 0 1.25rem;
   padding: .35rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);

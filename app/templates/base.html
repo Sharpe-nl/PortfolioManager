@@ -76,6 +76,15 @@
 
 <!-- ── Main content ───────────────────────────────────────────────────────── -->
 <main class="main-content">
+  {% if stocks_active %}
+  <nav class="stock-section-nav" aria-label="{{ t(request, 'nav.stocks') }}">
+    <a href="/stocks" class="{% if request.url.path.startswith('/stocks') %}active{% endif %}">{{ t(request, 'nav.stocks') }}</a>
+    <a href="/holdings" class="{% if request.url.path.startswith('/holdings') or request.url.path.startswith('/instrument') %}active{% endif %}">{{ t(request, 'nav.holdings') }}</a>
+    <a href="/dividends" class="{% if request.url.path.startswith('/dividends') %}active{% endif %}">{{ t(request, 'nav.dividends') }}</a>
+    <a href="/benchmark" class="{% if request.url.path.startswith('/benchmark') %}active{% endif %}">{{ t(request, 'nav.benchmark') }}</a>
+    <a href="/actions" class="{% if request.url.path.startswith('/actions') %}active{% endif %}">{{ t(request, 'nav.actions') }}</a>
+  </nav>
+  {% endif %}
   {% block content %}{% endblock %}
 </main>
 

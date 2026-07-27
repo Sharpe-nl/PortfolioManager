@@ -53,6 +53,21 @@ class TestXIRR:
 
 
 class TestBenchmarkSeries:
+    def test_savings_cash_flows_are_excluded(self, mem_db):
+        """The stock benchmark must never receive savings-account deposits."""
+        mem_db.execute("INSERT INTO accounts(id,name,type,currency) VALUES(2,'Savings','savings','EUR')")
+        mem_db.execute(
+            "INSERT INTO cash_events(account_id,ts,type,amount_eur) VALUES(2,'2025-01-01T00:00:00','deposit','20000')"
+        )
+        mem_db.commit()
+
+        import app.services.benchmark as bm
+        first_date, cash_flows, portfolio_series = bm.get_deposits_and_portfolio_series(mem_db)
+
+        assert first_date is None
+        assert cash_flows == []
+        assert portfolio_series == []
+
     def test_later_deposit_not_counted_before_it_happened(self, mem_db):
         """A second deposit must not inflate the benchmark's value at dates
         before it was actually made — regression test for a bug where the

@@ -121,10 +121,12 @@ def get_deposits_and_portfolio_series(
     amounts and must be replayed as a partial benchmark sale.
     """
     dep_sql = """
-        SELECT ts, amount_eur FROM cash_events
-        WHERE type IN ('deposit', 'withdrawal')
-          AND (:acct IS NULL OR account_id = :acct)
-        ORDER BY ts
+        SELECT ce.ts, ce.amount_eur FROM cash_events ce
+        JOIN accounts a ON a.id = ce.account_id
+        WHERE ce.type IN ('deposit', 'withdrawal')
+          AND a.type IN ('broker', 'pension')
+          AND (:acct IS NULL OR ce.account_id = :acct)
+        ORDER BY ce.ts
     """
     cash_flows = conn.execute(dep_sql, {"acct": account_id}).fetchall()
     if not cash_flows:

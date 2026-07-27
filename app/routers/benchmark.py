@@ -67,6 +67,6 @@ async def benchmark_page(
         "deposits": deposits,
         "presets": PRESETS,
         "active_tickers": active_tickers,
-        "accounts": list_accounts(conn),
+        "accounts": [acc for acc in list_accounts(conn) if acc.type in ("broker", "pension")],
         "selected_account": account,
     })
