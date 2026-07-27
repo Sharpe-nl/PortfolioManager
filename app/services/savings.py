@@ -73,7 +73,7 @@ def account_interest(conn: sqlite3.Connection, account_id: int, as_of: date | No
             (account_id, account_id, account_id),
         ).fetchone()["day"]
         if not first:
-            return {"balance": _ZERO, "principal": _ZERO, "interest": _ZERO, "events": [], "as_of": as_of.isoformat(), "active_rate": None, "next_payout": None}
+            return {"balance": _ZERO, "principal": _ZERO, "interest": _ZERO, "events": [], "as_of": as_of.isoformat(), "interest_since": None, "active_rate": None, "next_payout": None}
         balance = principal = _ZERO
         start = date.fromisoformat(first)
     rates = [dict(row) for row in conn.execute(
@@ -138,6 +138,7 @@ def account_interest(conn: sqlite3.Connection, account_id: int, as_of: date | No
     return {
         "balance": balance.quantize(_CENT), "principal": principal, "interest": interest,
         "events": sorted(events, key=lambda e: e["date"], reverse=True), "as_of": as_of.isoformat(),
+        "interest_since": start.isoformat(),
         "active_rate": dict(active_rate) if active_rate else None, "next_payout": next_payout,
     }
 

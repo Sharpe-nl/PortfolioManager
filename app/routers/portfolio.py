@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 import sys
 import threading
 import json as _json
+from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from ..db import get_db, get_setting, set_setting, _open as _db_open
@@ -198,6 +199,13 @@ async def dashboard(request: Request, conn=Depends(get_db), _=Depends(require_au
     stock_value_series = svc_portfolio.get_portfolio_value_series(conn) if show_stocks else []
     savings_balance = sum((item["balance"] for item in dashboard_savings), Decimal("0"))
     savings_interest = sum((item["interest"] for item in dashboard_savings), Decimal("0"))
+    interest_since_dates = [
+        item["interest_since"] for item in dashboard_savings if item.get("interest_since")
+    ]
+    savings_interest_since = (
+        date.fromisoformat(min(interest_since_dates)).strftime("%d-%m-%Y")
+        if interest_since_dates else None
+    )
     total_value = (
         (stock_summary["total_value"] if stock_summary else Decimal("0"))
         + (crypto["total"] if crypto else Decimal("0"))
@@ -217,6 +225,7 @@ async def dashboard(request: Request, conn=Depends(get_db), _=Depends(require_au
         "dashboard_savings": dashboard_savings,
         "savings_balance": savings_balance,
         "savings_interest": savings_interest,
+        "savings_interest_since": savings_interest_since,
         "total_value": total_value,
         "total_result": total_result,
         "overview_series": {

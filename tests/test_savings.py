@@ -20,6 +20,7 @@ def test_monthly_interest_compounds_from_latest_snapshot(mem_db):
     # 1% in February and 1% again in March: 1000 -> 1010 -> 1020.10
     assert result["balance"] == Decimal("1020.10")
     assert result["interest"] == Decimal("20.10")
+    assert result["interest_since"] == "2026-01-01"
     assert len(result["events"]) == 2
 
 

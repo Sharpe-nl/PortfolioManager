@@ -48,7 +48,7 @@
   <a href="/savings" class="dashboard-overview-card dashboard-overview-card--savings">
     <header><span><span class="dashboard-category-icon">💰</span>{{ t(request, 'nav.savings') }}</span><span aria-hidden="true">→</span></header>
     <strong>{{ savings_balance | eur }}</strong>
-    <span class="pl-positive">{{ t(request, 'dashboard.savings_interest') }} · {{ savings_interest | eur }}</span>
+    <span class="pl-positive">{{ t(request, 'dashboard.savings_interest') }} · {{ savings_interest | eur }}{% if savings_interest_since %} <small>{{ t(request, 'dashboard.savings_interest_since', date=savings_interest_since) }}</small>{% endif %}</span>
     <small>{% for saving in dashboard_savings %}{{ saving.name }}{% if not loop.last %} · {% endif %}{% endfor %}</small>
   </a>
   {% endif %}
