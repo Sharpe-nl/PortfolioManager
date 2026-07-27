@@ -136,7 +136,7 @@ _TYPE_KEYWORDS: list[tuple[str, str]] = [
     ("rente",                "interest"),
     ("interest",             "interest"),
     ("kapitaalsuitkering",   "other"),
-    ("verrekening promotie", "other"),
+    ("verrekening promotie", "bonus"),
 ]
 
 

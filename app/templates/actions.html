@@ -85,6 +85,8 @@
           <span class="type-badge fee">{{ t(request, 'actions.badge_fee') }}</span>
         {% elif ev.action_type == 'interest' %}
           <span class="type-badge interest">{{ t(request, 'actions.badge_interest') }}</span>
+        {% elif ev.action_type == 'bonus' %}
+          <span class="type-badge bonus">{{ t(request, 'actions.badge_bonus') }}</span>
         {% else %}
           <span class="type-badge other">{{ ev.action_type or '—' }}</span>
         {% endif %}

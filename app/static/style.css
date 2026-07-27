@@ -1581,6 +1581,7 @@ option {
 .type-badge.withdrawal { background: var(--warn-bg);    color: var(--warn); }
 .type-badge.fee        { background: var(--red-bg);     color: var(--red); }
 .type-badge.interest   { background: var(--primary-bg); color: var(--primary); }
+.type-badge.bonus      { background: var(--green-bg);   color: var(--green); }
 .type-badge.other      { background: var(--surface-2);  color: var(--text-muted); }
 
 .flag-icon {

@@ -125,6 +125,9 @@ class TestAccountParser:
         interest = [r for r in result.rows if r.event_type == "interest"]
         assert len(interest) == 1
 
+    def test_promotion_credit_is_classified_as_bonus(self):
+        assert acc_parser.classify_row("DEGIRO Verrekening Promotie") == "bonus"
+
     def test_eur_dividend_amount_correct(self, account_csv):
         result = acc_parser.parse(account_csv)
         eur_div = next(
