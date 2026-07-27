@@ -109,30 +109,31 @@ def get_deposits_and_portfolio_series(
     conn: sqlite3.Connection,
     account_id: int | None = None,
 ):
-    """Deposits + portfolio value series — independent of any benchmark
+    """External cash flows + portfolio value series — independent of any benchmark
     ticker. Exposed publicly so a caller comparing against several
     benchmarks at once (e.g. the benchmark page with multiple ticked boxes)
     can compute this once and pass it into get_benchmark_comparison via
     `_shared`, instead of recomputing the (DB-heavy) portfolio value series
     once per benchmark.
 
-    Returns (first_date, deposits_rows, port_series), or (None, [], []) if
-    there are no deposits yet.
+    Returns (first_date, cash_flow_rows, port_series), or (None, [], []) if
+    there are no external cash flows yet. Withdrawals are stored as negative
+    amounts and must be replayed as a partial benchmark sale.
     """
     dep_sql = """
         SELECT ts, amount_eur FROM cash_events
-        WHERE type = 'deposit'
+        WHERE type IN ('deposit', 'withdrawal')
           AND (:acct IS NULL OR account_id = :acct)
         ORDER BY ts
     """
-    deposits = conn.execute(dep_sql, {"acct": account_id}).fetchall()
-    if not deposits:
+    cash_flows = conn.execute(dep_sql, {"acct": account_id}).fetchall()
+    if not cash_flows:
         return None, [], []
 
-    first_date = deposits[0]["ts"][:10]
+    first_date = cash_flows[0]["ts"][:10]
     from .portfolio import get_portfolio_value_series
     port_series = get_portfolio_value_series(conn, account_id, start=first_date)
-    return first_date, deposits, port_series
+    return first_date, cash_flows, port_series
 
 
 def get_benchmark_comparison(
@@ -157,9 +158,9 @@ def get_benchmark_comparison(
     benchmarks for the same account in one request.
     """
     if _shared is not None:
-        first_date, deposits, port_series = _shared
+        first_date, cash_flows, port_series = _shared
     else:
-        first_date, deposits, port_series = get_deposits_and_portfolio_series(conn, account_id)
+        first_date, cash_flows, port_series = get_deposits_and_portfolio_series(conn, account_id)
     if first_date is None:
         return _empty_result()
 
@@ -168,27 +169,26 @@ def get_benchmark_comparison(
     bench_id = _get_benchmark_id(conn, benchmark_ticker)
     refresh_history(conn, bench_id, benchmark_ticker, first_date, today_str, provider=_provider)
 
-    # Build hypothetical benchmark portfolio: shares bought per deposit, at
-    # that deposit's own date's price. Kept per-deposit (not just summed)
-    # so the value series below can use only the shares bought so far as of
-    # each date — using the final total for every point would show the
-    # benchmark already holding money you hadn't deposited yet, inflating
-    # every earlier point in the chart.
-    dep_shares: list[tuple[str, Decimal]] = []
+    # Build the hypothetical benchmark position by replaying every external
+    # cash flow at its own date's price. A withdrawal has a negative amount,
+    # so it sells benchmark shares instead of leaving the original deposit
+    # invested forever.
+    flow_shares: list[tuple[str, Decimal]] = []
     cash_flows_bench: list[tuple[str, Decimal]] = []
     cash_flows_portfolio: list[tuple[str, Decimal]] = []
 
-    for dep in deposits:
-        dep_date = dep["ts"][:10]
-        amount = _d(dep["amount_eur"])
-        bench_price = _price_on_or_before(conn, bench_id, dep_date)
+    for flow in cash_flows:
+        flow_date = flow["ts"][:10]
+        amount = _d(flow["amount_eur"])
+        bench_price = _price_on_or_before(conn, bench_id, flow_date)
         shares = (amount / bench_price) if bench_price and bench_price > 0 else _ZERO
-        dep_shares.append((dep_date, shares))
-        # For XIRR: deposit is an outflow (negative)
-        cash_flows_bench.append((dep_date, -amount))
-        cash_flows_portfolio.append((dep_date, -amount))
+        flow_shares.append((flow_date, shares))
+        # Deposits are outflows and withdrawals inflows for XIRR. Reversing
+        # the stored signed cash amount gives exactly that convention.
+        cash_flows_bench.append((flow_date, -amount))
+        cash_flows_portfolio.append((flow_date, -amount))
 
-    bench_shares = sum((s for _, s in dep_shares), _ZERO)
+    bench_shares = sum((s for _, s in flow_shares), _ZERO)
 
     # Current benchmark value
     bench_price_now = _price_on_or_before(conn, bench_id, today_str)
@@ -207,16 +207,16 @@ def get_benchmark_comparison(
     bench_xirr = xirr(cash_flows_bench)
 
     # Build benchmark value series (same date points as portfolio) — at each
-    # date, only count shares from deposits made on or before that date.
+    # date, only count shares from cash flows made on or before that date.
     bench_series = []
     for pt in port_series:
-        shares_as_of = sum((s for d, s in dep_shares if d <= pt["date"]), _ZERO)
+        shares_as_of = sum((s for d, s in flow_shares if d <= pt["date"]), _ZERO)
         bp = _price_on_or_before(conn, bench_id, pt["date"])
         bv = (shares_as_of * bp).quantize(_TWO) if bp else _ZERO
         bench_series.append({"date": pt["date"], "value": bv})
 
     # Total returns
-    total_invested = sum(_d(d["amount_eur"]) for d in deposits)
+    total_invested = sum(_d(flow["amount_eur"]) for flow in cash_flows)
     port_return = (
         ((port_value_now - total_invested) / total_invested * 100).quantize(_TWO)
         if total_invested else _ZERO
@@ -229,12 +229,12 @@ def get_benchmark_comparison(
     return {
         "portfolio_series": port_series,
         "benchmark_series": bench_series,
-        # Raw deposits (date, amount) — same cash flows feed both the
+        # Raw external cash flows (date, signed amount) — the same flows feed both the
         # portfolio and the hypothetical benchmark by construction, so the
         # client can recompute return% / XIRR for an arbitrary period
         # (range selector) without a server round-trip, the same way the
         # dashboard and dividends pages already do.
-        "deposits": [{"date": d["ts"][:10], "amount_eur": str(_d(d["amount_eur"]))} for d in deposits],
+        "deposits": [{"date": flow["ts"][:10], "amount_eur": str(_d(flow["amount_eur"]))} for flow in cash_flows],
         "portfolio_xirr": round(port_xirr * 100, 2) if port_xirr is not None else None,
         "benchmark_xirr": round(bench_xirr * 100, 2) if bench_xirr is not None else None,
         "portfolio_return": port_return,

@@ -103,3 +103,47 @@ class TestBenchmarkSeries:
         assert by_date["2025-02-01"] == Decimal("1000.00")
         # From the second deposit onward: 40 shares -> 2000.00
         assert by_date["2025-04-01"] == Decimal("2000.00")
+
+    def test_withdrawal_sells_benchmark_shares(self, mem_db):
+        """An external withdrawal must reduce the hypothetical benchmark,
+        rather than leaving the original deposit invested indefinitely."""
+        mem_db.execute(
+            "INSERT INTO instruments(id,isin,name,symbol,asset_type) "
+            "VALUES (1,'IE00X','HELD','HELD.AS','etf')"
+        )
+        mem_db.executemany(
+            "INSERT INTO cash_events(account_id,ts,type,amount_eur) VALUES(1,?,?,?)",
+            [
+                ("2025-01-01T00:00:00", "deposit", "1000"),
+                ("2025-02-01T00:00:00", "withdrawal", "-500"),
+            ],
+        )
+        mem_db.execute(
+            """INSERT INTO transactions
+               (account_id,instrument_id,ts,quantity,price,local_currency,value_eur,fees_eur,source)
+               VALUES(1,1,'2025-01-01T10:00:00',5,100,'EUR',-500,0,'manual')"""
+        )
+        for d in ["2025-01-01", "2025-02-01"]:
+            mem_db.execute(
+                "INSERT INTO prices(instrument_id,date,close,currency,fetched_at) "
+                "VALUES(1,?,?,?,datetime('now'))", (d, "100", "EUR"),
+            )
+        mem_db.execute(
+            "INSERT INTO instruments(id,name,symbol,asset_type) VALUES(2,'Benchmark: VWRL.AS','VWRL.AS','etf')"
+        )
+        for d, price in [("2025-01-01", "50"), ("2025-02-01", "55")]:
+            mem_db.execute(
+                "INSERT INTO prices(instrument_id,date,close,currency,fetched_at) "
+                "VALUES(2,?,?,?,datetime('now'))", (d, price, "EUR"),
+            )
+        mem_db.commit()
+
+        import app.services.benchmark as bm
+        with patch.object(bm, "_get_benchmark_id", return_value=2), \
+             patch.object(bm, "refresh_history", return_value=None):
+            result = get_benchmark_comparison(mem_db, "VWRL.AS", account_id=1)
+
+        by_date = {pt["date"]: pt["value"] for pt in result["benchmark_series"]}
+        # 20 shares bought at €50; withdrawing €500 at €55 sells 9.0909…
+        # shares, leaving €600 at the €55 close — not €1,100.
+        assert by_date["2025-02-01"] == Decimal("600.00")
