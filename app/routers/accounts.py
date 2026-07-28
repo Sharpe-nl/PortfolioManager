@@ -147,4 +147,8 @@ async def delete_account(account_id: int, conn=Depends(get_db), _=Depends(requir
             continue  # staging rows have no account_id
         conn.execute(f"DELETE FROM {table} WHERE account_id=?", (account_id,))
     conn.execute("DELETE FROM accounts WHERE id=?", (account_id,))
+    # The redirect is followed immediately by the browser. Commit before
+    # returning it so /accounts cannot render the just-deleted row from a
+    # separate connection while FastAPI is still finalising this request.
+    conn.commit()
     return RedirectResponse(url="/accounts", status_code=303)
