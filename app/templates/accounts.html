@@ -69,6 +69,14 @@
     ({{ item.latest_snapshot.date }})
   </div>
   {% endif %}
+  {% if item.savings %}
+  <div class="account-savings-summary">
+    <div><small>{{ t(request, 'savings.balance') }}</small><strong>{{ item.savings.balance | eur }}</strong></div>
+    <div><small>{{ t(request, 'savings.interest') }}</small><strong class="pl-positive">{{ item.savings.interest | eur }}</strong></div>
+    {% if item.savings.active_rate %}<div><small>{{ t(request, 'savings.active_rate') }}</small><strong>{{ item.savings.active_rate.annual_rate }}%</strong></div>{% endif %}
+    <a href="/savings/{{ item.account.id }}/settings" class="btn-sm outline secondary">{{ t(request, 'savings.settings') }}</a>
+  </div>
+  {% endif %}
 
 </article>
 {% else %}
@@ -95,23 +103,22 @@
   <p class="muted api-credentials-hint">{{ t(request, 'accounts.bitvavo_readonly_warning') }}</p>
 </article>
 
-<article id="add-account">
+<article id="add-account" class="account-add-card">
   <header>{{ t(request, 'accounts.section_add') }}</header>
-  <form method="post" action="/accounts/add">
-    <div class="form-grid">
-      <label>{{ t(request, 'accounts.label_name') }} <input type="text" name="name" placeholder="{{ t(request, 'accounts.name_placeholder') }}" required></label>
-      <label>{{ t(request, 'accounts.label_type') }}
-        <select name="type">
-          <option value="broker">broker</option>
-          <option value="pension">pension</option>
-          <option value="savings">savings</option>
-        </select>
-      </label>
-      <label>{{ t(request, 'accounts.label_currency') }} <input type="text" name="currency" value="EUR" maxlength="3"></label>
-    </div>
-    <button type="submit">{{ t(request, 'accounts.btn_add') }}</button>
-    <a href="#crypto-bitvavo" role="button" class="outline secondary">{{ t(request, 'accounts.bitvavo_add') }}</a>
-  </form>
+  <div class="account-type-actions">
+    <button type="button" class="outline secondary" onclick="openAccountDialog('broker')">{{ t(request, 'accounts.add_broker') }}</button>
+    <button type="button" class="outline secondary" onclick="openAccountDialog('pension')">{{ t(request, 'accounts.add_pension') }}</button>
+    <button type="button" class="outline secondary" onclick="openAccountDialog('savings')">{{ t(request, 'accounts.add_savings') }}</button>
+    <button type="button" class="outline secondary" onclick="document.getElementById('crypto-bitvavo').scrollIntoView({behavior:'smooth'})">{{ t(request, 'accounts.add_crypto') }}</button>
+  </div>
 </article>
+<dialog id="addAccountDialog"><article><header>{{ t(request, 'accounts.section_add') }}<button aria-label="{{ t(request, 'common.close') }}" rel="prev" type="button" onclick="document.getElementById('addAccountDialog').close()"></button></header>
+  <form method="post" action="/accounts/add"><input type="hidden" name="type" id="newAccountType" value="broker">
+    <div class="form-grid"><label>{{ t(request, 'accounts.label_name') }}<input type="text" name="name" placeholder="{{ t(request, 'accounts.name_placeholder') }}" required></label>
+    <label>{{ t(request, 'accounts.label_currency') }}<select name="currency"><option value="EUR">EUR — Euro</option><option value="USD">USD — US Dollar</option><option value="GBP">GBP — British Pound</option><option value="CHF">CHF — Swiss Franc</option><option value="CAD">CAD — Canadian Dollar</option></select></label></div>
+    <footer><button type="button" class="outline secondary" onclick="document.getElementById('addAccountDialog').close()">{{ t(request, 'common.cancel') }}</button><button type="submit">{{ t(request, 'accounts.btn_add') }}</button></footer>
+  </form>
+</article></dialog>
+<script>function openAccountDialog(type) { document.getElementById('newAccountType').value = type; document.getElementById('addAccountDialog').showModal(); } document.getElementById('addAccountDialog').addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.close(); });</script>
 {% endif %}
 {% endblock %}

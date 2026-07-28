@@ -1020,12 +1020,24 @@ article > header {
   gap: .4rem;
 }
 .account-card-actions form { margin: 0; }
+.account-savings-summary {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+.account-savings-summary > div { display: grid; gap: .1rem; }
+.account-savings-summary small { color: var(--text-muted); font-size: .72rem; }
+.account-savings-summary strong { font-size: .9rem; }
+.account-type-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.account-type-actions button { width: fit-content; margin: 0; }
 
 @media (max-width: 600px) {
   .account-card-header { align-items: flex-start; }
   .account-card-identity { flex-wrap: wrap; }
   .account-card-name { flex-basis: 100%; }
   .account-card-actions { width: 100%; }
+  .account-savings-summary { gap: .8rem; }
 }
 
 /* ── 12. Chart cards ─────────────────────────────────────────────────────── */

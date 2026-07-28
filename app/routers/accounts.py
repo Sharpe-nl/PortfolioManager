@@ -11,6 +11,7 @@ from ..helpers import templates, require_auth
 from ..services.bitvavo import BitvavoError, sync_bitvavo
 from ..services.credentials import clear_bitvavo_credentials, has_bitvavo_credentials, save_bitvavo_credentials
 from ..services.portfolio import list_accounts
+from ..services.savings import account_interest
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
 _ACCOUNT_TYPES = {"broker", "pension", "savings"}
@@ -44,12 +45,15 @@ async def accounts_page(request: Request, conn=Depends(get_db), _=Depends(requir
             (acc.id,),
         ).fetchone()
 
-        account_data.append({
+        data = {
             "account": acc,
             "total_value": float(val_row["total"]) if val_row and val_row["total"] else 0.0,
             "last_transaction": last_txn["last_ts"] if last_txn else None,
             "latest_snapshot": dict(snapshot) if snapshot else None,
-        })
+        }
+        if acc.type == "savings":
+            data["savings"] = account_interest(conn, acc.id)
+        account_data.append(data)
 
     return templates.TemplateResponse("accounts.html", {
         "request": request,

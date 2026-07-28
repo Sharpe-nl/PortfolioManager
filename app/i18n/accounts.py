@@ -17,6 +17,10 @@ NL = {
     "accounts.no_accounts": "Geen accounts. Voeg hieronder een account toe.",
 
     "accounts.section_add": "Account toevoegen",
+    "accounts.add_broker": "Broker",
+    "accounts.add_pension": "Broker (pensioen)",
+    "accounts.add_savings": "Spaarrekening",
+    "accounts.add_crypto": "Crypto",
     "accounts.name_placeholder": "bijv. DeGiro",
     "accounts.btn_add": "Toevoegen",
     "accounts.btn_delete": "✕ Verwijderen",
@@ -54,6 +58,10 @@ EN = {
     "accounts.no_accounts": "No accounts. Add one below.",
 
     "accounts.section_add": "Add account",
+    "accounts.add_broker": "Broker",
+    "accounts.add_pension": "Broker (pension)",
+    "accounts.add_savings": "Savings account",
+    "accounts.add_crypto": "Crypto",
     "accounts.name_placeholder": "e.g. DeGiro",
     "accounts.btn_add": "Add",
     "accounts.btn_delete": "✕ Delete",
