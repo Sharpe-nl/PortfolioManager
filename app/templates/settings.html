@@ -75,13 +75,12 @@
     <label>{{ t(request, 'settings.schedule_time_1') }}<input type="time" name="refresh_time_1" value="{{ refresh_time_1 }}" required></label>
     <label>{{ t(request, 'settings.schedule_time_2') }}<input type="time" name="refresh_time_2" value="{{ refresh_time_2 }}" required></label>
     <label class="schedule-timezone">{{ t(request, 'settings.schedule_timezone') }}
-      <input type="text" name="refresh_timezone" list="refresh-timezones" value="{{ refresh_timezone }}" required>
-    </label>
-    <datalist id="refresh-timezones">
+      <select name="refresh_timezone" required>
       {% for timezone in ['Europe/Amsterdam', 'Europe/London', 'UTC', 'America/New_York', 'America/Los_Angeles', 'Asia/Tokyo', 'Australia/Sydney'] %}
-      <option value="{{ timezone }}">
+      <option value="{{ timezone }}" {% if refresh_timezone == timezone %}selected{% endif %}>{{ timezone }}</option>
       {% endfor %}
-    </datalist>
+      </select>
+    </label>
     <button type="submit" class="outline secondary btn-sm">{{ t(request, 'common.save') }}</button>
   </form>
   <p class="muted schedule-settings-hint">{{ t(request, 'settings.schedule_hint', timezone=refresh_timezone) }}{% if refresh_last_run %} {{ t(request, 'settings.schedule_last_run', value=refresh_last_run) }}{% endif %}</p>
