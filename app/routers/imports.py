@@ -39,7 +39,7 @@ def _upload_error(request: Request, message: str, filename: str = "upload.csv") 
 @router.get("", response_class=HTMLResponse)
 async def import_page(request: Request, conn=Depends(get_db), _=Depends(require_auth)):
     _cleanup_staging(conn)
-    accounts = list_accounts(conn)
+    accounts = [account for account in list_accounts(conn) if account.type == "broker"]
     import_history = conn.execute(
         """SELECT il.*, a.name AS account_name
            FROM import_log il LEFT JOIN accounts a ON a.id=il.account_id
@@ -80,8 +80,8 @@ async def upload(
     filename = file.filename or "upload.csv"
     if not file.filename:
         return _upload_error(request, t(request, "imports.file_required"), filename)
-    account_exists = conn.execute("SELECT 1 FROM accounts WHERE id=?", (account_id,)).fetchone()
-    if not account_exists:
+    account = conn.execute("SELECT type FROM accounts WHERE id=?", (account_id,)).fetchone()
+    if not account:
         return _upload_error(request, t(request, "imports.account_not_found"), filename)
 
     # Imports are parsed in memory; bound the input before decoding it so a
@@ -101,6 +101,8 @@ async def upload(
     # Auto-detect file type
     try:
         if degiro_account.is_account_csv(content):
+            if account["type"] != "broker":
+                return _upload_error(request, t(request, "imports.account_csv_broker_only"), filename)
             file_type = "degiro_account"
             parse_result = degiro_account.parse(content)
             rows = _stage_account_events(parse_result, account_id, conn)

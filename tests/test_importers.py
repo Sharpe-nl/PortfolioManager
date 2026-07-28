@@ -51,6 +51,19 @@ def test_upload_empty_csv_returns_visible_error(mem_db):
     assert response.headers["location"] == "/import?result=1"
     assert request.session["import_result"]["errors"] == 1
 
+
+def test_account_csv_upload_is_rejected_for_non_broker_account(mem_db, account_csv):
+    mem_db.execute("INSERT INTO accounts(id,name,type,currency) VALUES(2,'Savings','savings','EUR')")
+    mem_db.commit()
+    request = _UploadRequest()
+    upload = _UploadFile("Account.csv", account_csv.encode("utf-8"))
+
+    response = asyncio.run(imports_router.upload(request, mem_db, None, 2, upload))
+
+    assert response.headers["location"] == "/import?result=1"
+    assert request.session["import_result"]["errors"] == 1
+    assert mem_db.execute("SELECT COUNT(*) FROM import_staging").fetchone()[0] == 0
+
 # ── Account.csv ──────────────────────────────────────────────────────────────
 
 class TestAccountParser:

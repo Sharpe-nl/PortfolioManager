@@ -40,7 +40,7 @@
 
   {% if not accounts %}
   <div class="notice warning">
-    {{ t(request, 'imports.no_accounts_warning') }}
+    {{ t(request, 'imports.no_broker_accounts_warning') }}
     <a href="/accounts">{{ t(request, 'imports.create_account_first') }}</a> {{ t(request, 'imports.create_account_before') }}
   </div>
   {% else %}
