@@ -7,7 +7,7 @@ NL = {
     "nav.dashboard": "Dashboard",
     "nav.stocks": "Aandelen",
     "nav.stock_dashboard": "Dashboard",
-    "nav.holdings": "Holdings",
+    "nav.holdings": "Posities",
     "nav.dividends": "Dividenden",
     "nav.benchmark": "Benchmark",
     "nav.actions": "Acties",
