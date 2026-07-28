@@ -69,6 +69,12 @@ NL = {
     "settings.db_instruments": "instrumenten",
     "settings.db_accounts": "accounts",
     "settings.download_backup": "⬇ Database downloaden",
+    "settings.restore_backup": "Database herstellen",
+    "settings.restore_hint": "Alleen beschikbaar in een lege installatie. Gebruik een databaseback-up van dezelfde appversie.",
+    "settings.restore_success": "✓ Database hersteld. Herstart de app om de herstelgegevens volledig te laden.",
+    "settings.restore_not_empty": "✗ Herstellen is alleen toegestaan wanneer de installatie nog geen gegevens bevat.",
+    "settings.restore_invalid": "✗ Dit is geen geldige, compatibele databaseback-up.",
+    "settings.restore_too_large": "✗ De databaseback-up is te groot.",
 
     # ── Danger zone ────────────────────────────────────────────────────
     "settings.section_danger": "⚠ Gevarenzone",
@@ -172,6 +178,12 @@ EN = {
     "settings.db_instruments": "instruments",
     "settings.db_accounts": "accounts",
     "settings.download_backup": "⬇ Download database",
+    "settings.restore_backup": "Restore database",
+    "settings.restore_hint": "Available only for an empty installation. Use a database backup from the same app version.",
+    "settings.restore_success": "✓ Database restored. Restart the app to load all restored data completely.",
+    "settings.restore_not_empty": "✗ Restoring is allowed only when this installation has no data yet.",
+    "settings.restore_invalid": "✗ This is not a valid, compatible database backup.",
+    "settings.restore_too_large": "✗ The database backup is too large.",
 
     "settings.section_danger": "⚠ Danger zone",
     "settings.danger_intro": "Use this if you want to start over or if the import went wrong. Accounts and settings are kept when using \"delete transactions\".",

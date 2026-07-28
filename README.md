@@ -238,6 +238,8 @@ sqlite3 data/portfolio.db ".backup 'portfolio-backup.db'"
 
 If you want a restored installation to retain encrypted Bitvavo credentials, also back up `data/.credential_key` and protect it like a password. A database-only backup remains usable, but you will need to enter the Bitvavo credentials again after restoring it.
 
+For a new, empty installation, you can restore a downloaded database from **Settings → Database**. The app validates the SQLite backup before restoring it and only enables this action while there is no portfolio data, preventing accidental overwrites. Restart the app after restoring; copy `data/.credential_key` separately if you also want to retain Bitvavo credentials.
+
 For a native installation, update with:
 
 ```bash

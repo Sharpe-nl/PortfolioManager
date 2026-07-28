@@ -19,6 +19,8 @@
 {% if request.query_params.get('classified') is not none %}
 <div class="notice success">{{ t(request, 'settings.notice_classified', count=request.query_params.get('classified')) }}</div>
 {% endif %}
+{% if request.query_params.get('restore') == 'success' %}<div class="notice success">{{ t(request, 'settings.restore_success') }}</div>
+{% elif request.query_params.get('restore') %}<div class="notice error">{{ t(request, 'settings.restore_' ~ request.query_params.get('restore')) }}</div>{% endif %}
 
 <!-- Quick links -->
 <div class="settings-quicklinks">
@@ -188,6 +190,13 @@
     <strong>{{ db_counts.accounts }}</strong> {{ t(request, 'settings.db_accounts') }}
   </p>
   <a href="/settings/backup" role="button" class="outline" download>{{ t(request, 'settings.download_backup') }}</a>
+  {% if restore_allowed %}
+  <form method="post" action="/settings/restore" enctype="multipart/form-data" class="settings-inline-form database-restore-form">
+    <label><span>{{ t(request, 'settings.restore_backup') }}</span><input type="file" name="backup" accept=".db,application/octet-stream" required></label>
+    <button type="submit" class="outline secondary btn-sm">{{ t(request, 'settings.restore_backup') }}</button>
+  </form>
+  <p class="muted small">{{ t(request, 'settings.restore_hint') }}</p>
+  {% endif %}
 </article>
   </div>
 </section>

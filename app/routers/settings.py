@@ -2,9 +2,13 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import sqlite3
+import tempfile
+from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 
 from ..auth import list_credentials
@@ -21,6 +25,31 @@ from ..services.refresh_scheduler import (
 from ..services.updates import check_for_update, current_version, self_update_enabled, start_self_update
 
 router = APIRouter(prefix="/settings", tags=["settings"])
+_MAX_RESTORE_BYTES = 100 * 1024 * 1024
+_RESTORE_DATA_TABLES = (
+    "accounts", "instruments", "transactions", "cash_events", "balance_snapshots",
+    "savings_interest_rates", "savings_interest_adjustments", "crypto_balances", "crypto_transactions",
+)
+
+
+def _restore_allowed(conn) -> bool:
+    return all(conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0 for table in _RESTORE_DATA_TABLES)
+
+
+def _validate_backup(path: str) -> None:
+    source = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    try:
+        if source.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+            raise ValueError("invalid")
+        tables = {row[0] for row in source.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if not {"accounts", "transactions", "cash_events", "settings", "_migrations"}.issubset(tables):
+            raise ValueError("invalid")
+        expected = {path.name for path in (Path(__file__).parent.parent.parent / "migrations").glob("*.sql")}
+        applied = {row[0] for row in source.execute("SELECT name FROM _migrations")}
+        if not expected.issubset(applied):
+            raise ValueError("outdated")
+    finally:
+        source.close()
 
 
 @router.get("", response_class=HTMLResponse)
@@ -59,6 +88,7 @@ async def settings_page(request: Request, conn=Depends(get_db), _=Depends(requir
             "instruments": inst_count,
             "accounts": acct_count,
         },
+        "restore_allowed": _restore_allowed(conn),
     })
 
 
@@ -115,6 +145,41 @@ async def save_refresh_schedule(
 async def clear_logo_key(conn=Depends(get_db), _=Depends(require_auth)):
     conn.execute("DELETE FROM settings WHERE key='logo_dev_token'")
     return RedirectResponse(url="/settings?saved=1", status_code=303)
+
+
+@router.post("/restore")
+async def restore_db(
+    backup: UploadFile = File(...),
+    conn=Depends(get_db),
+    _=Depends(require_auth),
+):
+    """Restore a verified same-version backup only into an empty installation."""
+    if not _restore_allowed(conn):
+        return RedirectResponse(url="/settings?restore=not_empty", status_code=303)
+    suffix = Path(backup.filename or "backup.db").suffix or ".db"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as handle:
+        temp_path = handle.name
+        size = 0
+        while chunk := await backup.read(1024 * 1024):
+            size += len(chunk)
+            if size > _MAX_RESTORE_BYTES:
+                handle.close()
+                os.unlink(temp_path)
+                return RedirectResponse(url="/settings?restore=too_large", status_code=303)
+            handle.write(chunk)
+    try:
+        _validate_backup(temp_path)
+        source = sqlite3.connect(temp_path)
+        try:
+            source.backup(conn)
+        finally:
+            source.close()
+        conn.commit()
+    except (ValueError, sqlite3.Error):
+        return RedirectResponse(url="/settings?restore=invalid", status_code=303)
+    finally:
+        os.unlink(temp_path)
+    return RedirectResponse(url="/settings?restore=success", status_code=303)
 
 
 @router.post("/delete-transactions")
