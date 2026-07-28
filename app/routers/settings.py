@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -14,7 +13,13 @@ from ..helpers import templates, require_auth
 from ..services.bitvavo import BitvavoError, sync_bitvavo
 from ..services.credentials import clear_bitvavo_credentials, has_bitvavo_credentials, save_bitvavo_credentials
 from ..services.logo_cache import clear_missing_logo_cache
-from ..services.refresh_scheduler import get_refresh_times, save_refresh_times
+from ..services.refresh_scheduler import (
+    DEFAULT_REFRESH_TIMEZONE,
+    get_refresh_times,
+    get_refresh_timezone,
+    save_refresh_times,
+    save_refresh_timezone,
+)
 from ..services.updates import check_for_update, current_version, self_update_enabled, start_self_update
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -45,7 +50,8 @@ async def settings_page(request: Request, conn=Depends(get_db), _=Depends(requir
         "refresh_time_1": refresh_times[0],
         "refresh_time_2": refresh_times[1] if len(refresh_times) > 1 else refresh_times[0],
         "refresh_last_run": get_setting(conn, "automatic_refresh_last_run"),
-        "server_timezone": datetime.now().astimezone().tzname() or "local",
+        "refresh_timezone": get_refresh_timezone(conn).key,
+        "default_refresh_timezone": DEFAULT_REFRESH_TIMEZONE,
         "app_version": current_version(),
         "self_update_enabled": self_update_enabled(),
         "webauthn_credentials": list_credentials(conn),
@@ -96,11 +102,13 @@ async def save_settings(
 async def save_refresh_schedule(
     refresh_time_1: str = Form(...),
     refresh_time_2: str = Form(...),
+    refresh_timezone: str = Form(DEFAULT_REFRESH_TIMEZONE),
     conn=Depends(get_db),
     _=Depends(require_auth),
 ):
     try:
         save_refresh_times(conn, [refresh_time_1, refresh_time_2])
+        save_refresh_timezone(conn, refresh_timezone)
     except ValueError:
         return RedirectResponse(url="/settings?schedule_error=1", status_code=303)
     return RedirectResponse(url="/settings?saved=1", status_code=303)

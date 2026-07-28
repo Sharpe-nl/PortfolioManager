@@ -42,7 +42,8 @@ NL = {
     "settings.section_schedule": "Automatisch verversen",
     "settings.schedule_time_1": "Eerste tijd",
     "settings.schedule_time_2": "Tweede tijd",
-    "settings.schedule_hint": "Aandelen en crypto worden dagelijks op deze tijden ververst volgens de servertijd ({timezone}). Niet-gekoppelde onderdelen worden overgeslagen.",
+    "settings.schedule_timezone": "Tijdzone",
+    "settings.schedule_hint": "Aandelen en crypto worden dagelijks op deze tijden ververst in tijdzone {timezone}. Niet-gekoppelde onderdelen worden overgeslagen.",
     "settings.schedule_last_run": "Laatst uitgevoerd: {value}.",
     "settings.schedule_error": "Kies twee geldige tijden.",
 
@@ -159,7 +160,8 @@ EN = {
     "settings.section_schedule": "Automatic refresh",
     "settings.schedule_time_1": "First time",
     "settings.schedule_time_2": "Second time",
-    "settings.schedule_hint": "Stocks and crypto are refreshed daily at these times using server time ({timezone}). Unconnected sections are skipped.",
+    "settings.schedule_timezone": "Timezone",
+    "settings.schedule_hint": "Stocks and crypto are refreshed daily at these times in timezone {timezone}. Unconnected sections are skipped.",
     "settings.schedule_last_run": "Last run: {value}.",
     "settings.schedule_error": "Choose two valid times.",
 
