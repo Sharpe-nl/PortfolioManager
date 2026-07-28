@@ -109,7 +109,7 @@
     <button type="button" class="outline secondary" onclick="openAccountDialog('broker')">{{ t(request, 'accounts.add_broker') }}</button>
     <button type="button" class="outline secondary" onclick="openAccountDialog('pension')">{{ t(request, 'accounts.add_pension') }}</button>
     <button type="button" class="outline secondary" onclick="openAccountDialog('savings')">{{ t(request, 'accounts.add_savings') }}</button>
-    <button type="button" class="outline secondary" onclick="document.getElementById('crypto-bitvavo').scrollIntoView({behavior:'smooth'})">{{ t(request, 'accounts.add_crypto') }}</button>
+    <button type="button" class="outline secondary" onclick="document.getElementById('crypto-bitvavo').scrollIntoView({behavior:'smooth'})" {% if bitvavo_configured %}disabled title="{{ t(request, 'accounts.bitvavo_active') }}"{% endif %}>{{ t(request, 'accounts.add_crypto') }}</button>
   </div>
 </article>
 <dialog id="addAccountDialog"><article><header>{{ t(request, 'accounts.section_add') }}<button aria-label="{{ t(request, 'common.close') }}" rel="prev" type="button" onclick="document.getElementById('addAccountDialog').close()"></button></header>
