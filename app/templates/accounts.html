@@ -78,12 +78,12 @@
       <button type="button" class="info-tooltip" aria-label="{{ t(request, 'accounts.bitvavo_title') }}" aria-describedby="bitvavo-key-info">ⓘ</button>
       <span id="bitvavo-key-info" class="info-popover" role="tooltip">{{ t(request, 'accounts.bitvavo_info') }}</span>
     </span>
-    <label><span>{{ t(request, 'accounts.bitvavo_key') }}</span><input type="password" name="api_key" autocomplete="off" placeholder="{% if bitvavo_configured %}••••••••••••{% else %}{{ t(request, 'accounts.bitvavo_key_placeholder') }}{% endif %}"></label>
-    <label><span>{{ t(request, 'accounts.bitvavo_secret') }}</span><input type="password" name="api_secret" autocomplete="new-password" placeholder="{% if bitvavo_configured %}••••••••••••{% else %}{{ t(request, 'accounts.bitvavo_secret_placeholder') }}{% endif %}"></label>
-    <button type="submit" class="logo-key-save">{{ t(request, 'accounts.bitvavo_connect') }}</button>
+    <label><span>{{ t(request, 'accounts.bitvavo_key') }}</span><input type="password" name="api_key" autocomplete="off" placeholder="{% if bitvavo_configured %}••••••••••••{% else %}{{ t(request, 'accounts.bitvavo_key_placeholder') }}{% endif %}" {% if bitvavo_configured %}disabled{% endif %}></label>
+    <label><span>{{ t(request, 'accounts.bitvavo_secret') }}</span><input type="password" name="api_secret" autocomplete="new-password" placeholder="{% if bitvavo_configured %}••••••••••••{% else %}{{ t(request, 'accounts.bitvavo_secret_placeholder') }}{% endif %}" {% if bitvavo_configured %}disabled{% endif %}></label>
+    <button type="submit" class="logo-key-save" {% if bitvavo_configured %}disabled{% endif %}>{{ t(request, 'accounts.bitvavo_connect') }}</button>
     {% if bitvavo_configured %}
     <span class="badge">{{ t(request, 'accounts.bitvavo_active') }}</span>
-    <button type="submit" formaction="/accounts/crypto/bitvavo/delete" class="outline secondary logo-key-remove" aria-label="{{ t(request, 'accounts.bitvavo_remove') }}" title="{{ t(request, 'accounts.bitvavo_remove') }}">×</button>
+    <button type="submit" formaction="/accounts/crypto/bitvavo/delete" class="btn-sm outline secondary danger-btn">{{ t(request, 'accounts.btn_delete') }}</button>
     {% endif %}
   </form>
   <p class="muted api-credentials-hint">{{ t(request, 'accounts.bitvavo_readonly_warning') }}</p>
