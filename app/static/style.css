@@ -988,6 +988,46 @@ article > header {
   background: linear-gradient(90deg, rgba(255,255,255,.045), transparent) !important;
 }
 
+/* Account cards keep their identity and actions on two deliberate, aligned
+   groups instead of letting badges and forms flow independently. */
+.account-card-header {
+  justify-content: space-between;
+  column-gap: 1rem;
+}
+.account-card-identity,
+.account-card-meta,
+.account-card-actions {
+  display: flex;
+  align-items: center;
+}
+.account-card-identity {
+  min-width: 0;
+  gap: .6rem;
+}
+.account-card-name {
+  color: var(--text);
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-card-meta {
+  flex: 0 0 auto;
+  gap: .35rem;
+}
+.account-card-actions {
+  flex: 0 0 auto;
+  gap: .4rem;
+}
+.account-card-actions form { margin: 0; }
+
+@media (max-width: 600px) {
+  .account-card-header { align-items: flex-start; }
+  .account-card-identity { flex-wrap: wrap; }
+  .account-card-name { flex-basis: 100%; }
+  .account-card-actions { width: 100%; }
+}
+
 /* ── 12. Chart cards ─────────────────────────────────────────────────────── */
 .chart-card {
   background: var(--surface);

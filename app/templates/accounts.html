@@ -41,15 +41,21 @@
 
 <!-- ── Account list ────────────────────────────────────────────────── -->
 {% for item in account_data %}
-<article>
-  <header>
-    {{ item.account.name }}
-    <span class="badge">{{ item.account.type }}</span>
-    <span class="badge secondary">{{ item.account.currency }}</span>
-    <a href="/accounts/{{ item.account.id }}/edit" class="btn-sm outline secondary">{{ t(request, 'accounts.btn_edit') }}</a>
-    <form method="post" action="/accounts/{{ item.account.id }}/delete" style="display:inline" onsubmit="return confirm('{{ t(request, 'accounts.confirm_delete') }}')">
-      <button type="submit" class="btn-sm outline secondary danger-btn">{{ t(request, 'accounts.btn_delete') }}</button>
-    </form>
+<article class="account-card">
+  <header class="account-card-header">
+    <div class="account-card-identity">
+      <span class="account-card-name">{{ item.account.name }}</span>
+      <span class="account-card-meta">
+        <span class="badge">{{ item.account.type }}</span>
+        <span class="badge secondary">{{ item.account.currency }}</span>
+      </span>
+    </div>
+    <div class="account-card-actions">
+      <a href="/accounts/{{ item.account.id }}/edit" class="btn-sm outline secondary">{{ t(request, 'accounts.btn_edit') }}</a>
+      <form method="post" action="/accounts/{{ item.account.id }}/delete" onsubmit="return confirm('{{ t(request, 'accounts.confirm_delete') }}')">
+        <button type="submit" class="btn-sm outline secondary danger-btn">{{ t(request, 'accounts.btn_delete') }}</button>
+      </form>
+    </div>
   </header>
   {% if item.total_value %}
   <div>{{ t(request, 'accounts.estimated_value') }} <strong>{{ item.total_value | eur }}</strong></div>
