@@ -36,6 +36,6 @@ async def dividends_page(
         "trailing_12m": trailing,
         "dividend_events": dividend_events,
         "dividend_events_detail": dividend_events_detail,
-        "accounts": list_accounts(conn),
+        "accounts": [acc for acc in list_accounts(conn) if acc.type in ("broker", "pension")],
         "selected_account": account,
     })

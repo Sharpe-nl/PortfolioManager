@@ -20,21 +20,34 @@ def test_main_and_stocks_dashboards_are_separate(mem_db):
     main_response = asyncio.run(dashboard(_request("/"), conn=mem_db, _=None))
     assert main_response.template.name == "overview_dashboard.html"
 
-    stocks_response = asyncio.run(stocks_dashboard(_request("/stocks"), conn=mem_db, _=None))
+    stocks_response = asyncio.run(stocks_dashboard(_request("/stocks"), account=None, conn=mem_db, _=None))
     assert stocks_response.template.name == "dashboard.html"
     assert "dashboard_savings" not in stocks_response.context
 
 
 def test_stock_and_crypto_dashboard_visibility_is_saved(mem_db):
-    asyncio.run(set_stocks_visibility(include_in_dashboard=0, conn=mem_db, _=None))
+    asyncio.run(set_stocks_visibility(include_in_dashboard=0, account=None, conn=mem_db, _=None))
     asyncio.run(set_crypto_visibility(include_in_dashboard=0, conn=mem_db, _=None))
     assert get_setting(mem_db, "include_stocks_in_dashboard") == "0"
     assert get_setting(mem_db, "include_crypto_in_dashboard") == "0"
 
-    asyncio.run(set_stocks_visibility(include_in_dashboard=1, conn=mem_db, _=None))
+    asyncio.run(set_stocks_visibility(include_in_dashboard=1, account=None, conn=mem_db, _=None))
     asyncio.run(set_crypto_visibility(include_in_dashboard=1, conn=mem_db, _=None))
     assert get_setting(mem_db, "include_stocks_in_dashboard") == "1"
     assert get_setting(mem_db, "include_crypto_in_dashboard") == "1"
+
+
+def test_stock_dashboard_account_filter_excludes_savings(mem_db):
+    mem_db.execute("INSERT INTO accounts(id,name,type,currency) VALUES(2,'Savings','savings','EUR')")
+    mem_db.execute("INSERT INTO accounts(id,name,type,currency) VALUES(3,'Pension','pension','EUR')")
+    mem_db.commit()
+
+    response = asyncio.run(stocks_dashboard(_request("/stocks"), account=3, conn=mem_db, _=None))
+
+    assert response.context["selected_account"] == 3
+    assert [(account.id, account.name) for account in response.context["accounts"]] == [
+        (1, "DeGiro"), (3, "Pension"),
+    ]
 
 
 def test_main_dashboard_chart_has_ranges_and_total_toggle(mem_db):

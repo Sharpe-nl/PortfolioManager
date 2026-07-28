@@ -142,31 +142,31 @@ def _ticker_map_run() -> None:
 # Dashboard
 # ---------------------------------------------------------------------------
 
-def _stock_dashboard_context(conn) -> dict:
-    summary = svc_portfolio.get_portfolio_summary(conn)
-    allocation = svc_portfolio.get_allocation(conn)
-    allocation_details = svc_portfolio.get_allocation_details(conn)
-    holdings = svc_portfolio.get_holdings(conn)
+def _stock_dashboard_context(conn, account_id: int | None = None) -> dict:
+    summary = svc_portfolio.get_portfolio_summary(conn, account_id=account_id)
+    allocation = svc_portfolio.get_allocation(conn, account_id=account_id)
+    allocation_details = svc_portfolio.get_allocation_details(conn, account_id=account_id)
+    holdings = svc_portfolio.get_holdings(conn, account_id=account_id)
 
     from ..services.dividends import get_trailing_12m_income, get_dividend_events, get_dividend_events_detail
-    trailing = get_trailing_12m_income(conn)
-    dividend_events = get_dividend_events(conn)
-    dividend_events_detail = get_dividend_events_detail(conn)
+    trailing = get_trailing_12m_income(conn, account_id=account_id)
+    dividend_events = get_dividend_events(conn, account_id=account_id)
+    dividend_events_detail = get_dividend_events_detail(conn, account_id=account_id)
 
     # Portfolio value series — full history; the range selector (1M/YTD/1J/
     # Custom/Alles) filters this client-side, along with the realized P/L,
     # dividend events, and per-holding series below, so every range-dependent
     # number on the dashboard (not just the chart) can be recomputed without
     # a server round-trip.
-    value_series = svc_portfolio.get_portfolio_value_series(conn)
-    realized_events = svc_portfolio.get_realized_pl_events(conn)
-    fee_events = svc_portfolio.get_fee_events(conn)
-    holdings_value_series = svc_portfolio.get_holdings_value_series(conn)
+    value_series = svc_portfolio.get_portfolio_value_series(conn, account_id=account_id)
+    realized_events = svc_portfolio.get_realized_pl_events(conn, account_id=account_id)
+    fee_events = svc_portfolio.get_fee_events(conn, account_id=account_id)
+    holdings_value_series = svc_portfolio.get_holdings_value_series(conn, account_id=account_id)
 
     # Unrealized P/L over time (value minus running avg-cost, no cash) for
     # the "Ongerealiseerd" stat — naturally immune to deposits/cash-snapshot
     # jumps and to simply buying more (see get_unrealized_pl_series docstring).
-    unrealized_series = svc_portfolio.get_unrealized_pl_series(conn)
+    unrealized_series = svc_portfolio.get_unrealized_pl_series(conn, account_id=account_id)
     return {
         "summary": summary,
         "allocation": allocation,
@@ -180,7 +180,8 @@ def _stock_dashboard_context(conn) -> dict:
         "dividend_events_detail": dividend_events_detail,
         "unrealized_series": unrealized_series,
         "holdings_value_series": holdings_value_series,
-        "accounts": svc_portfolio.list_accounts(conn),
+        "accounts": [acc for acc in svc_portfolio.list_accounts(conn) if acc.type in ("broker", "pension")],
+        "selected_account": account_id,
         "include_in_dashboard": get_setting(conn, "include_stocks_in_dashboard", "1") != "0",
     }
 
@@ -237,21 +238,28 @@ async def dashboard(request: Request, conn=Depends(get_db), _=Depends(require_au
 
 
 @router.get("/stocks", response_class=HTMLResponse)
-async def stocks_dashboard(request: Request, conn=Depends(get_db), _=Depends(require_auth)):
+async def stocks_dashboard(
+    request: Request,
+    account: int | None = Depends(optional_account_id),
+    conn=Depends(get_db),
+    _=Depends(require_auth),
+):
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
-        **_stock_dashboard_context(conn),
+        **_stock_dashboard_context(conn, account_id=account),
     })
 
 
 @router.post("/stocks/visibility")
 async def set_stocks_visibility(
     include_in_dashboard: int = Form(0),
+    account: int | None = Depends(optional_account_id),
     conn=Depends(get_db),
     _=Depends(require_auth),
 ):
     set_setting(conn, "include_stocks_in_dashboard", "1" if include_in_dashboard else "0")
-    return RedirectResponse(url="/stocks", status_code=303)
+    suffix = f"?account={account}" if account is not None else ""
+    return RedirectResponse(url=f"/stocks{suffix}", status_code=303)
 
 
 # ---------------------------------------------------------------------------
@@ -290,7 +298,7 @@ async def holdings_page(
         "cash_balances": cash_balances,
         "total_account": summary["total_value"],
         "portfolio_value": summary["holdings_value"],
-        "accounts": svc_portfolio.list_accounts(conn),
+        "accounts": [acc for acc in svc_portfolio.list_accounts(conn) if acc.type in ("broker", "pension")],
         "selected_account": account,
         "sort": sort,
     })

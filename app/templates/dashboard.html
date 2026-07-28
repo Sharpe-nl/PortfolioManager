@@ -4,9 +4,17 @@
 {% block content %}
 <div class="page-header">
   <h1>{{ t(request, 'nav.stocks') }}</h1>
-  <form method="post" action="/stocks/visibility" class="dashboard-visibility-toggle">
+  <form method="post" action="/stocks/visibility{% if selected_account %}?account={{ selected_account }}{% endif %}" class="dashboard-visibility-toggle">
     <input type="hidden" name="include_in_dashboard" value="0">
     <label><input type="checkbox" name="include_in_dashboard" value="1" {% if include_in_dashboard %}checked{% endif %} onchange="this.form.submit()"> {{ t(request, 'savings.dashboard') }}</label>
+  </form>
+  <form method="get" class="inline-form">
+    <select name="account" onchange="this.form.submit()">
+      <option value="">{{ t(request, 'common.all_accounts') }}</option>
+      {% for acc in accounts %}
+      <option value="{{ acc.id }}" {% if selected_account == acc.id %}selected{% endif %}>{{ acc.name }}</option>
+      {% endfor %}
+    </select>
   </form>
   <span class="range-selector">
     <button onclick="setRange(this,'1D')" data-range="1D">{{ t(request, 'range.1d') }}</button>
