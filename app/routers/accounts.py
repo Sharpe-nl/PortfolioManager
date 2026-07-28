@@ -1,14 +1,19 @@
 """Account management routes."""
 from __future__ import annotations
 
+from urllib.parse import quote
+
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from ..db import get_db
 from ..helpers import templates, require_auth
+from ..services.bitvavo import BitvavoError, sync_bitvavo
+from ..services.credentials import clear_bitvavo_credentials, has_bitvavo_credentials, save_bitvavo_credentials
 from ..services.portfolio import list_accounts
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
+_ACCOUNT_TYPES = {"broker", "pension", "savings"}
 
 
 @router.get("", response_class=HTMLResponse)
@@ -49,6 +54,7 @@ async def accounts_page(request: Request, conn=Depends(get_db), _=Depends(requir
     return templates.TemplateResponse("accounts.html", {
         "request": request,
         "account_data": account_data,
+        "bitvavo_configured": has_bitvavo_credentials(conn),
     })
 
 
@@ -61,6 +67,8 @@ async def add_account(
     type: str = Form(...),
     currency: str = Form("EUR"),
 ):
+    if type not in _ACCOUNT_TYPES:
+        return RedirectResponse(url="/accounts?error=invalid_type", status_code=303)
     conn.execute(
         "INSERT INTO accounts(name, type, currency) VALUES (?,?,?)",
         (name.strip(), type, currency.upper().strip()),
@@ -97,11 +105,38 @@ async def edit_account(
     type: str = Form(...),
     currency: str = Form("EUR"),
 ):
+    if type not in _ACCOUNT_TYPES:
+        return RedirectResponse(url=f"/accounts/{account_id}/edit?error=invalid_type", status_code=303)
     conn.execute(
         "UPDATE accounts SET name=?, type=?, currency=? WHERE id=?",
         (name.strip(), type, currency.upper().strip(), account_id),
     )
     return RedirectResponse(url="/accounts", status_code=303)
+
+
+@router.post("/crypto/bitvavo")
+async def connect_bitvavo(
+    api_key: str = Form(""),
+    api_secret: str = Form(""),
+    conn=Depends(get_db),
+    _=Depends(require_auth),
+):
+    api_key, api_secret = api_key.strip(), api_secret.strip()
+    if not api_key or not api_secret:
+        return RedirectResponse(url="/accounts?bitvavo_error=missing#crypto-bitvavo", status_code=303)
+    try:
+        result = sync_bitvavo(conn, api_key, api_secret)
+    except BitvavoError as exc:
+        error = quote(str(exc)[:180], safe="")
+        return RedirectResponse(url=f"/accounts?bitvavo_error={error}#crypto-bitvavo", status_code=303)
+    save_bitvavo_credentials(conn, api_key, api_secret)
+    return RedirectResponse(url=f"/accounts?bitvavo_saved={result['balances']}#crypto-bitvavo", status_code=303)
+
+
+@router.post("/crypto/bitvavo/delete")
+async def disconnect_bitvavo(conn=Depends(get_db), _=Depends(require_auth)):
+    clear_bitvavo_credentials(conn)
+    return RedirectResponse(url="/accounts?bitvavo_removed=1#crypto-bitvavo", status_code=303)
 
 
 @router.post("/{account_id}/delete")

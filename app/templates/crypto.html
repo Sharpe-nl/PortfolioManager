@@ -42,7 +42,7 @@
   <span class="empty-icon">₿</span>
   <h2>{{ t(request, 'crypto.connect_title') }}</h2>
   <p>{{ t(request, 'crypto.connect_text') }}</p>
-  <a href="/settings" role="button" class="outline">{{ t(request, 'crypto.open_settings') }}</a>
+  <a href="/accounts#crypto-bitvavo" role="button" class="outline">{{ t(request, 'crypto.open_settings') }}</a>
 </article>
 {% else %}
 {% if crypto.last_sync %}<p class="muted crypto-sync-time">{{ t(request, 'crypto.last_sync') }}: {{ crypto.last_sync[:19] | replace('T', ' ') }} UTC</p>{% endif %}

@@ -6,6 +6,17 @@
   <h1>{{ t(request, 'accounts.title') }}</h1>
 </div>
 
+{% if request.query_params.get('error') == 'invalid_type' %}
+<div class="notice error">{{ t(request, 'accounts.invalid_type') }}</div>
+{% endif %}
+{% if request.query_params.get('bitvavo_saved') is not none %}
+<div class="notice success">{{ t(request, 'accounts.bitvavo_connected', count=request.query_params.get('bitvavo_saved')) }}</div>
+{% elif request.query_params.get('bitvavo_removed') %}
+<div class="notice success">{{ t(request, 'accounts.bitvavo_removed') }}</div>
+{% elif request.query_params.get('bitvavo_error') %}
+<div class="notice error">{{ t(request, 'accounts.bitvavo_error') }}{% if request.query_params.get('bitvavo_error') != 'missing' %} {{ request.query_params.get('bitvavo_error') }}{% endif %}</div>
+{% endif %}
+
 {% if editing %}
 <!-- ── Edit account form ───────────────────────────────────────────── -->
 <article>
@@ -15,7 +26,7 @@
       <label>{{ t(request, 'accounts.label_name') }} <input type="text" name="name" value="{{ editing.name }}" required></label>
       <label>{{ t(request, 'accounts.label_type') }}
         <select name="type">
-          {% for t in ['broker','pension','savings','other'] %}
+          {% for t in ['broker','pension','savings'] %}
           <option value="{{ t }}" {% if editing.type == t %}selected{% endif %}>{{ t }}</option>
           {% endfor %}
         </select>
@@ -59,6 +70,25 @@
 {% endfor %}
 
 <!-- ── Add account form ────────────────────────────────────────────── -->
+<article id="crypto-bitvavo" class="api-credentials-card">
+  <header>{{ t(request, 'accounts.bitvavo_title') }}</header>
+  <form method="post" action="/accounts/crypto/bitvavo" class="api-credentials-row" onsubmit="showPageLoadingOverlay()">
+    <span class="logo-key-title">
+      {{ t(request, 'accounts.bitvavo_connect') }}
+      <button type="button" class="info-tooltip" aria-label="{{ t(request, 'accounts.bitvavo_title') }}" aria-describedby="bitvavo-key-info">ⓘ</button>
+      <span id="bitvavo-key-info" class="info-popover" role="tooltip">{{ t(request, 'accounts.bitvavo_info') }}</span>
+    </span>
+    <label><span>{{ t(request, 'accounts.bitvavo_key') }}</span><input type="password" name="api_key" autocomplete="off" placeholder="{% if bitvavo_configured %}••••••••••••{% else %}{{ t(request, 'accounts.bitvavo_key_placeholder') }}{% endif %}"></label>
+    <label><span>{{ t(request, 'accounts.bitvavo_secret') }}</span><input type="password" name="api_secret" autocomplete="new-password" placeholder="{% if bitvavo_configured %}••••••••••••{% else %}{{ t(request, 'accounts.bitvavo_secret_placeholder') }}{% endif %}"></label>
+    <button type="submit" class="logo-key-save">{{ t(request, 'accounts.bitvavo_connect') }}</button>
+    {% if bitvavo_configured %}
+    <span class="badge">{{ t(request, 'accounts.bitvavo_active') }}</span>
+    <button type="submit" formaction="/accounts/crypto/bitvavo/delete" class="outline secondary logo-key-remove" aria-label="{{ t(request, 'accounts.bitvavo_remove') }}" title="{{ t(request, 'accounts.bitvavo_remove') }}">×</button>
+    {% endif %}
+  </form>
+  <p class="muted api-credentials-hint">{{ t(request, 'accounts.bitvavo_readonly_warning') }}</p>
+</article>
+
 <article id="add-account">
   <header>{{ t(request, 'accounts.section_add') }}</header>
   <form method="post" action="/accounts/add">
@@ -69,12 +99,12 @@
           <option value="broker">broker</option>
           <option value="pension">pension</option>
           <option value="savings">savings</option>
-          <option value="other">other</option>
         </select>
       </label>
       <label>{{ t(request, 'accounts.label_currency') }} <input type="text" name="currency" value="EUR" maxlength="3"></label>
     </div>
     <button type="submit">{{ t(request, 'accounts.btn_add') }}</button>
+    <a href="#crypto-bitvavo" role="button" class="outline secondary">{{ t(request, 'accounts.bitvavo_add') }}</a>
   </form>
 </article>
 {% endif %}

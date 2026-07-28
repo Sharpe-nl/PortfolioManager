@@ -19,12 +19,6 @@
 {% if request.query_params.get('classified') is not none %}
 <div class="notice success">{{ t(request, 'settings.notice_classified', count=request.query_params.get('classified')) }}</div>
 {% endif %}
-{% if request.query_params.get('bitvavo_saved') is not none %}
-<div class="notice success">{{ t(request, 'settings.bitvavo_connected', count=request.query_params.get('bitvavo_saved')) }}</div>
-{% endif %}
-{% if request.query_params.get('bitvavo_error') %}
-<div class="notice error">{{ t(request, 'settings.bitvavo_error') }}{% if request.query_params.get('bitvavo_error') != 'missing' %} {{ request.query_params.get('bitvavo_error') }}{% endif %}</div>
-{% endif %}
 
 <!-- Quick links -->
 <div class="settings-quicklinks">
@@ -71,27 +65,6 @@
             aria-label="{{ t(request, 'settings.clear_logo_dev_key') }}" title="{{ t(request, 'settings.clear_logo_dev_key') }}">×</button>
     {% endif %}
   </form>
-</article>
-
-<!-- ── Bitvavo read-only API ─────────────────────────────────────────── -->
-<article class="api-credentials-card">
-  <form method="post" action="/settings/bitvavo" class="api-credentials-row" onsubmit="showPageLoadingOverlay()">
-    <span class="logo-key-title">
-      {{ t(request, 'settings.section_bitvavo') }}
-      <button type="button" class="info-tooltip" aria-label="{{ t(request, 'settings.section_bitvavo') }}"
-              aria-describedby="bitvavo-key-info">ⓘ</button>
-      <span id="bitvavo-key-info" class="info-popover" role="tooltip">{{ t(request, 'settings.bitvavo_info') }}</span>
-    </span>
-    <label><span>{{ t(request, 'settings.bitvavo_key') }}</span><input type="password" name="api_key" autocomplete="off" placeholder="{% if bitvavo_configured %}••••••••••••{% else %}{{ t(request, 'settings.bitvavo_key_placeholder') }}{% endif %}"></label>
-    <label><span>{{ t(request, 'settings.bitvavo_secret') }}</span><input type="password" name="api_secret" autocomplete="new-password" placeholder="{% if bitvavo_configured %}••••••••••••{% else %}{{ t(request, 'settings.bitvavo_secret_placeholder') }}{% endif %}"></label>
-    <button type="submit" class="logo-key-save">{{ t(request, 'settings.bitvavo_connect') }}</button>
-    {% if bitvavo_configured %}
-    <span class="badge">{{ t(request, 'settings.logo_dev_key_configured') }}</span>
-    <button type="submit" formaction="/settings/clear-bitvavo" class="outline secondary logo-key-remove"
-            aria-label="{{ t(request, 'settings.bitvavo_remove') }}" title="{{ t(request, 'settings.bitvavo_remove') }}">×</button>
-    {% endif %}
-  </form>
-  <p class="muted api-credentials-hint">{{ t(request, 'settings.bitvavo_readonly_warning') }}</p>
 </article>
 
 <!-- ── Automatic refresh schedule ───────────────────────────────────── -->
