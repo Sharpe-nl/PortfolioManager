@@ -196,7 +196,7 @@
           <td class="credential-actions">
             <details>
               <summary>{{ t(request, 'settings.password_change') }}</summary>
-              <form method="post" action="/auth/local-credentials/{{ credential.id }}/password" class="settings-inline-form">
+              <form method="post" action="/auth/local-credentials/{{ credential.id }}/password" class="settings-inline-form password-fields-form">
                 <label><span>{{ t(request, 'auth.password') }}</span><input type="password" name="password" autocomplete="new-password" minlength="12" required></label>
                 <label><span>{{ t(request, 'auth.password_confirm') }}</span><input type="password" name="confirm_password" autocomplete="new-password" minlength="12" required></label>
                 <button type="submit" class="outline secondary btn-sm">{{ t(request, 'settings.password_change') }}</button>
@@ -213,7 +213,7 @@
     </table>
   </div>
   {% endif %}
-  <form method="post" action="/auth/local-credentials" class="settings-inline-form" style="margin-top:.75rem">
+  <form method="post" action="/auth/local-credentials" class="settings-inline-form password-fields-form" style="margin-top:.75rem">
     <label><span>{{ t(request, 'auth.username') }}</span><input name="username" autocomplete="username" required></label>
     <label><span>{{ t(request, 'auth.password') }}</span><input type="password" name="password" autocomplete="new-password" minlength="12" required></label>
     <label><span>{{ t(request, 'auth.password_confirm') }}</span><input type="password" name="confirm_password" autocomplete="new-password" minlength="12" required></label>

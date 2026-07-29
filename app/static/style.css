@@ -1501,6 +1501,15 @@ body.auth-page {
 
 .auth-card .auth-password-form label { margin: 0; }
 
+/* Password fields need a readable vertical rhythm in the settings drawer. */
+.settings-inline-form.password-fields-form {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: stretch;
+}
+
+.settings-inline-form.password-fields-form > button { justify-self: start; }
+
 .status-msg {
   padding: 0.625rem 0.875rem;
   border-radius: var(--radius-sm);
