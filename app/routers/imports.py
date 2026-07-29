@@ -39,7 +39,7 @@ def _upload_error(request: Request, message: str, filename: str = "upload.csv") 
 @router.get("", response_class=HTMLResponse)
 async def import_page(request: Request, conn=Depends(get_db), _=Depends(require_auth)):
     _cleanup_staging(conn)
-    accounts = [account for account in list_accounts(conn) if account.type == "broker"]
+    accounts = [account for account in list_accounts(conn) if account.type in ("broker", "pension")]
     import_history = conn.execute(
         """SELECT il.*, a.name AS account_name
            FROM import_log il LEFT JOIN accounts a ON a.id=il.account_id
@@ -101,7 +101,7 @@ async def upload(
     # Auto-detect file type
     try:
         if degiro_account.is_account_csv(content):
-            if account["type"] != "broker":
+            if account["type"] not in ("broker", "pension"):
                 return _upload_error(request, t(request, "imports.account_csv_broker_only"), filename)
             file_type = "degiro_account"
             parse_result = degiro_account.parse(content)
