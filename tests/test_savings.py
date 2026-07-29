@@ -1,7 +1,9 @@
 """Savings interest and dashboard visibility tests."""
 from datetime import date
 from decimal import Decimal
+import asyncio
 
+from app.routers import savings as savings_router
 from app.routers.savings import _cash_movements, _signed_cash_amount
 from app.services.savings import account_interest, savings_accounts, savings_value_series
 from app.services.portfolio import get_allocation, get_cash_balances, get_portfolio_summary
@@ -69,6 +71,18 @@ def test_savings_cash_amount_uses_movement_direction():
     assert _signed_cash_amount("125.50", "deposit") == "125.50"
     assert _signed_cash_amount("125.50", "withdrawal") == "-125.50"
     assert _signed_cash_amount("0", "deposit") is None
+
+
+def test_savings_mutation_is_committed_before_settings_redirect(mem_db):
+    _savings_account(mem_db)
+
+    response = asyncio.run(savings_router.add_interest(
+        2, "2026-03-01", "5", "Correction", conn=mem_db, _=None,
+    ))
+
+    assert response.headers["location"] == "/savings/2/settings?saved=1"
+    assert mem_db.execute("SELECT COUNT(*) FROM savings_interest_adjustments WHERE account_id=2").fetchone()[0] == 1
+    assert not mem_db.in_transaction
 
 
 def test_first_deposit_can_create_a_savings_balance_without_snapshot(mem_db):
