@@ -27,6 +27,8 @@ NL = {
     "settings.clear_logo_dev_key": "Logo-sleutel verwijderen",
 
     "settings.section_schedule": "Automatisch verversen",
+    "settings.section_dashboard_visibility": "Tonen op dashboard",
+    "settings.dashboard_visibility_hint": "Kies welke onderdelen op het hoofddashboard verschijnen. Wijzigingen worden direct opgeslagen.",
     "settings.schedule_time_1": "Eerste tijd",
     "settings.schedule_time_2": "Tweede tijd",
     "settings.schedule_timezone": "Tijdzone",
@@ -139,6 +141,8 @@ EN = {
     "settings.clear_logo_dev_key": "Remove logo key",
 
     "settings.section_schedule": "Automatic refresh",
+    "settings.section_dashboard_visibility": "Show on dashboard",
+    "settings.dashboard_visibility_hint": "Choose which sections appear on the main dashboard. Changes are saved immediately.",
     "settings.schedule_time_1": "First time",
     "settings.schedule_time_2": "Second time",
     "settings.schedule_timezone": "Timezone",

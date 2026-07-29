@@ -1829,14 +1829,20 @@ option {
 .settings-card-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: start; }
 .settings-card-grid--connections > .logo-settings-card,
 .settings-card-grid--connections > .api-credentials-card,
+.settings-card-grid--connections > .dashboard-visibility-settings-card,
 .settings-card-grid--security > article:first-child { grid-column: 1 / -1; }
 .settings-card-grid > article { margin: 0; }
 .settings-section--danger { margin-top: 2.5rem; }
+.dashboard-visibility-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
+.dashboard-visibility-list form { margin: 0; min-width: 0; }
+.dashboard-visibility-list label { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin: 0; padding: .5rem .6rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--surface-2) 70%, transparent); font-size: .8rem; }
+.dashboard-visibility-list label span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 @media (max-width: 900px) {
   .settings-card-grid { grid-template-columns: 1fr; }
   .settings-card-grid--connections > .logo-settings-card,
   .settings-card-grid--connections > .api-credentials-card,
+  .settings-card-grid--connections > .dashboard-visibility-settings-card,
   .settings-card-grid--security > article:first-child { grid-column: auto; }
   .settings-section-heading { display: block; }
   .settings-section-heading p { margin-top: .2rem; }
@@ -1854,6 +1860,7 @@ option {
   .schedule-settings-row { align-items: stretch; }
   .schedule-settings-row label { width: min(100%, 8rem); }
   .schedule-settings-row label.schedule-timezone { width: 100%; }
+  .dashboard-visibility-list { grid-template-columns: 1fr; }
 }
 
 /* ── Extra utilities ─────────────────────────────────────────────────────── */

@@ -88,6 +88,18 @@
   <p class="muted schedule-settings-hint">{{ t(request, 'settings.schedule_hint', timezone=refresh_timezone) }}{% if refresh_last_run %} {{ t(request, 'settings.schedule_last_run', value=refresh_last_run) }}{% endif %}</p>
 </article>
 
+<article class="dashboard-visibility-settings-card">
+  <header>{{ t(request, 'settings.section_dashboard_visibility') }}</header>
+  <p class="muted small">{{ t(request, 'settings.dashboard_visibility_hint') }}</p>
+  <div class="dashboard-visibility-list">
+    <form method="post" action="/settings/dashboard-visibility"><input type="hidden" name="target" value="stocks"><input type="hidden" name="include_in_dashboard" value="0"><label><span>{{ t(request, 'nav.stocks') }}</span><input type="checkbox" name="include_in_dashboard" value="1" {% if dashboard_visibility.stocks %}checked{% endif %} onchange="this.form.submit()"></label></form>
+    <form method="post" action="/settings/dashboard-visibility"><input type="hidden" name="target" value="crypto"><input type="hidden" name="include_in_dashboard" value="0"><label><span>{{ t(request, 'nav.crypto') }}</span><input type="checkbox" name="include_in_dashboard" value="1" {% if dashboard_visibility.crypto %}checked{% endif %} onchange="this.form.submit()"></label></form>
+    {% for account in dashboard_visibility.savings %}
+    <form method="post" action="/settings/dashboard-visibility"><input type="hidden" name="target" value="savings"><input type="hidden" name="account_id" value="{{ account.id }}"><input type="hidden" name="include_in_dashboard" value="0"><label><span>{{ t(request, 'nav.savings') }} · {{ account.name }}</span><input type="checkbox" name="include_in_dashboard" value="1" {% if account.include_in_dashboard %}checked{% endif %} onchange="this.form.submit()"></label></form>
+    {% endfor %}
+  </div>
+</article>
+
 <!-- ── Application updates ─────────────────────────────────────────── -->
 <article class="update-settings-card">
   <header>{{ t(request, 'settings.section_updates') }}</header>

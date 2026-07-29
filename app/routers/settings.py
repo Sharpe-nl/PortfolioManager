@@ -69,6 +69,9 @@ async def settings_page(request: Request, conn=Depends(get_db), _=Depends(requir
     txn_count  = conn.execute("SELECT COUNT(*) AS n FROM transactions").fetchone()["n"]
     inst_count = conn.execute("SELECT COUNT(*) AS n FROM instruments").fetchone()["n"]
     acct_count = conn.execute("SELECT COUNT(*) AS n FROM accounts").fetchone()["n"]
+    savings_dashboard_accounts = [dict(row) for row in conn.execute(
+        "SELECT id, name, include_in_dashboard FROM accounts WHERE type='savings' ORDER BY name"
+    )]
 
     return templates.TemplateResponse("settings.html", {
         "request": request,
@@ -89,6 +92,11 @@ async def settings_page(request: Request, conn=Depends(get_db), _=Depends(requir
             "accounts": acct_count,
         },
         "restore_allowed": _restore_allowed(conn),
+        "dashboard_visibility": {
+            "stocks": get_setting(conn, "include_stocks_in_dashboard", "1") != "0",
+            "crypto": get_setting(conn, "include_crypto_in_dashboard", "1") != "0",
+            "savings": savings_dashboard_accounts,
+        },
     })
 
 
@@ -138,6 +146,28 @@ async def save_refresh_schedule(
         save_refresh_timezone(conn, refresh_timezone)
     except ValueError:
         return RedirectResponse(url="/settings?schedule_error=1", status_code=303)
+    return RedirectResponse(url="/settings?saved=1", status_code=303)
+
+
+@router.post("/dashboard-visibility")
+async def set_dashboard_visibility(
+    target: str = Form(...),
+    include_in_dashboard: int = Form(0),
+    account_id: int | None = Form(None),
+    conn=Depends(get_db),
+    _=Depends(require_auth),
+):
+    enabled = "1" if include_in_dashboard else "0"
+    if target == "stocks":
+        set_setting(conn, "include_stocks_in_dashboard", enabled)
+    elif target == "crypto":
+        set_setting(conn, "include_crypto_in_dashboard", enabled)
+    elif target == "savings" and account_id is not None:
+        conn.execute(
+            "UPDATE accounts SET include_in_dashboard=? WHERE id=? AND type='savings'",
+            (1 if include_in_dashboard else 0, account_id),
+        )
+    conn.commit()
     return RedirectResponse(url="/settings?saved=1", status_code=303)
 
 

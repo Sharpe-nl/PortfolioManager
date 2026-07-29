@@ -6,6 +6,7 @@ from starlette.requests import Request
 from app.db import get_setting
 from app.routers.crypto import set_crypto_visibility
 from app.routers.portfolio import dashboard, set_stocks_visibility, stocks_dashboard
+from app.routers.settings import set_dashboard_visibility
 
 
 def _request(path: str) -> Request:
@@ -35,6 +36,16 @@ def test_stock_and_crypto_dashboard_visibility_is_saved(mem_db):
     asyncio.run(set_crypto_visibility(include_in_dashboard=1, conn=mem_db, _=None))
     assert get_setting(mem_db, "include_stocks_in_dashboard") == "1"
     assert get_setting(mem_db, "include_crypto_in_dashboard") == "1"
+
+
+def test_central_dashboard_visibility_updates_savings_account(mem_db):
+    mem_db.execute("INSERT INTO accounts(id,name,type,currency) VALUES(2,'Savings','savings','EUR')")
+    mem_db.commit()
+
+    asyncio.run(set_dashboard_visibility("savings", 0, 2, conn=mem_db, _=None))
+
+    assert mem_db.execute("SELECT include_in_dashboard FROM accounts WHERE id=2").fetchone()[0] == 0
+    assert not mem_db.in_transaction
 
 
 def test_stock_dashboard_account_filter_excludes_savings(mem_db):
