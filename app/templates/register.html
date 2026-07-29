@@ -31,6 +31,19 @@
     <summary>{{ t(request, 'auth.no_yubikey_summary') }}</summary>
     <p>{{ t(request, 'auth.no_yubikey_detail') }}</p>
   </details>
+
+  <hr>
+  <h3>{{ t(request, 'auth.password_setup_heading') }}</h3>
+  {% if request.query_params.get('password_error') == 'mismatch' %}<div class="notice error">{{ t(request, 'auth.password_setup_mismatch') }}</div>
+  {% elif request.query_params.get('password_error') %}<div class="notice error">{{ t(request, 'auth.password_setup_invalid') }}</div>{% endif %}
+  <form method="post" action="/auth/register/password" class="auth-password-form">
+    <label>{{ t(request, 'auth.setup_token_label') }}<input name="setup_token" type="password" autocomplete="one-time-code" required></label>
+    <label>{{ t(request, 'auth.username') }}<input name="username" autocomplete="username" required></label>
+    <label>{{ t(request, 'auth.password') }}<input name="password" type="password" autocomplete="new-password" minlength="12" required></label>
+    <label>{{ t(request, 'auth.password_confirm') }}<input name="confirm_password" type="password" autocomplete="new-password" minlength="12" required></label>
+    <small>{{ t(request, 'auth.password_minimum') }}</small>
+    <button type="submit" class="outline secondary">{{ t(request, 'auth.password_setup_button') }}</button>
+  </form>
 </main>
 
 <script src="/static/app.js"></script>

@@ -11,7 +11,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 
-from ..auth import list_credentials
+from ..auth import has_local_credentials, list_credentials
 from ..db import get_db, get_setting, set_setting
 from ..helpers import templates, require_auth
 from ..services.logo_cache import clear_missing_logo_cache
@@ -84,6 +84,10 @@ async def settings_page(request: Request, conn=Depends(get_db), _=Depends(requir
         "app_version": current_version(),
         "self_update_enabled": self_update_enabled(),
         "webauthn_credentials": list_credentials(conn),
+        "local_credentials": [dict(row) for row in conn.execute(
+            "SELECT id, username, created_at FROM local_credentials ORDER BY username"
+        )],
+        "password_fallback_available": has_local_credentials(conn),
         "unmapped_instruments": [dict(r) for r in unmapped],
         "mapped_instruments": [dict(r) for r in mapped],
         "db_counts": {

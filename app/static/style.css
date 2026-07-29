@@ -1489,6 +1489,18 @@ body.auth-page {
 
 .auth-card p { color: var(--text-muted); font-size: 0.875rem; }
 
+.auth-card .auth-password-form {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+  text-align: left;
+}
+
+.auth-card .auth-password-form h3,
+.auth-card .auth-password-form small { text-align: center; }
+
+.auth-card .auth-password-form label { margin: 0; }
+
 .status-msg {
   padding: 0.625rem 0.875rem;
   border-radius: var(--radius-sm);

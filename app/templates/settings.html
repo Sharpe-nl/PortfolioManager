@@ -170,7 +170,7 @@
         <form method="post" action="/auth/credentials/{{ cred.id }}/delete" style="display:inline"
               onsubmit="return confirm('{{ t(request, 'settings.confirm_delete_key') }}')">
           <button type="submit" class="outline secondary small danger-btn"
-                  {% if webauthn_credentials | length <= 1 %}
+                  {% if webauthn_credentials | length <= 1 and not password_fallback_available %}
                   disabled title="{{ t(request, 'settings.last_key_hint') }}"
                   {% endif %}>
             {{ t(request, 'settings.btn_delete') }}
@@ -191,6 +191,54 @@
     </label>
     <button type="button" id="yk-add-btn" onclick="addYubikey()">{{ t(request, 'settings.yk_add_btn') }}</button>
   </div>
+</article>
+
+<article>
+  <header>{{ t(request, 'settings.section_password_login') }}</header>
+  {% if request.query_params.get('password_error') == 'mismatch' %}
+  <div class="notice error">{{ t(request, 'settings.password_error_mismatch') }}</div>
+  {% elif request.query_params.get('password_error') == 'last' %}
+  <div class="notice error">{{ t(request, 'settings.password_last_method') }}</div>
+  {% elif request.query_params.get('password_error') %}
+  <div class="notice error">{{ t(request, 'settings.password_error_invalid') }}</div>
+  {% endif %}
+  <p class="muted">{{ t(request, 'settings.password_intro') }}</p>
+  {% if local_credentials %}
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>{{ t(request, 'auth.username') }}</th><th>{{ t(request, 'settings.col_added') }}</th><th></th></tr></thead>
+      <tbody>
+      {% for credential in local_credentials %}
+        <tr>
+          <td>{{ credential.username }}</td>
+          <td class="muted">{{ credential.created_at[:10] }}</td>
+          <td class="credential-actions">
+            <details>
+              <summary>{{ t(request, 'settings.password_change') }}</summary>
+              <form method="post" action="/auth/local-credentials/{{ credential.id }}/password" class="settings-inline-form">
+                <label><span>{{ t(request, 'auth.password') }}</span><input type="password" name="password" autocomplete="new-password" minlength="12" required></label>
+                <label><span>{{ t(request, 'auth.password_confirm') }}</span><input type="password" name="confirm_password" autocomplete="new-password" minlength="12" required></label>
+                <button type="submit" class="outline secondary btn-sm">{{ t(request, 'settings.password_change') }}</button>
+              </form>
+            </details>
+            <form method="post" action="/auth/local-credentials/{{ credential.id }}/delete" onsubmit="return confirm('{{ t(request, 'settings.confirm_delete_password_user') }}')">
+              <button type="submit" class="outline secondary btn-sm danger-btn"
+                {% if local_credentials | length <= 1 and not webauthn_credentials %}disabled title="{{ t(request, 'settings.password_last_method') }}"{% endif %}>{{ t(request, 'settings.btn_delete') }}</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  <form method="post" action="/auth/local-credentials" class="settings-inline-form" style="margin-top:.75rem">
+    <label><span>{{ t(request, 'auth.username') }}</span><input name="username" autocomplete="username" required></label>
+    <label><span>{{ t(request, 'auth.password') }}</span><input type="password" name="password" autocomplete="new-password" minlength="12" required></label>
+    <label><span>{{ t(request, 'auth.password_confirm') }}</span><input type="password" name="confirm_password" autocomplete="new-password" minlength="12" required></label>
+    <button type="submit" class="outline secondary btn-sm">{{ t(request, 'settings.password_add') }}</button>
+  </form>
+  <p class="muted small">{{ t(request, 'auth.password_minimum') }}</p>
 </article>
 
 <!-- ── Database info & backup ─────────────────────────────────────────── -->

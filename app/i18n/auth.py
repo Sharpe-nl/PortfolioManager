@@ -27,6 +27,18 @@ NL = {
         "(Android fingerprint, Windows Hello, enz.)."
     ),
     "auth.register_success": "✓ YubiKey geregistreerd! Doorsturen naar login…",
+    "auth.password_setup_heading": "Inloggen met wachtwoord instellen",
+    "auth.username": "Gebruikersnaam",
+    "auth.password": "Wachtwoord",
+    "auth.password_confirm": "Herhaal wachtwoord",
+    "auth.password_minimum": "Gebruik minimaal 12 tekens.",
+    "auth.password_setup_button": "Wachtwoordlogin instellen",
+    "auth.password_login_heading": "Of log in met wachtwoord",
+    "auth.password_login_button": "Inloggen",
+    "auth.password_error": "✗ Gebruikersnaam of wachtwoord is onjuist.",
+    "auth.password_setup_success": "✓ Wachtwoordlogin ingesteld. Je kunt nu inloggen.",
+    "auth.password_setup_invalid": "✗ Controleer installatiecode, gebruikersnaam en wachtwoord (minimaal 12 tekens).",
+    "auth.password_setup_mismatch": "✗ De wachtwoorden zijn niet gelijk.",
 }
 
 EN = {
@@ -56,4 +68,16 @@ EN = {
         "(Android fingerprint, Windows Hello, etc.)."
     ),
     "auth.register_success": "✓ YubiKey registered! Redirecting to login…",
+    "auth.password_setup_heading": "Set up password login",
+    "auth.username": "Username",
+    "auth.password": "Password",
+    "auth.password_confirm": "Confirm password",
+    "auth.password_minimum": "Use at least 12 characters.",
+    "auth.password_setup_button": "Set up password login",
+    "auth.password_login_heading": "Or sign in with password",
+    "auth.password_login_button": "Sign in",
+    "auth.password_error": "✗ Username or password is incorrect.",
+    "auth.password_setup_success": "✓ Password login set up. You can sign in now.",
+    "auth.password_setup_invalid": "✗ Check the setup token, username and password (at least 12 characters).",
+    "auth.password_setup_mismatch": "✗ The passwords do not match.",
 }
