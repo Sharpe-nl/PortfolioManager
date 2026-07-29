@@ -68,3 +68,4 @@ def test_stock_dashboard_applies_the_one_day_range(mem_db):
     html = response.body.decode()
     assert "if (range === '1D')" in html
     assert "function rangeReferenceDate()" in html
+    assert "start.setHours(0, 0, 0, 0)" in html
