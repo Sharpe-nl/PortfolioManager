@@ -60,3 +60,9 @@ def test_main_dashboard_chart_has_ranges_and_total_toggle(mem_db):
     assert "dashboardOverviewChart" in html
     assert 'data-series="savings"' not in html
     assert html.index("dashboard-chart-ranges") < html.index("portfolio-hero")
+
+
+def test_stock_dashboard_applies_the_one_day_range(mem_db):
+    response = asyncio.run(stocks_dashboard(_request("/stocks"), account=None, conn=mem_db, _=None))
+
+    assert "if (range === '1D')" in response.body.decode()
