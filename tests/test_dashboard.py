@@ -65,4 +65,6 @@ def test_main_dashboard_chart_has_ranges_and_total_toggle(mem_db):
 def test_stock_dashboard_applies_the_one_day_range(mem_db):
     response = asyncio.run(stocks_dashboard(_request("/stocks"), account=None, conn=mem_db, _=None))
 
-    assert "if (range === '1D')" in response.body.decode()
+    html = response.body.decode()
+    assert "if (range === '1D')" in html
+    assert "function rangeReferenceDate()" in html
