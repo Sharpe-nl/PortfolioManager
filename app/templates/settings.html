@@ -144,65 +144,46 @@
 <!-- ── YubiKeys / beveiligingssleutels ─────────────────────────────────── -->
 <article>
   <header>{{ t(request, 'settings.section_yubikeys') }}</header>
-  {% if request.query_params.get('cred_error') %}
-  <div class="notice error">✗ {{ request.query_params.get('cred_error') }}</div>
-  {% endif %}
-  <p class="muted">
-    {{ t(request, 'settings.yubikeys_intro') }}
-  </p>
-  {% if webauthn_credentials %}
-  <div class="table-scroll">
-  <table>
-    <thead><tr><th>{{ t(request, 'settings.col_name') }}</th><th>{{ t(request, 'settings.col_added') }}</th><th></th></tr></thead>
-    <tbody>
-    {% for cred in webauthn_credentials %}
-    <tr>
-      <td>
-        <form method="post" action="/auth/credentials/{{ cred.id }}/rename" class="credential-rename-form">
-          <input type="text" name="name" value="{{ cred.name or '' }}"
-                 placeholder="{{ t(request, 'settings.key_default_name', id=cred.id) }}"
-                 aria-label="{{ t(request, 'settings.rename_key_aria', id=cred.id) }}">
-          <button type="submit" class="outline secondary btn-sm">{{ t(request, 'settings.btn_rename') }}</button>
-        </form>
-      </td>
-      <td class="muted">{{ cred.created_at[:10] }}</td>
-      <td>
-        <form method="post" action="/auth/credentials/{{ cred.id }}/delete" style="display:inline"
-              onsubmit="return confirm('{{ t(request, 'settings.confirm_delete_key') }}')">
-          <button type="submit" class="outline secondary small danger-btn"
-                  {% if webauthn_credentials | length <= 1 and not password_fallback_available %}
-                  disabled title="{{ t(request, 'settings.last_key_hint') }}"
-                  {% endif %}>
-            {{ t(request, 'settings.btn_delete') }}
-          </button>
-        </form>
-      </td>
-    </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  </div>
-  {% endif %}
-
-  <div id="yk-status" class="status-msg" hidden style="margin-top:.75rem"></div>
-  <div class="settings-inline-form" style="margin-top:.75rem;">
-    <label>{{ t(request, 'settings.yk_name_label') }}
-      <input type="text" id="yk-name" placeholder="{{ t(request, 'settings.yk_name_placeholder') }}">
-    </label>
-    <button type="button" id="yk-add-btn" onclick="addYubikey()">{{ t(request, 'settings.yk_add_btn') }}</button>
-  </div>
+  <p class="muted">{{ t(request, 'settings.yubikeys_intro') }}</p>
+  <button type="button" class="outline secondary btn-sm" onclick="openSecurityDialog('yubikeyDialog')">{{ t(request, 'settings.btn_manage') }}</button>
 </article>
 
 <article>
   <header>{{ t(request, 'settings.section_password_login') }}</header>
-  {% if request.query_params.get('password_error') == 'mismatch' %}
-  <div class="notice error">{{ t(request, 'settings.password_error_mismatch') }}</div>
-  {% elif request.query_params.get('password_error') == 'last' %}
-  <div class="notice error">{{ t(request, 'settings.password_last_method') }}</div>
-  {% elif request.query_params.get('password_error') %}
-  <div class="notice error">{{ t(request, 'settings.password_error_invalid') }}</div>
-  {% endif %}
   <p class="muted">{{ t(request, 'settings.password_intro') }}</p>
+  <button type="button" class="outline secondary btn-sm" onclick="openSecurityDialog('passwordDialog')">{{ t(request, 'settings.btn_manage') }}</button>
+</article>
+
+<dialog id="yubikeyDialog" class="settings-security-dialog">
+  <article>
+    <header><strong>{{ t(request, 'settings.section_yubikeys') }}</strong><button aria-label="{{ t(request, 'common.close') }}" rel="prev" type="button" onclick="document.getElementById('yubikeyDialog').close()"></button></header>
+    {% if request.query_params.get('cred_error') %}<div class="notice error">✗ {{ request.query_params.get('cred_error') }}</div>{% endif %}
+    <p class="muted">{{ t(request, 'settings.yubikeys_intro') }}</p>
+    {% if webauthn_credentials %}
+    <div class="table-scroll"><table>
+      <thead><tr><th>{{ t(request, 'settings.col_name') }}</th><th>{{ t(request, 'settings.col_added') }}</th><th></th></tr></thead>
+      <tbody>{% for cred in webauthn_credentials %}<tr>
+        <td><form method="post" action="/auth/credentials/{{ cred.id }}/rename" class="credential-rename-form"><input type="text" name="name" value="{{ cred.name or '' }}" placeholder="{{ t(request, 'settings.key_default_name', id=cred.id) }}" aria-label="{{ t(request, 'settings.rename_key_aria', id=cred.id) }}"><button type="submit" class="outline secondary btn-sm">{{ t(request, 'settings.btn_rename') }}</button></form></td>
+        <td class="muted">{{ cred.created_at[:10] }}</td>
+        <td><form method="post" action="/auth/credentials/{{ cred.id }}/delete" onsubmit="return confirm('{{ t(request, 'settings.confirm_delete_key') }}')"><button type="submit" class="outline secondary btn-sm danger-btn" {% if webauthn_credentials | length <= 1 and not password_fallback_available %}disabled title="{{ t(request, 'settings.last_key_hint') }}"{% endif %}>{{ t(request, 'settings.btn_delete') }}</button></form></td>
+      </tr>{% endfor %}</tbody>
+    </table></div>
+    {% endif %}
+    <div id="yk-status" class="status-msg" hidden></div>
+    <div class="settings-inline-form">
+      <label>{{ t(request, 'settings.yk_name_label') }}<input type="text" id="yk-name" placeholder="{{ t(request, 'settings.yk_name_placeholder') }}"></label>
+      <button type="button" id="yk-add-btn" onclick="addYubikey()">{{ t(request, 'settings.yk_add_btn') }}</button>
+    </div>
+  </article>
+</dialog>
+
+<dialog id="passwordDialog" class="settings-security-dialog">
+  <article>
+    <header><strong>{{ t(request, 'settings.section_password_login') }}</strong><button aria-label="{{ t(request, 'common.close') }}" rel="prev" type="button" onclick="document.getElementById('passwordDialog').close()"></button></header>
+    {% if request.query_params.get('password_error') == 'mismatch' %}<div class="notice error">{{ t(request, 'settings.password_error_mismatch') }}</div>
+    {% elif request.query_params.get('password_error') == 'last' %}<div class="notice error">{{ t(request, 'settings.password_last_method') }}</div>
+    {% elif request.query_params.get('password_error') %}<div class="notice error">{{ t(request, 'settings.password_error_invalid') }}</div>{% endif %}
+    <p class="muted">{{ t(request, 'settings.password_intro') }}</p>
   {% if local_credentials %}
   <div class="table-scroll">
     <table>
@@ -240,6 +221,7 @@
   </form>
   <p class="muted small">{{ t(request, 'auth.password_minimum') }}</p>
 </article>
+</dialog>
 
 <!-- ── Database info & backup ─────────────────────────────────────────── -->
 <article>
@@ -404,6 +386,19 @@ function initialiseSettingsSections() {
 }
 
 initialiseSettingsSections();
+
+function openSecurityDialog(id) {
+  document.getElementById(id)?.showModal();
+}
+
+document.querySelectorAll('.settings-security-dialog').forEach(dialog => {
+  dialog.addEventListener('click', event => {
+    if (event.target === dialog) dialog.close();
+  });
+});
+
+if (new URLSearchParams(window.location.search).has('cred_error')) openSecurityDialog('yubikeyDialog');
+if (new URLSearchParams(window.location.search).has('password_error')) openSecurityDialog('passwordDialog');
 
 async function addYubikey() {
   const btn = document.getElementById('yk-add-btn');
