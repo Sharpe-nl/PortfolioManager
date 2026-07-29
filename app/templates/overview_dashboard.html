@@ -29,7 +29,7 @@
 <div class="dashboard-overview-grid">
   {% if show_stocks %}
   <a href="/stocks" class="dashboard-overview-card">
-    <header><span><span class="dashboard-category-icon">📊</span>{{ t(request, 'nav.stocks') }}</span><span aria-hidden="true">→</span></header>
+    <header><span><span class="dashboard-category-icon"><svg class="ui-icon"><use href="/static/icons.svg?v={{ sv }}#chart"></use></svg></span>{{ t(request, 'nav.stocks') }}</span><span aria-hidden="true">→</span></header>
     <strong>{{ stock_summary.total_value | eur }}</strong>
     <span class="{{ stock_summary.total_pl | pl_class }}">{{ t(request, 'dashboard.main_result') }} · {{ stock_summary.total_pl | eur }} · {{ stock_summary.total_pl_pct | pct }}</span>
   </a>
@@ -37,7 +37,7 @@
 
   {% if show_crypto %}
   <a href="/crypto" class="dashboard-overview-card">
-    <header><span><span class="dashboard-category-icon">₿</span>{{ t(request, 'nav.crypto') }}</span><span aria-hidden="true">→</span></header>
+    <header><span><span class="dashboard-category-icon"><svg class="ui-icon"><use href="/static/icons.svg?v={{ sv }}#coin"></use></svg></span>{{ t(request, 'nav.crypto') }}</span><span aria-hidden="true">→</span></header>
     <strong>{{ crypto.total | eur }}</strong>
     <span class="{{ crypto.unrealized_result | pl_class }}">{{ t(request, 'dashboard.main_result') }} · {{ crypto.unrealized_result | eur }}{% if crypto.unrealized_pct is not none %} · {{ crypto.unrealized_pct | pct }}{% endif %}</span>
     <small>{{ t(request, 'crypto.earn_rewards') }} · {{ crypto.earn_rewards | eur }}</small>
@@ -46,7 +46,7 @@
 
   {% if dashboard_savings %}
   <a href="/savings" class="dashboard-overview-card dashboard-overview-card--savings">
-    <header><span><span class="dashboard-category-icon">💰</span>{{ t(request, 'nav.savings') }}</span><span aria-hidden="true">→</span></header>
+    <header><span><span class="dashboard-category-icon"><svg class="ui-icon"><use href="/static/icons.svg?v={{ sv }}#wallet"></use></svg></span>{{ t(request, 'nav.savings') }}</span><span aria-hidden="true">→</span></header>
     <strong>{{ savings_balance | eur }}</strong>
     <span class="pl-positive">{{ t(request, 'dashboard.savings_interest') }} · {{ savings_interest | eur }}{% if savings_interest_since %} <small>{{ t(request, 'dashboard.savings_interest_since', date=savings_interest_since) }}</small>{% endif %}</span>
     <small>{% for saving in dashboard_savings %}{{ saving.name }}{% if not loop.last %} · {% endif %}{% endfor %}</small>

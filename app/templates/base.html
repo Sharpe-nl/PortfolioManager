@@ -25,11 +25,11 @@
       PortfolioManager
     </a>
     <nav class="topnav-links" aria-label="{{ t(request, 'nav.aria') }}">
-      <a href="/" class="{% if request.url.path == '/' %}active{% endif %}">{{ t(request, 'nav.dashboard') }}</a>
-      <a href="/stocks" class="{% if stocks_active %}active{% endif %}">{{ t(request, 'nav.stocks') }}</a>
-      <a href="/crypto" class="{% if request.url.path.startswith('/crypto') %}active{% endif %}">{{ t(request, 'nav.crypto') }}</a>
-      <a href="/savings" class="{% if request.url.path.startswith('/savings') %}active{% endif %}">{{ t(request, 'nav.savings') }}</a>
-      <a href="/settings" class="{% if request.url.path.startswith('/settings') or request.url.path.startswith('/accounts') or request.url.path.startswith('/import') %}active{% endif %}">{{ t(request, 'nav.settings') }}</a>
+      <a href="/" class="{% if request.url.path == '/' %}active{% endif %}"><svg class="ui-icon"><use href="/static/icons.svg?v={{ sv }}#home"></use></svg>{{ t(request, 'nav.dashboard') }}</a>
+      <a href="/stocks" class="{% if stocks_active %}active{% endif %}"><svg class="ui-icon"><use href="/static/icons.svg?v={{ sv }}#chart"></use></svg>{{ t(request, 'nav.stocks') }}</a>
+      <a href="/crypto" class="{% if request.url.path.startswith('/crypto') %}active{% endif %}"><svg class="ui-icon"><use href="/static/icons.svg?v={{ sv }}#coin"></use></svg>{{ t(request, 'nav.crypto') }}</a>
+      <a href="/savings" class="{% if request.url.path.startswith('/savings') %}active{% endif %}"><svg class="ui-icon"><use href="/static/icons.svg?v={{ sv }}#wallet"></use></svg>{{ t(request, 'nav.savings') }}</a>
+      <a href="/settings" class="{% if request.url.path.startswith('/settings') or request.url.path.startswith('/accounts') or request.url.path.startswith('/import') %}active{% endif %}"><svg class="ui-icon"><use href="/static/icons.svg?v={{ sv }}#settings"></use></svg>{{ t(request, 'nav.settings') }}</a>
     </nav>
     <div class="topnav-actions">
       <button class="lang-toggle" onclick="toggleLanguage()" title="{{ t(request, 'nav.lang_toggle') }}" aria-label="{{ t(request, 'nav.lang_toggle') }}">

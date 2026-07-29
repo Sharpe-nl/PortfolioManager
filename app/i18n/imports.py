@@ -52,6 +52,7 @@ NL = {
     "imports.auto_map_label": "Auto-koppel tickers",
     "imports.mapping_hint_mid": " om ze automatisch op te zoeken via ISIN, of voer een yfinance ticker handmatig in (bijv. ",
     "imports.mapping_hint_post": ").",
+    "imports.mapping_manual_hint": "Voer voor elk instrument zonder ticker handmatig een yfinance ticker in, bijvoorbeeld VWRL.AS.",
     "imports.col_name": "Naam",
     "imports.symbol_placeholder": "bijv. VWRL.AS",
 
@@ -144,6 +145,7 @@ EN = {
     "imports.auto_map_label": "Auto-map tickers",
     "imports.mapping_hint_mid": " to look them up automatically via ISIN, or enter a yfinance ticker manually (e.g. ",
     "imports.mapping_hint_post": ").",
+    "imports.mapping_manual_hint": "Enter a yfinance ticker manually for every instrument without one, for example VWRL.AS.",
     "imports.col_name": "Name",
     "imports.symbol_placeholder": "e.g. VWRL.AS",
 
