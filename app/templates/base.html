@@ -36,8 +36,8 @@
         {% if get_lang(request) == 'nl' %}🇳🇱{% else %}🇬🇧{% endif %}
       </button>
       <button class="theme-toggle" onclick="toggleTheme()" title="{{ t(request, 'nav.theme_toggle') }}" aria-label="{{ t(request, 'nav.theme_toggle') }}">
-        <span class="theme-icon-light">🌙</span>
-        <span class="theme-icon-dark">☀️</span>
+        <svg class="ui-icon theme-icon-light"><use href="/static/icons.svg?v={{ sv }}#moon"></use></svg>
+        <svg class="ui-icon theme-icon-dark"><use href="/static/icons.svg?v={{ sv }}#sun"></use></svg>
       </button>
       <form action="/auth/logout" method="post" style="margin:0">
         <button type="submit" class="logout-btn">{{ t(request, 'nav.logout') }}</button>
@@ -48,24 +48,24 @@
 
 <!-- ── Mobile header ──────────────────────────────────────────────────────── -->
 <div class="mobile-header">
-  <button class="hamburger" onclick="toggleMobileMenu()" aria-label="{{ t(request, 'nav.menu') }}">☰</button>
+  <button class="hamburger" onclick="toggleMobileMenu()" aria-label="{{ t(request, 'nav.menu') }}"><svg class="ui-icon"><use href="/static/icons.svg?v={{ sv }}#menu"></use></svg></button>
   <span class="brand-name-mobile">PortfolioManager</span>
   <button class="lang-toggle" onclick="toggleLanguage()" aria-label="{{ t(request, 'nav.lang_toggle') }}">
     {% if get_lang(request) == 'nl' %}🇳🇱{% else %}🇬🇧{% endif %}
   </button>
   <button class="theme-toggle" onclick="toggleTheme()" aria-label="{{ t(request, 'nav.theme_toggle') }}">
-    <span class="theme-icon-light">🌙</span>
-    <span class="theme-icon-dark">☀️</span>
+    <svg class="ui-icon theme-icon-light"><use href="/static/icons.svg?v={{ sv }}#moon"></use></svg>
+    <svg class="ui-icon theme-icon-dark"><use href="/static/icons.svg?v={{ sv }}#sun"></use></svg>
   </button>
 </div>
 
 <!-- ── Mobile nav drawer ───────────────────────────────────────────────────── -->
 <div class="mobile-nav-drawer" id="mobileNavDrawer">
-  <a href="/" class="{% if request.url.path == '/' %}active{% endif %}">🏠 {{ t(request, 'nav.dashboard') }}</a>
-  <a href="/stocks" class="{% if stocks_active %}active{% endif %}">📊 {{ t(request, 'nav.stocks') }}</a>
-  <a href="/crypto" class="{% if request.url.path.startswith('/crypto') %}active{% endif %}">₿ {{ t(request, 'nav.crypto') }}</a>
-  <a href="/savings" class="{% if request.url.path.startswith('/savings') %}active{% endif %}">💰 {{ t(request, 'nav.savings') }}</a>
-  <a href="/settings" class="{% if request.url.path.startswith('/settings') or request.url.path.startswith('/accounts') or request.url.path.startswith('/import') %}active{% endif %}">⚙ {{ t(request, 'nav.settings') }}</a>
+  <a href="/" class="{% if request.url.path == '/' %}active{% endif %}"><svg class="ui-icon"><use href="/static/icons.svg?v={{ sv }}#home"></use></svg>{{ t(request, 'nav.dashboard') }}</a>
+  <a href="/stocks" class="{% if stocks_active %}active{% endif %}"><svg class="ui-icon"><use href="/static/icons.svg?v={{ sv }}#chart"></use></svg>{{ t(request, 'nav.stocks') }}</a>
+  <a href="/crypto" class="{% if request.url.path.startswith('/crypto') %}active{% endif %}"><svg class="ui-icon"><use href="/static/icons.svg?v={{ sv }}#coin"></use></svg>{{ t(request, 'nav.crypto') }}</a>
+  <a href="/savings" class="{% if request.url.path.startswith('/savings') %}active{% endif %}"><svg class="ui-icon"><use href="/static/icons.svg?v={{ sv }}#wallet"></use></svg>{{ t(request, 'nav.savings') }}</a>
+  <a href="/settings" class="{% if request.url.path.startswith('/settings') or request.url.path.startswith('/accounts') or request.url.path.startswith('/import') %}active{% endif %}"><svg class="ui-icon"><use href="/static/icons.svg?v={{ sv }}#settings"></use></svg>{{ t(request, 'nav.settings') }}</a>
   <div class="drawer-divider"></div>
   <div class="drawer-footer">
     <form action="/auth/logout" method="post" style="margin:0;flex:1">

@@ -25,12 +25,12 @@
 <!-- Quick links -->
 <div class="settings-quicklinks">
   <a href="/accounts" class="quicklink-card">
-    <span class="quicklink-icon">🏦</span>
+    <span class="quicklink-icon"><svg class="ui-icon"><use href="/static/icons.svg?v={{ sv }}#bank"></use></svg></span>
     <span class="quicklink-label">{{ t(request, 'settings.quicklink_accounts') }}</span>
     <span class="quicklink-count">{{ db_counts.accounts }}</span>
   </a>
   <a href="/import" class="quicklink-card">
-    <span class="quicklink-icon">⬆</span>
+    <span class="quicklink-icon"><svg class="ui-icon"><use href="/static/icons.svg?v={{ sv }}#upload"></use></svg></span>
     <span class="quicklink-label">{{ t(request, 'settings.quicklink_import') }}</span>
   </a>
 </div>
