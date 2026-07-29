@@ -1819,13 +1819,27 @@ option {
 .settings-card-grid > article { margin: 0; }
 .settings-section--danger { margin-top: 2.5rem; }
 
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .settings-card-grid { grid-template-columns: 1fr; }
   .settings-card-grid--connections > .logo-settings-card,
   .settings-card-grid--connections > .api-credentials-card,
   .settings-card-grid--security > article:first-child { grid-column: auto; }
   .settings-section-heading { display: block; }
   .settings-section-heading p { margin-top: .2rem; }
+
+  /* Forms and cards must never use an intrinsic width that escapes the
+     content gutter on phones or narrow tablets. */
+  .settings-page,
+  .settings-section,
+  .settings-card-grid,
+  .settings-card-grid > article { min-width: 0; max-width: 100%; }
+  .settings-inline-form { flex-wrap: wrap; }
+  .settings-inline-form label { flex-basis: 100%; min-width: 0; }
+  .settings-inline-form input,
+  .settings-inline-form select { width: 100%; min-width: 0; }
+  .schedule-settings-row { align-items: stretch; }
+  .schedule-settings-row label { width: min(100%, 8rem); }
+  .schedule-settings-row label.schedule-timezone { width: 100%; }
 }
 
 /* ── Extra utilities ─────────────────────────────────────────────────────── */
