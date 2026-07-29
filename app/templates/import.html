@@ -97,7 +97,12 @@
     {{ t(request, 'imports.mapping_header') }}
     <span class="badge">{{ needs_mapping | length }}</span>
   </header>
-  <p class="hint">{{ t(request, 'imports.mapping_manual_hint') }}</p>
+  <p class="hint">
+    {{ t(request, 'imports.mapping_hint_pre') }}<strong>{{ t(request, 'imports.auto_map_label') }}</strong>{{ t(request, 'imports.mapping_hint_mid') }}<code>VWRL.AS</code>{{ t(request, 'imports.mapping_hint_post') }}
+  </p>
+
+  <button id="auto-map-btn" onclick="autoMapTickers()">{{ t(request, 'imports.auto_map_label') }}</button>
+  <div id="auto-map-status" class="notice" hidden></div>
 
   <div class="table-scroll">
   <table>
