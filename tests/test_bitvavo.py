@@ -143,6 +143,8 @@ def test_sync_stores_balances_staking_prices_and_history(mem_db):
     assert len(overview["value_series"]) >= 2
     assert Decimal(overview["value_series"][0]["value"]) > 0
     assert Decimal(overview["value_series"][-1]["value"]) == Decimal("14100")
+    assert any(Decimal(row["cash_flow"]) > 0 for row in overview["period_events"])
+    assert any(Decimal(row["reward"]) > 0 for row in overview["period_events"])
 
     request = Request({
         "type": "http", "method": "GET", "path": "/crypto", "raw_path": b"/crypto",
@@ -155,3 +157,4 @@ def test_sync_stores_balances_staking_prices_and_history(mem_db):
     assert "Bitcoin" in html
     assert 'data-instrument-logo data-name="Bitcoin"' in html
     assert "cryptoValueChart" in html
+    assert "updateCryptoPeriodStats" in html

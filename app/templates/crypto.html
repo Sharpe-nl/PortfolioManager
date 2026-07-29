@@ -44,12 +44,12 @@
 {% if crypto.last_sync %}<p class="muted crypto-sync-time">{{ t(request, 'crypto.last_sync') }}: {{ crypto.last_sync[:19] | replace('T', ' ') }} UTC</p>{% endif %}
 
 <div class="stat-grid crypto-stat-grid">
-  <article class="stat-card"><header>{{ t(request, 'crypto.total_account') }}</header><div class="stat-value">{{ crypto.total | eur }}</div></article>
+  <article class="stat-card"><header>{{ t(request, 'crypto.total_account') }}</header><div id="crypto-stat-total" class="stat-value">{{ crypto.total | eur }}</div></article>
   <article class="stat-card"><header>{{ t(request, 'crypto.crypto_value') }}</header><div class="stat-value">{{ crypto.crypto_total | eur }}</div></article>
   <article class="stat-card"><header>{{ t(request, 'crypto.cash') }}</header><div class="stat-value">{{ crypto.cash_total | eur }}</div></article>
-  <article class="stat-card"><header>{{ t(request, 'crypto.net_deposits') }}</header><div class="stat-value">{{ crypto.net_deposits | eur }}</div></article>
-  <article class="stat-card"><header>{{ t(request, 'crypto.unrealized') }}</header><div class="stat-value {{ crypto.unrealized_result | pl_class }}">{{ crypto.unrealized_result | eur }}{% if crypto.unrealized_pct is not none %} · {{ crypto.unrealized_pct | pct }}{% endif %}</div></article>
-  <article class="stat-card"><header>{{ t(request, 'crypto.earn_rewards') }}</header><div class="stat-value pl-positive">{{ crypto.earn_rewards | eur }}</div></article>
+  <article class="stat-card"><header>{{ t(request, 'crypto.net_deposits') }}</header><div id="crypto-stat-deposits" class="stat-value">{{ crypto.net_deposits | eur }}</div></article>
+  <article class="stat-card"><header>{{ t(request, 'crypto.unrealized') }}</header><div id="crypto-stat-result" class="stat-value {{ crypto.unrealized_result | pl_class }}">{{ crypto.unrealized_result | eur }}{% if crypto.unrealized_pct is not none %} · {{ crypto.unrealized_pct | pct }}{% endif %}</div></article>
+  <article class="stat-card"><header>{{ t(request, 'crypto.earn_rewards') }}</header><div id="crypto-stat-rewards" class="stat-value pl-positive">{{ crypto.earn_rewards | eur }}</div></article>
 </div>
 
 {% if crypto.holdings %}
@@ -94,6 +94,7 @@
 {% if bitvavo_configured and crypto.holdings %}<script>
 const cryptoValueSeries = {{ crypto.value_series | tojson }};
 const cryptoHoldings = {{ crypto.chart_holdings | tojson }};
+const cryptoPeriodEvents = {{ crypto.period_events | tojson }};
 const cryptoInvalidRange = {{ t(request, 'range.invalid_alert') | tojson }};
 let cryptoValueChart;
 let cryptoAllocationChart;
@@ -127,11 +128,37 @@ function filteredCryptoValueSeries() {
   return filtered.length ? filtered : cryptoValueSeries.slice(-1);
 }
 
+function cryptoRangeDates() {
+  const rows = filteredCryptoValueSeries();
+  return rows.length ? { start: rows[0].date, end: rows[rows.length - 1].date } : null;
+}
+
+function updateCryptoPeriodStats() {
+  const visible = filteredCryptoValueSeries();
+  if (!visible.length) return;
+  const range = cryptoRangeDates();
+  const inRange = event => event.date >= range.start && event.date <= range.end;
+  const deposits = cryptoPeriodEvents.filter(inRange).reduce((total, event) => total + Number(event.cash_flow || 0), 0);
+  const rewards = cryptoPeriodEvents.filter(inRange).reduce((total, event) => total + Number(event.reward || 0), 0);
+  const endValue = Number(visible[visible.length - 1].value);
+  const startValue = cryptoRange === 'ALL' ? 0 : Number(visible[0].value);
+  const result = endValue - startValue - deposits;
+  const resultPct = startValue + deposits > 0 ? result / (startValue + deposits) * 100 : null;
+  document.getElementById('crypto-stat-total').textContent = formatEur(endValue);
+  document.getElementById('crypto-stat-deposits').textContent = formatEur(deposits);
+  const resultElement = document.getElementById('crypto-stat-result');
+  resultElement.textContent = `${formatEur(result)}${resultPct !== null ? ` · ${formatPct(resultPct)}` : ''}`;
+  resultElement.classList.toggle('pl-positive', result > 0);
+  resultElement.classList.toggle('pl-negative', result < 0);
+  document.getElementById('crypto-stat-rewards').textContent = formatEur(rewards);
+}
+
 function buildCryptoCharts() {
   if (cryptoValueChart) cryptoValueChart.destroy();
   if (cryptoAllocationChart) cryptoAllocationChart.destroy();
   const tokens = chartTokens();
   const visibleValueSeries = filteredCryptoValueSeries();
+  updateCryptoPeriodStats();
   const valueContext = document.getElementById('cryptoValueChart').getContext('2d');
   cryptoValueChart = new Chart(valueContext, {
     type: 'line',
