@@ -30,6 +30,17 @@ _RESTORE_DATA_TABLES = (
     "accounts", "instruments", "transactions", "cash_events", "balance_snapshots",
     "savings_interest_rates", "savings_interest_adjustments", "crypto_balances", "crypto_transactions",
 )
+_LOCAL_AUTH_TABLES = (
+    ("webauthn_credentials", ("id", "credential_id", "public_key", "sign_count", "user_handle", "transports", "created_at", "name")),
+    ("local_credentials", ("id", "username", "password_hash", "created_at", "updated_at")),
+)
+# These values are bound to this installation. They either protect its login
+# session or cannot be used on another installation (the credential encryption
+# key deliberately lives outside the database).
+_LOCAL_ONLY_SETTING_KEYS = (
+    "session_secret", "webauthn_user_handle", "webauthn_rp_id", "initial_setup_token_hash",
+    "bitvavo_api_key_encrypted", "bitvavo_api_secret_encrypted",
+)
 
 
 def _restore_allowed(conn) -> bool:
@@ -50,6 +61,46 @@ def _validate_backup(path: str) -> None:
             raise ValueError("outdated")
     finally:
         source.close()
+
+
+def _local_security_snapshot(conn: sqlite3.Connection) -> tuple[dict[str, tuple[tuple[str, ...], list[tuple]]], list[tuple[str, str]]]:
+    """Capture authentication and device-bound settings before a restore."""
+    auth_rows = {
+        table: (columns, [tuple(row[column] for column in columns) for row in conn.execute(
+            f"SELECT {', '.join(columns)} FROM {table}"
+        )])
+        for table, columns in _LOCAL_AUTH_TABLES
+    }
+    placeholders = ", ".join("?" for _ in _LOCAL_ONLY_SETTING_KEYS)
+    settings = [tuple(row) for row in conn.execute(
+        f"SELECT key, value FROM settings WHERE key IN ({placeholders})", _LOCAL_ONLY_SETTING_KEYS
+    )]
+    return auth_rows, settings
+
+
+def _remove_local_security(conn: sqlite3.Connection) -> None:
+    """Remove credentials and values that must never travel in a backup."""
+    for table, _ in _LOCAL_AUTH_TABLES:
+        conn.execute(f"DELETE FROM {table}")
+    placeholders = ", ".join("?" for _ in _LOCAL_ONLY_SETTING_KEYS)
+    conn.execute(f"DELETE FROM settings WHERE key IN ({placeholders})", _LOCAL_ONLY_SETTING_KEYS)
+
+
+def _restore_local_security(
+    conn: sqlite3.Connection,
+    snapshot: tuple[dict[str, tuple[tuple[str, ...], list[tuple]]], list[tuple[str, str]]],
+) -> None:
+    """Put this installation's authentication back after replacing data."""
+    auth_rows, settings = snapshot
+    _remove_local_security(conn)
+    for table, (columns, rows) in auth_rows.items():
+        if rows:
+            placeholders = ", ".join("?" for _ in columns)
+            conn.executemany(
+                f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({placeholders})", rows
+            )
+    if settings:
+        conn.executemany("INSERT INTO settings(key, value) VALUES (?, ?)", settings)
 
 
 @router.get("", response_class=HTMLResponse)
@@ -187,7 +238,7 @@ async def restore_db(
     conn=Depends(get_db),
     _=Depends(require_auth),
 ):
-    """Restore a verified same-version backup only into an empty installation."""
+    """Restore data only, keeping this installation's login credentials."""
     if not _restore_allowed(conn):
         return RedirectResponse(url="/settings?restore=not_empty", status_code=303)
     suffix = Path(backup.filename or "backup.db").suffix or ".db"
@@ -203,11 +254,15 @@ async def restore_db(
             handle.write(chunk)
     try:
         _validate_backup(temp_path)
+        local_security = _local_security_snapshot(conn)
         source = sqlite3.connect(temp_path)
         try:
             source.backup(conn)
         finally:
             source.close()
+        # Also protects users restoring an older backup created before
+        # credentials were excluded from exports.
+        _restore_local_security(conn, local_security)
         conn.commit()
     except (ValueError, sqlite3.Error):
         return RedirectResponse(url="/settings?restore=invalid", status_code=303)
@@ -326,8 +381,8 @@ async def refresh_classifications(conn=Depends(get_db), _=Depends(require_auth))
 
 @router.get("/backup")
 async def backup_db(conn=Depends(get_db), _=Depends(require_auth)):
-    """Stream the SQLite database file as a download."""
-    import io, tempfile, os, sqlite3
+    """Stream portfolio data without login credentials or device-only secrets."""
+    import tempfile
     from datetime import date
 
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
@@ -336,6 +391,8 @@ async def backup_db(conn=Depends(get_db), _=Depends(require_auth)):
     try:
         dest = sqlite3.connect(tmp_path)
         conn.backup(dest)
+        _remove_local_security(dest)
+        dest.commit()
         dest.close()
         with open(tmp_path, "rb") as f:
             data = f.read()

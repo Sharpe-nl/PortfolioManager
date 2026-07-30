@@ -3,6 +3,14 @@
 All notable user-facing changes are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.1.4 — 2026-07-30
+
+### Fixed
+
+- Database backups no longer contain passkeys, password hashes, session secrets
+  or encrypted Bitvavo credentials. Restoring keeps the credentials configured
+  on the current installation, including when restoring an older backup.
+
 ## 0.1.3 — 2026-07-30
 
 First stable release of PortfolioManager.
