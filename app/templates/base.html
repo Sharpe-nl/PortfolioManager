@@ -17,7 +17,7 @@
 </head>
 <body>
 {% if lan_mode() %}
-<div class="lan-mode-banner" role="alert">{{ t(request, 'security.lan_mode_warning') }}</div>
+<div id="lan-mode-banner" class="lan-mode-banner" role="alert"><span>{{ t(request, 'security.lan_mode_warning') }}</span><button type="button" onclick="hideLanModeWarning()">{{ t(request, 'common.hide') }}</button></div>
 {% endif %}
 {% set stocks_active = request.url.path.startswith('/stocks') or request.url.path.startswith('/holdings') or request.url.path.startswith('/dividends') or request.url.path.startswith('/benchmark') or request.url.path.startswith('/actions') or request.url.path.startswith('/instrument') %}
 
