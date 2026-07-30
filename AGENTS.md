@@ -14,6 +14,18 @@
 - Before merging, open a pull request that explains the change and includes verification results.
 - Keep pull requests focused; do not mix unrelated refactors with feature or bug-fix work.
 
+## Versioning and changelog
+
+- `VERSION` is the shipped application version and must use Semantic Versioning.
+- For every commit that changes user-visible behaviour, security, database
+  schema or deployment, bump `VERSION` and add a concise user-facing entry to
+  `CHANGELOG.md` in the same commit.
+- Do not bump the version for internal refactors, tests or documentation-only
+  corrections that do not affect the shipped application.
+- While the project is in beta, use prerelease iterations such as
+  `0.1.0-beta.1`, then `0.1.0-beta.2`. A stable release removes the prerelease
+  suffix; backwards-compatible fixes increment the patch version afterwards.
+
 ## Implementation
 
 - Keep server-rendered pages accessible without JavaScript where practical.

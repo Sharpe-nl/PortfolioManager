@@ -592,3 +592,11 @@ async function refreshPrices(btn) {
     setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 3000);
   }
 }
+function hideLanModeWarning() {
+  localStorage.setItem('pm-hide-lan-mode-warning', '1');
+  document.getElementById('lan-mode-banner')?.setAttribute('hidden', '');
+}
+
+document.getElementById('lan-mode-banner')?.toggleAttribute(
+  'hidden', localStorage.getItem('pm-hide-lan-mode-warning') === '1'
+);

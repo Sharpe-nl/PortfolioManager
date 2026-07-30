@@ -13,6 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 COPY migrations ./migrations
+COPY VERSION ./VERSION
 RUN mkdir -p /app/data && chown -R portfolio:portfolio /app
 
 USER portfolio
