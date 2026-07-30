@@ -151,12 +151,12 @@ systemctl status portfoliomanager
 ## Step 9 — Configure the data sources
 
 1. Create a broker account and import DeGiro's `Account.csv` under **Stocks → Actions → Import**. The same or overlapping file may safely be imported again.
-2. If you use Bitvavo, create an API key with **View/read-only permissions only**. Keep trading and withdrawals disabled. Add the key and its one-time secret under **Settings → Bitvavo API**, then synchronize from the Crypto page.
+2. If you use Bitvavo, create an API key with **View/read-only permissions only**. Keep trading and withdrawals disabled. Add the key and its one-time secret under **Settings → Accounts → Crypto (Bitvavo)**, then synchronize from the Crypto page.
 3. Create accounts of type **Savings** for bank savings. Each savings account has its own settings page for dated deposits and withdrawals, rate periods, payout frequency, balance tiers and manual interest corrections.
-4. Use the **Show on dashboard** switch per category to control the main dashboard cards.
-5. Review the automatic stock and crypto refresh times in Settings. The defaults are 06:00 and 18:00 in the LXC's local time zone.
+4. Use **Settings → Show on dashboard** to control which stock, crypto and savings cards appear on the main dashboard.
+5. Review the automatic stock and crypto refresh schedule in Settings. The defaults are 06:00 and 18:00 in the configurable `Europe/Amsterdam` time zone.
 
-The scheduler only runs while the service is active. To inspect or change the LXC time zone:
+The scheduler only runs while the service is active. Its schedule uses the time zone selected in Settings and does not depend on the LXC time zone. You may still set the LXC time zone for consistent system logs:
 
 ```bash
 timedatectl status

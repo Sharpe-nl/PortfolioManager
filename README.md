@@ -62,7 +62,7 @@ The screenshots use an isolated demo portfolio with fictitious data.
 - Allocation by sector, continent and asset type, including manual ETF country weights
 - Read-only Bitvavo integration with crypto balances, deposits, activity, historical EUR valuation and staking/lending income
 - Savings accounts with dated deposits and withdrawals, rate history, payout frequency, optional end dates, rate tiers and manual interest corrections
-- Configurable automatic stock and crypto refresh schedule (06:00 and 18:00 by default, using server time)
+- Configurable automatic stock and crypto refresh schedule (06:00 and 18:00 by default, using Europe/Amsterdam)
 - Company, ETF and crypto logos through an optional Logo.dev publishable key; fetched assets are cached locally after the first request
 - Optional username/password login with rate limiting, plus WebAuthn/FIDO2 authentication (YubiKey/passkey-compatible)
 - SQLite backup download from the settings page
@@ -252,7 +252,7 @@ Open `https://portfolio.home:8443`. Add a local DNS entry for that hostname if n
 3. For crypto, create a Bitvavo API key with **View/read-only permissions only**. Never enable trading or withdrawals. Add it through **Settings → Accounts → Crypto (Bitvavo)**, then start the first synchronization from the Crypto page.
 4. For savings, create an account with type **Savings**. Open its settings to add deposits or withdrawals and define the applicable interest rates, payout frequency and optional balance tiers.
 5. Use the **Show on dashboard** switch on the Stocks, Crypto and Savings pages to decide which category cards appear on the main dashboard. Savings is shown as a separate card; the combined history line contains stocks and crypto.
-6. Review the automatic refresh times in Settings. Stocks and crypto refresh at 06:00 and 18:00 by default, in the server's local time zone. The application must be running at those times.
+6. Review the automatic refresh schedule in Settings. Stocks and crypto refresh at 06:00 and 18:00 by default in the configurable `Europe/Amsterdam` time zone. The application must be running at those times.
 7. Optionally add a Logo.dev **publishable** key under **Settings → Company logo API keys**. Without one, the interface falls back to initials.
 8. Download a backup from Settings after the first successful import or synchronization.
 
@@ -265,7 +265,7 @@ Open `https://portfolio.home:8443`. Add a local DNS entry for that hostname if n
 
 ### Automatic refresh
 
-The built-in scheduler checks once per minute and runs each configured time slot only once. A stock-provider failure does not prevent Bitvavo from refreshing, and vice versa. Times use the operating system or container time zone; check the time displayed in Settings if the refresh occurs at an unexpected hour.
+The built-in scheduler checks once per minute and runs each configured time slot only once. A stock-provider failure does not prevent Bitvavo from refreshing, and vice versa. It uses the time zone selected in **Settings → Automatic refresh** (`Europe/Amsterdam` by default), independently of the operating system or container time zone.
 
 ## Backups and updates
 
