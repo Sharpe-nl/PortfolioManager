@@ -110,7 +110,7 @@
     </form>
   </div>
   {% if request.query_params.get('update') == 'available' %}
-  <div class="notice success">{{ t(request, 'settings.update_available', version=request.query_params.get('latest')) }}</div>
+  <div class="notice error">{{ t(request, 'settings.update_available', version=request.query_params.get('latest')) }}</div>
   <div class="update-settings-row">
     {% if self_update_enabled %}
     <form method="post" action="/settings/install-update"
@@ -453,7 +453,9 @@ async function addYubikey() {
     setTimeout(() => window.location.reload(), 1000);
   } catch (err) {
     status.className = 'status-msg error';
-    status.textContent = I18N.errorPrefix + err.message;
+    status.textContent = err?.name === 'SecurityError' || /insecure/i.test(err?.message || '')
+      ? I18N.httpsRequired
+      : I18N.errorPrefix + err.message;
     btn.disabled = false;
   }
 }

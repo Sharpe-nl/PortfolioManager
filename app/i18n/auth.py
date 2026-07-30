@@ -6,9 +6,9 @@ NL = {
     "auth.login_instructions": "Steek je YubiKey in en klik op de knop hieronder.",
     "auth.login_button": "Inloggen met YubiKey",
     "auth.https_required_html": (
-        "✗ WebAuthn werkt alleen via HTTPS.<br>"
+        "✗ Een YubiKey werkt alleen via HTTPS.<br>"
         "Open de app via je proxy-domein (bijv. <code>https://portfolio.lan</code>), "
-        "niet rechtstreeks via het IP-adres of HTTP."
+        "niet rechtstreeks via het IP-adres of HTTP. Gebruik anders de wachtwoordlogin in LAN-modus."
     ),
     "auth.connecting": "Verbinden met server…",
     "auth.touch_key": "Raak je YubiKey aan…",
@@ -48,9 +48,9 @@ EN = {
     "auth.login_instructions": "Insert your YubiKey and click the button below.",
     "auth.login_button": "Login with YubiKey",
     "auth.https_required_html": (
-        "✗ WebAuthn only works over HTTPS.<br>"
+        "✗ A YubiKey only works over HTTPS.<br>"
         "Open the app via your proxy domain (e.g. <code>https://portfolio.lan</code>), "
-        "not directly via the IP address or HTTP."
+        "not directly via the IP address or HTTP. Otherwise use password login in LAN mode."
     ),
     "auth.connecting": "Connecting to server…",
     "auth.touch_key": "Touch your YubiKey…",

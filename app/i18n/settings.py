@@ -40,7 +40,7 @@ NL = {
     "settings.section_updates": "Updates",
     "settings.current_version": "Huidige versie:",
     "settings.check_updates": "Controleren op updates",
-    "settings.update_available": "✓ Versie {version} is beschikbaar.",
+    "settings.update_available": "↑ Versie {version} is beschikbaar. Update de applicatie om bij te blijven.",
     "settings.update_current": "✓ Je gebruikt al de nieuwste versie.",
     "settings.install_update": "Update installeren",
     "settings.confirm_install_update": "De app wordt kort opnieuw gestart om de update te installeren. Doorgaan?",
@@ -118,7 +118,7 @@ NL = {
     "settings.more_prefix": "… en nog {count} meer (zie",
 
     # ── JS: add-YubiKey flow ──────────────────────────────────────────
-    "settings.js_https_required": "✗ WebAuthn werkt alleen via HTTPS (of localhost).",
+    "settings.js_https_required": "✗ Een YubiKey werkt alleen via HTTPS (of localhost). Gebruik in LAN-modus de wachtwoordlogin, of schakel HTTPS in via een reverse proxy of self-signed certificaat.",
     "settings.js_connecting": "Verbinden met server…",
     "settings.js_touch_key": "Raak je YubiKey aan…",
     "settings.js_key_added": "✓ Sleutel toegevoegd. Pagina wordt vernieuwd…",
@@ -162,7 +162,7 @@ EN = {
     "settings.section_updates": "Updates",
     "settings.current_version": "Current version:",
     "settings.check_updates": "Check for updates",
-    "settings.update_available": "✓ Version {version} is available.",
+    "settings.update_available": "↑ Version {version} is available. Update the application to stay current.",
     "settings.update_current": "✓ You are already using the latest version.",
     "settings.install_update": "Install update",
     "settings.confirm_install_update": "The app will restart briefly to install this update. Continue?",
@@ -234,7 +234,7 @@ EN = {
     "settings.unmapped_intro2": "for an overview table, or click on an instrument below.",
     "settings.more_prefix": "… and {count} more (see",
 
-    "settings.js_https_required": "✗ WebAuthn only works over HTTPS (or localhost).",
+    "settings.js_https_required": "✗ A YubiKey only works over HTTPS (or localhost). In LAN mode, use password login or enable HTTPS with a reverse proxy or self-signed certificate.",
     "settings.js_connecting": "Connecting to server…",
     "settings.js_touch_key": "Touch your YubiKey…",
     "settings.js_key_added": "✓ Key added. Reloading page…",
