@@ -8,6 +8,9 @@ from app.auth import (
     complete_initial_setup,
     has_any_credentials,
     issue_initial_setup_token,
+    clear_password_login_failures,
+    password_login_is_limited,
+    record_password_login_failure,
     verify_initial_setup_token,
     verify_local_credential,
 )
@@ -62,3 +65,34 @@ def test_lan_mode_requires_explicit_http_opt_in(monkeypatch):
 
     monkeypatch.setenv("PM_HTTPS_ONLY", "true")
     assert not lan_mode_enabled()
+
+
+def test_password_login_rate_limit_blocks_after_five_failures():
+    client_ip, now = "192.0.2.10", 1000.0
+    clear_password_login_failures(client_ip)
+
+    for _ in range(5):
+        record_password_login_failure(client_ip, now=now)
+
+    assert password_login_is_limited(client_ip, now=now)
+    assert password_login_is_limited(client_ip, now=now + 899)
+    assert not password_login_is_limited(client_ip, now=now + 900)
+
+
+def test_successful_password_login_state_can_be_cleared():
+    client_ip, now = "192.0.2.11", 1000.0
+    for _ in range(5):
+        record_password_login_failure(client_ip, now=now)
+
+    clear_password_login_failures(client_ip)
+    assert not password_login_is_limited(client_ip, now=now)
+
+
+def test_password_login_limit_is_scoped_to_client_ip():
+    client_ip, now = "192.0.2.12", 1000.0
+    clear_password_login_failures(client_ip)
+    for _ in range(5):
+        record_password_login_failure(client_ip, now=now)
+
+    assert password_login_is_limited(client_ip, now=now)
+    assert not password_login_is_limited("192.0.2.13", now=now)
