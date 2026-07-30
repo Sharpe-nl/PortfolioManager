@@ -42,6 +42,7 @@ from .db import get_setting, set_setting
 
 RP_NAME = "PortfolioManager"
 _SETUP_TOKEN_HASH_KEY = "initial_setup_token_hash"
+_PASSWORD_MIN_LENGTH = 12
 
 
 # ---------------------------------------------------------------------------
@@ -73,6 +74,61 @@ def has_credentials(conn: sqlite3.Connection) -> bool:
     ).fetchone() is not None
 
 
+def has_local_credentials(conn: sqlite3.Connection) -> bool:
+    return conn.execute("SELECT 1 FROM local_credentials LIMIT 1").fetchone() is not None
+
+
+def has_any_credentials(conn: sqlite3.Connection) -> bool:
+    return has_credentials(conn) or has_local_credentials(conn)
+
+
+def _normalize_username(username: str) -> str:
+    value = username.strip()
+    if not 3 <= len(value) <= 64 or any(char.isspace() for char in value):
+        raise ValueError("Username must be 3–64 characters without spaces")
+    return value
+
+
+def _password_hash(password: str, salt: bytes | None = None) -> str:
+    if len(password) < _PASSWORD_MIN_LENGTH:
+        raise ValueError(f"Password must be at least {_PASSWORD_MIN_LENGTH} characters")
+    salt = salt or os.urandom(16)
+    derived = hashlib.scrypt(password.encode("utf-8"), salt=salt, n=2**14, r=8, p=1, dklen=32)
+    return f"scrypt$16384$8$1${salt.hex()}${derived.hex()}"
+
+
+def add_local_credential(conn: sqlite3.Connection, username: str, password: str) -> None:
+    normalized = _normalize_username(username)
+    conn.execute(
+        "INSERT INTO local_credentials(username,password_hash) VALUES(?,?)",
+        (normalized, _password_hash(password)),
+    )
+
+
+def set_local_password(conn: sqlite3.Connection, credential_id: int, password: str) -> bool:
+    result = conn.execute(
+        "UPDATE local_credentials SET password_hash=?, updated_at=datetime('now') WHERE id=?",
+        (_password_hash(password), credential_id),
+    )
+    return result.rowcount > 0
+
+
+def verify_local_credential(conn: sqlite3.Connection, username: str, password: str) -> bool:
+    row = conn.execute("SELECT password_hash FROM local_credentials WHERE username=?", (username.strip(),)).fetchone()
+    if not row:
+        # Keep the response timing close to an existing account.
+        hashlib.scrypt(password.encode("utf-8"), salt=b"\0" * 16, n=2**14, r=8, p=1, dklen=32)
+        return False
+    try:
+        algorithm, n, r, p, salt_hex, expected_hex = row["password_hash"].split("$")
+        if algorithm != "scrypt":
+            return False
+        actual = hashlib.scrypt(password.encode("utf-8"), salt=bytes.fromhex(salt_hex), n=int(n), r=int(r), p=int(p), dklen=32)
+        return hmac.compare_digest(actual.hex(), expected_hex)
+    except (ValueError, TypeError):
+        return False
+
+
 def _token_digest(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
@@ -84,7 +140,7 @@ def issue_initial_setup_token(conn: sqlite3.Connection) -> str | None:
     to claim ownership by registering their own credential. ``PM_SETUP_TOKEN``
     takes precedence; otherwise only a digest of a generated token is stored.
     """
-    if has_credentials(conn) or os.getenv("PM_SETUP_TOKEN", "").strip():
+    if has_any_credentials(conn) or os.getenv("PM_SETUP_TOKEN", "").strip():
         return None
     if get_setting(conn, _SETUP_TOKEN_HASH_KEY):
         return None
@@ -120,10 +176,9 @@ def list_credentials(conn: sqlite3.Connection) -> list[dict]:
 
 def delete_credential(conn: sqlite3.Connection, cred_pk_id: int) -> tuple[bool, str]:
     """Remove a registered credential. Refuses to remove the last one, since
-    that would lock the owner out of a single-user app with no password
-    fallback."""
+    that would lock the owner out when no password fallback exists."""
     count = conn.execute("SELECT COUNT(*) AS n FROM webauthn_credentials").fetchone()["n"]
-    if count <= 1:
+    if count <= 1 and not has_local_credentials(conn):
         return False, "Kan de laatste sleutel niet verwijderen — je zou jezelf buitensluiten."
     cur = conn.execute("DELETE FROM webauthn_credentials WHERE id=?", (cred_pk_id,))
     return cur.rowcount > 0, ""

@@ -3,8 +3,9 @@
 {% block content %}
 <div class="page-header">
   <h1>{{ t(request, 'dashboard.page_title') }}</h1>
-  {% if overview_series.stocks or overview_series.crypto %}
+  {% if overview_series.stocks or overview_series.crypto or overview_series.savings %}
   <span class="range-selector dashboard-chart-ranges">
+    <button type="button" data-range="1D" onclick="setDashboardRange(this,'1D')">{{ t(request, 'range.1d') }}</button>
     <button type="button" data-range="1M" onclick="setDashboardRange(this,'1M')">{{ t(request, 'range.1m') }}</button>
     <button type="button" data-range="YTD" onclick="setDashboardRange(this,'YTD')">{{ t(request, 'range.ytd') }}</button>
     <button type="button" class="active" data-range="1Y" onclick="setDashboardRange(this,'1Y')">{{ t(request, 'range.1y') }}</button>
@@ -28,7 +29,7 @@
 <div class="dashboard-overview-grid">
   {% if show_stocks %}
   <a href="/stocks" class="dashboard-overview-card">
-    <header><span><span class="dashboard-category-icon">📊</span>{{ t(request, 'nav.stocks') }}</span><span aria-hidden="true">→</span></header>
+    <header><span><span class="dashboard-category-icon"><svg class="ui-icon"><use href="/static/icons.svg?v={{ sv }}#chart"></use></svg></span>{{ t(request, 'nav.stocks') }}</span><span aria-hidden="true">→</span></header>
     <strong>{{ stock_summary.total_value | eur }}</strong>
     <span class="{{ stock_summary.total_pl | pl_class }}">{{ t(request, 'dashboard.main_result') }} · {{ stock_summary.total_pl | eur }} · {{ stock_summary.total_pl_pct | pct }}</span>
   </a>
@@ -36,7 +37,7 @@
 
   {% if show_crypto %}
   <a href="/crypto" class="dashboard-overview-card">
-    <header><span><span class="dashboard-category-icon">₿</span>{{ t(request, 'nav.crypto') }}</span><span aria-hidden="true">→</span></header>
+    <header><span><span class="dashboard-category-icon"><svg class="ui-icon"><use href="/static/icons.svg?v={{ sv }}#coin"></use></svg></span>{{ t(request, 'nav.crypto') }}</span><span aria-hidden="true">→</span></header>
     <strong>{{ crypto.total | eur }}</strong>
     <span class="{{ crypto.unrealized_result | pl_class }}">{{ t(request, 'dashboard.main_result') }} · {{ crypto.unrealized_result | eur }}{% if crypto.unrealized_pct is not none %} · {{ crypto.unrealized_pct | pct }}{% endif %}</span>
     <small>{{ t(request, 'crypto.earn_rewards') }} · {{ crypto.earn_rewards | eur }}</small>
@@ -45,9 +46,9 @@
 
   {% if dashboard_savings %}
   <a href="/savings" class="dashboard-overview-card dashboard-overview-card--savings">
-    <header><span><span class="dashboard-category-icon">💰</span>{{ t(request, 'nav.savings') }}</span><span aria-hidden="true">→</span></header>
+    <header><span><span class="dashboard-category-icon"><svg class="ui-icon"><use href="/static/icons.svg?v={{ sv }}#wallet"></use></svg></span>{{ t(request, 'nav.savings') }}</span><span aria-hidden="true">→</span></header>
     <strong>{{ savings_balance | eur }}</strong>
-    <span class="pl-positive">{{ t(request, 'dashboard.savings_interest') }} · {{ savings_interest | eur }}</span>
+    <span class="pl-positive">{{ t(request, 'dashboard.savings_interest') }} · {{ savings_interest | eur }}{% if savings_interest_since %} <small>{{ t(request, 'dashboard.savings_interest_since', date=savings_interest_since) }}</small>{% endif %}</span>
     <small>{% for saving in dashboard_savings %}{{ saving.name }}{% if not loop.last %} · {% endif %}{% endfor %}</small>
   </a>
   {% endif %}
@@ -57,7 +58,7 @@
 <article class="empty-state"><h2>{{ t(request, 'dashboard.main_empty_title') }}</h2><p>{{ t(request, 'dashboard.main_empty_text') }}</p></article>
 {% endif %}
 
-{% if overview_series.stocks or overview_series.crypto %}
+{% if overview_series.stocks or overview_series.crypto or overview_series.savings %}
 <dialog id="dashboardCustomRangeDialog">
   <article style="margin:0;">
     <header>{{ t(request, 'range.custom_period') }}</header>
@@ -76,6 +77,7 @@
       <button type="button" class="active" data-series="total" onclick="toggleDashboardSeries(this)">{{ t(request, 'common.total') }}</button>
       {% if show_stocks and overview_series.stocks %}<button type="button" class="active" data-series="stocks" onclick="toggleDashboardSeries(this)">{{ t(request, 'nav.stocks') }}</button>{% endif %}
       {% if show_crypto and overview_series.crypto %}<button type="button" class="active" data-series="crypto" onclick="toggleDashboardSeries(this)">{{ t(request, 'nav.crypto') }}</button>{% endif %}
+      {% if overview_series.savings %}<button type="button" data-series="savings" onclick="toggleDashboardSeries(this)">{{ t(request, 'nav.savings') }}</button>{% endif %}
     </span>
   </header>
   <div class="dashboard-overview-chart-wrap"><canvas id="dashboardOverviewChart"></canvas></div>
@@ -86,20 +88,37 @@
 {% endblock %}
 
 {% block scripts %}
-{% if overview_series.stocks or overview_series.crypto %}<script>
+{% if overview_series.stocks or overview_series.crypto or overview_series.savings %}<script>
 const dashboardOverviewSeries = {{ overview_series | tojson }};
 const dashboardOverviewLabels = {
   total: {{ t(request, 'common.total') | tojson }},
   stocks: {{ t(request, 'nav.stocks') | tojson }},
   crypto: {{ t(request, 'nav.crypto') | tojson }},
+  savings: {{ t(request, 'nav.savings') | tojson }},
 };
 const dashboardRangeInvalid = {{ t(request, 'range.invalid_alert') | tojson }};
 let dashboardOverviewChart;
 let dashboardRange = '1Y';
 let dashboardCustomRange = null;
-const visibleDashboardSeries = new Set(
-  ['total', ...Object.entries(dashboardOverviewSeries).filter(([, rows]) => rows.length).map(([key]) => key)]
-);
+const dashboardSeriesStorageKey = 'pm-dashboard-chart-series';
+const defaultDashboardSeries = ['total', ...Object.entries(dashboardOverviewSeries)
+  .filter(([key, rows]) => key !== 'savings' && rows.length)
+  .map(([key]) => key)];
+let visibleDashboardSeries = new Set(defaultDashboardSeries);
+
+try {
+  const stored = JSON.parse(localStorage.getItem(dashboardSeriesStorageKey));
+  if (Array.isArray(stored)) {
+    visibleDashboardSeries = new Set(stored.filter(key =>
+      key === 'total' || (dashboardOverviewSeries[key] && dashboardOverviewSeries[key].length)
+    ));
+  }
+} catch (error) { /* localStorage unavailable or older invalid value */ }
+
+function saveDashboardSeriesPreference() {
+  try { localStorage.setItem(dashboardSeriesStorageKey, JSON.stringify([...visibleDashboardSeries])); }
+  catch (error) { /* localStorage unavailable — keep the current page state */ }
+}
 
 function alignedDashboardValues(rows, labels) {
   const sorted = [...rows].sort((left, right) => left.date.localeCompare(right.date));
@@ -131,7 +150,8 @@ function filteredDashboardDates() {
     start = new Date(last.getFullYear(), 0, 1);
   } else {
     start = new Date(last);
-    if (dashboardRange === '1M') start.setMonth(start.getMonth() - 1);
+    if (dashboardRange === '1D') start.setDate(start.getDate() - 1);
+    else if (dashboardRange === '1M') start.setMonth(start.getMonth() - 1);
     else start.setFullYear(start.getFullYear() - 1);
   }
   const filtered = labels.filter(value => {
@@ -147,7 +167,7 @@ function buildDashboardOverviewChart() {
   const labels = filteredDashboardDates();
   const tokens = chartTokens();
   const palette = chartPalette();
-  const colours = { stocks: tokens.primary, crypto: palette[1] || '#f59e0b' };
+  const colours = { stocks: tokens.primary, crypto: palette[1] || '#f59e0b', savings: tokens.green };
   const categoryDatasets = keys.map(key => ({
     dashboardKey: key,
     label: dashboardOverviewLabels[key],
@@ -161,7 +181,9 @@ function buildDashboardOverviewChart() {
     spanGaps: true,
     hidden: !visibleDashboardSeries.has(key),
   }));
-  const totalValues = labels.map((_, index) => categoryDatasets.reduce((sum, dataset) => sum + (dataset.data[index] ?? 0), 0));
+  const totalValues = labels.map((_, index) => categoryDatasets
+    .filter(dataset => visibleDashboardSeries.has(dataset.dashboardKey))
+    .reduce((sum, dataset) => sum + (dataset.data[index] ?? 0), 0));
   dashboardOverviewChart = new Chart(document.getElementById('dashboardOverviewChart').getContext('2d'), {
     type: 'line',
     data: {
@@ -194,10 +216,9 @@ function toggleDashboardSeries(button) {
   const key = button.dataset.series;
   if (visibleDashboardSeries.has(key)) visibleDashboardSeries.delete(key);
   else visibleDashboardSeries.add(key);
+  saveDashboardSeriesPreference();
   button.classList.toggle('active', visibleDashboardSeries.has(key));
-  const dataset = dashboardOverviewChart.data.datasets.find(item => item.dashboardKey === key);
-  if (dataset) dataset.hidden = !visibleDashboardSeries.has(key);
-  dashboardOverviewChart.update();
+  buildDashboardOverviewChart();
 }
 
 function setDashboardRange(button, range) {
@@ -238,6 +259,10 @@ if (savedDashboardRange) {
   dashboardCustomRange = savedDashboardRange.customRange || null;
   document.querySelectorAll('.dashboard-chart-ranges button').forEach(item => item.classList.toggle('active', item.dataset.range === dashboardRange));
 }
+
+document.querySelectorAll('.dashboard-chart-toggles button').forEach(button => {
+  button.classList.toggle('active', visibleDashboardSeries.has(button.dataset.series));
+});
 
 document.getElementById('dashboardCustomRangeDialog').addEventListener('click', event => {
   if (event.target === event.currentTarget) event.currentTarget.close();

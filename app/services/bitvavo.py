@@ -360,21 +360,27 @@ def crypto_overview(conn, activity_page: int = 1, activity_page_size: int = 100)
         )
 
     earn_rewards = ZERO
+    period_events = []
     for row in transaction_rows:
+        day = row["executed_at"][:10]
+        cash_flow = ZERO
+        if row["type"] == "deposit" and row.get("received_currency") == "EUR":
+            cash_flow = _decimal(row.get("received_amount"))
+        elif row["type"] == "withdrawal" and row.get("sent_currency") == "EUR":
+            cash_flow = -_decimal(row.get("sent_amount"))
+
+        reward = ZERO
         if row["type"] not in {"staking", "fixed_staking", "loan"}:
+            period_events.append({"date": day, "cash_flow": str(cash_flow), "reward": "0"})
             continue
         if row.get("price_currency") == "EUR" and _decimal(row.get("price_amount")) > 0:
-            earn_rewards += _decimal(row["price_amount"])
-            continue
-        symbol = row.get("received_currency")
-        amount = _decimal(row.get("received_amount"))
-        if symbol == "EUR":
-            earn_rewards += amount
-            continue
-        reward_day = row["executed_at"][:10]
-        reward_value = historical_eur_value(symbol, amount, reward_day)
-        if reward_value is not None:
-            earn_rewards += reward_value
+            reward = _decimal(row["price_amount"])
+        else:
+            symbol = row.get("received_currency")
+            amount = _decimal(row.get("received_amount"))
+            reward = amount if symbol == "EUR" else (historical_eur_value(symbol, amount, day) or ZERO)
+        earn_rewards += reward
+        period_events.append({"date": day, "cash_flow": str(cash_flow), "reward": str(reward)})
     quantity_events: list[tuple[str, str, Decimal]] = []
     for row in transaction_rows:
         day = row["executed_at"][:10]
@@ -433,6 +439,7 @@ def crypto_overview(conn, activity_page: int = 1, activity_page_size: int = 100)
         "activity_pages": activity_pages,
         "snapshots": snapshots,
         "value_series": value_series,
+        "period_events": period_events,
         "crypto_total": crypto_total,
         "cash_total": cash_total,
         "total": total,

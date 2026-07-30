@@ -1,10 +1,12 @@
 """Savings interest and dashboard visibility tests."""
 from datetime import date
 from decimal import Decimal
+import asyncio
 
+from app.routers import savings as savings_router
 from app.routers.savings import _cash_movements, _signed_cash_amount
-from app.services.savings import account_interest, savings_accounts
-from app.services.portfolio import get_allocation, get_portfolio_summary
+from app.services.savings import account_interest, savings_accounts, savings_value_series
+from app.services.portfolio import get_allocation, get_cash_balances, get_portfolio_summary
 
 
 def _savings_account(conn):
@@ -20,6 +22,7 @@ def test_monthly_interest_compounds_from_latest_snapshot(mem_db):
     # 1% in February and 1% again in March: 1000 -> 1010 -> 1020.10
     assert result["balance"] == Decimal("1020.10")
     assert result["interest"] == Decimal("20.10")
+    assert result["interest_since"] == "2026-01-01"
     assert len(result["events"]) == 2
 
 
@@ -70,12 +73,33 @@ def test_savings_cash_amount_uses_movement_direction():
     assert _signed_cash_amount("0", "deposit") is None
 
 
+def test_savings_mutation_is_committed_before_settings_redirect(mem_db):
+    _savings_account(mem_db)
+
+    response = asyncio.run(savings_router.add_interest(
+        2, "2026-03-01", "5", "Correction", conn=mem_db, _=None,
+    ))
+
+    assert response.headers["location"] == "/savings/2/settings?saved=1"
+    assert mem_db.execute("SELECT COUNT(*) FROM savings_interest_adjustments WHERE account_id=2").fetchone()[0] == 1
+    assert not mem_db.in_transaction
+
+
 def test_first_deposit_can_create_a_savings_balance_without_snapshot(mem_db):
     mem_db.execute("INSERT INTO accounts(id,name,type,currency) VALUES(3,'Fresh savings','savings','EUR')")
     mem_db.execute("INSERT INTO cash_events(account_id,ts,type,amount_eur) VALUES(3,'2026-01-01T00:00:00','deposit','250')")
     mem_db.commit()
     result = account_interest(mem_db, 3, date(2026, 1, 2))
     assert result["balance"] == Decimal("250.00")
+
+
+def test_savings_value_series_starts_from_balance_and_carries_interest(mem_db):
+    _savings_account(mem_db)
+
+    series = savings_value_series(mem_db)
+
+    assert series[0] == {"date": "2026-01-01", "value": Decimal("1000.00")}
+    assert series[-1]["value"] == account_interest(mem_db, 2)["balance"]
 
 
 def test_bonus_rate_applies_only_to_the_balance_above_its_threshold(mem_db):
@@ -109,3 +133,8 @@ def test_savings_stays_out_of_portfolio_total_and_allocation(mem_db):
     _savings_account(mem_db)
     assert get_portfolio_summary(mem_db)["total_value"] == Decimal("0")
     assert "savings" not in get_allocation(mem_db)["asset_type"]
+
+
+def test_savings_is_not_listed_as_broker_cash_when_excluded(mem_db):
+    _savings_account(mem_db)
+    assert get_cash_balances(mem_db, include_savings=False) == []

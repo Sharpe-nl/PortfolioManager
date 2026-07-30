@@ -1,0 +1,17 @@
+# Simple, password-based setup for a trusted home network only.
+# Do not expose port 8080 to the internet or forward it through a router.
+services:
+  portfoliomanager:
+    build: .
+    image: portfoliomanager:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8000"
+    environment:
+      PM_HTTPS_ONLY: "false"
+      PM_LAN_MODE: "true"
+    volumes:
+      - portfoliomanager-data:/app/data
+
+volumes:
+  portfoliomanager-data:

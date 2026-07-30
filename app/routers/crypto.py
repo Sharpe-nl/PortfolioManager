@@ -42,7 +42,7 @@ async def sync_crypto(conn=Depends(get_db), _=Depends(require_auth)):
     try:
         credentials = get_bitvavo_credentials(conn)
         if not credentials:
-            return RedirectResponse(url="/settings?bitvavo_missing=1", status_code=303)
+            return RedirectResponse(url="/accounts?bitvavo_error=missing#crypto-bitvavo", status_code=303)
         result = sync_bitvavo(conn, *credentials)
         return RedirectResponse(url=f"/crypto?synced={result['balances']}", status_code=303)
     except (BitvavoError, CredentialError) as exc:

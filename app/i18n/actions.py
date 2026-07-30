@@ -19,6 +19,7 @@ NL = {
     "actions.badge_withdrawal": "Opname",
     "actions.badge_fee": "Kosten",
     "actions.badge_interest": "Rente",
+    "actions.badge_bonus": "Bonus",
     "actions.flag_tooltip": "Niet verwerkt",
     "actions.max_rows_notice": "Maximaal 500 regels weergegeven. Gebruik filters om te verfijnen.",
 }
@@ -42,6 +43,7 @@ EN = {
     "actions.badge_withdrawal": "Withdrawal",
     "actions.badge_fee": "Fees",
     "actions.badge_interest": "Interest",
+    "actions.badge_bonus": "Bonus",
     "actions.flag_tooltip": "Unprocessed",
     "actions.max_rows_notice": "Maximum of 500 rows shown. Use filters to narrow down.",
 }

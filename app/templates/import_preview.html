@@ -27,6 +27,20 @@
   </article>
 </div>
 
+<!-- Keep the decision available without requiring a scroll through the rows. -->
+<div class="action-bar import-preview-actions-top">
+  {% if counts.new > 0 %}
+  <form method="post" action="/import/confirm">
+    <button type="submit" class="primary">
+      {{ t(request, 'imports.confirm_button', count=counts.new) }}
+    </button>
+  </form>
+  {% else %}
+  <p class="muted">{{ t(request, 'imports.no_new_rows') }}</p>
+  {% endif %}
+  <a href="/import" role="button" class="outline secondary">{{ t(request, 'common.cancel') }}</a>
+</div>
+
 {% if counts.error > 0 %}
 <div class="notice warning">
   {{ t(request, 'imports.error_notice', count=counts.error) }}

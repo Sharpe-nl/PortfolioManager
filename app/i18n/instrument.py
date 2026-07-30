@@ -34,6 +34,8 @@ NL = {
     # Edit form
     "instrument.edit_title": "Aanpassen",
     "instrument.field_ticker": "yfinance ticker",
+    "instrument.field_exchange": "Beurscode (optioneel)",
+    "instrument.field_trading_currency": "Handelsvaluta",
     "instrument.ticker_placeholder": "bijv. VWRL.AS",
     "instrument.field_region": "Regio",
     "instrument.field_manual_div": "Jaarlijks dividend/aandeel (€, handmatig)",
@@ -109,6 +111,8 @@ EN = {
     # Edit form
     "instrument.edit_title": "Edit",
     "instrument.field_ticker": "yfinance ticker",
+    "instrument.field_exchange": "Exchange code (optional)",
+    "instrument.field_trading_currency": "Trading currency",
     "instrument.ticker_placeholder": "e.g. VWRL.AS",
     "instrument.field_region": "Region",
     "instrument.field_manual_div": "Annual dividend/share (€, manual)",

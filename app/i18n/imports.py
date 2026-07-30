@@ -13,6 +13,11 @@ NL = {
     "imports.rows_added_word": "rijen toegevoegd",
     "imports.error_details_summary": "Foutdetails",
     "imports.file_too_large": "Het CSV-bestand is groter dan de importlimiet van 10 MB.",
+    "imports.file_required": "Selecteer eerst een CSV-bestand.",
+    "imports.file_empty": "Het gekozen CSV-bestand is leeg.",
+    "imports.file_invalid": "Dit CSV-bestand kon niet worden gelezen.",
+    "imports.no_importable_rows": "Er staan geen importeerbare rijen in dit CSV-bestand.",
+    "imports.account_not_found": "Het gekozen account bestaat niet meer. Kies opnieuw een account.",
 
     # ── import.html: upload form ─────────────────────────────────────────
     "imports.upload_header": "CSV uploaden",
@@ -26,6 +31,8 @@ NL = {
     "imports.csv_tutorial_step_3_note": "Zo neem je ook de eerste aankoop en alle bijbehorende mutaties mee. Bij een volgende import mag je gerust een overlappende periode kiezen: al bekende regels worden overgeslagen.",
     "imports.csv_tutorial_step_4": "Kies Export en download het overzicht als CSV-bestand.",
     "imports.no_accounts_warning": "⚠ Er zijn nog geen accounts aangemaakt.",
+    "imports.no_broker_accounts_warning": "⚠ Er is nog geen broker- of pensioenaccount aangemaakt.",
+    "imports.account_csv_broker_only": "Account.csv kan alleen bij een broker- of pensioenaccount worden geïmporteerd.",
     "imports.create_account_first": "Maak eerst een account aan",
     "imports.create_account_before": "voordat je kunt importeren.",
     "imports.account_choose_option": "— kies account —",
@@ -33,6 +40,9 @@ NL = {
     "imports.csv_file_label": "CSV-bestand",
     "imports.dropzone_title": "Sleep je Account.csv hierheen",
     "imports.dropzone_hint": "of klik om een CSV-bestand te kiezen",
+    "imports.dropzone_selected": "Klaar om te uploaden · {size}",
+    "imports.dropzone_invalid": "Kies een CSV-bestand om te importeren.",
+    "imports.dropzone_missing": "Selecteer eerst een CSV-bestand.",
     "imports.hint_account_statement": "alle transacties (koop/verkoop), dividenden, stortingen en kosten.",
     "imports.upload_button": "Uploaden & bekijken →",
 
@@ -42,6 +52,7 @@ NL = {
     "imports.auto_map_label": "Auto-koppel tickers",
     "imports.mapping_hint_mid": " om ze automatisch op te zoeken via ISIN, of voer een yfinance ticker handmatig in (bijv. ",
     "imports.mapping_hint_post": ").",
+    "imports.mapping_manual_hint": "Voer voor elk instrument zonder ticker handmatig een yfinance ticker in, bijvoorbeeld VWRL.AS.",
     "imports.col_name": "Naam",
     "imports.symbol_placeholder": "bijv. VWRL.AS",
 
@@ -95,6 +106,11 @@ EN = {
     "imports.rows_added_word": "rows added",
     "imports.error_details_summary": "Error details",
     "imports.file_too_large": "The CSV file is larger than the 10 MB import limit.",
+    "imports.file_required": "Select a CSV file first.",
+    "imports.file_empty": "The selected CSV file is empty.",
+    "imports.file_invalid": "This CSV file could not be read.",
+    "imports.no_importable_rows": "There are no importable rows in this CSV file.",
+    "imports.account_not_found": "The selected account no longer exists. Choose an account again.",
 
     # ── import.html: upload form ─────────────────────────────────────────
     "imports.upload_header": "Upload CSV",
@@ -108,6 +124,8 @@ EN = {
     "imports.csv_tutorial_step_3_note": "This includes the first purchase and all related activity. On later imports, an overlapping period is fine: rows that were already imported are skipped.",
     "imports.csv_tutorial_step_4": "Choose Export and download the statement as a CSV file.",
     "imports.no_accounts_warning": "⚠ No accounts have been created yet.",
+    "imports.no_broker_accounts_warning": "⚠ No broker or pension account has been created yet.",
+    "imports.account_csv_broker_only": "Account.csv can only be imported into a broker or pension account.",
     "imports.create_account_first": "Create an account first",
     "imports.create_account_before": "before you can import.",
     "imports.account_choose_option": "— choose account —",
@@ -115,6 +133,9 @@ EN = {
     "imports.csv_file_label": "CSV file",
     "imports.dropzone_title": "Drop your Account.csv here",
     "imports.dropzone_hint": "or click to choose a CSV file",
+    "imports.dropzone_selected": "Ready to upload · {size}",
+    "imports.dropzone_invalid": "Choose a CSV file to import.",
+    "imports.dropzone_missing": "Select a CSV file first.",
     "imports.hint_account_statement": "all transactions (buy/sell), dividends, deposits and fees.",
     "imports.upload_button": "Upload & preview →",
 
@@ -124,6 +145,7 @@ EN = {
     "imports.auto_map_label": "Auto-map tickers",
     "imports.mapping_hint_mid": " to look them up automatically via ISIN, or enter a yfinance ticker manually (e.g. ",
     "imports.mapping_hint_post": ").",
+    "imports.mapping_manual_hint": "Enter a yfinance ticker manually for every instrument without one, for example VWRL.AS.",
     "imports.col_name": "Name",
     "imports.symbol_placeholder": "e.g. VWRL.AS",
 

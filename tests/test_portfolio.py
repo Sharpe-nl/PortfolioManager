@@ -9,9 +9,13 @@ from app.services.portfolio import (
     get_holdings,
     get_realized_pl,
     get_realized_pl_events,
+    get_fee_events,
     get_allocation,
     get_allocation_details,
+    get_cash_balance,
     get_portfolio_summary,
+    get_portfolio_value_series,
+    get_unrealized_pl_series,
 )
 
 
@@ -105,6 +109,116 @@ def test_stock_result_excludes_savings_deposits(mem_db):
     summary = get_portfolio_summary(mem_db)
     assert summary["net_deposits"] == Decimal("1000.0")
     assert summary["total_pl"] == Decimal("-52.00")
+
+
+def test_fee_events_include_only_booked_account_fees(mem_db):
+    mem_db.executemany(
+        "INSERT INTO cash_events(account_id,ts,type,amount_eur) VALUES(1,?,?,?)",
+        [
+            ("2025-01-01T00:00:00", "fee", "-1.50"),
+            ("2025-01-02T00:00:00", "dividend", "2.00"),
+        ],
+    )
+    mem_db.commit()
+    assert get_fee_events(mem_db) == [{
+        "ts": "2025-01-01T00:00:00",
+        "amount_eur": Decimal("-1.50"),
+        "description": "",
+        "account_name": "DeGiro",
+    }]
+
+
+def test_stale_sale_cash_snapshot_is_not_counted_next_to_later_purchase(mem_db):
+    """Selling and reinvesting must not turn the temporary cash into growth."""
+    mem_db.execute(
+        "INSERT INTO instruments(id,isin,name,symbol) VALUES(1,'IE00B3RBWM25','VWRL','VWRL.AS')"
+    )
+    mem_db.execute(
+        "INSERT INTO prices(instrument_id,date,close,currency,fetched_at) "
+        "VALUES(1,'2025-06-01','100','EUR',datetime('now'))"
+    )
+    mem_db.execute(
+        "INSERT INTO cash_events(account_id,ts,type,amount_eur) "
+        "VALUES(1,'2025-01-01T00:00:00','deposit','1000')"
+    )
+    mem_db.executemany(
+        """INSERT INTO transactions(account_id,instrument_id,ts,quantity,price,local_currency,value_eur,fees_eur,source)
+           VALUES(1,1,?,?,?,?,?,?, 'degiro_account_csv')""",
+        [
+            ('2025-01-01T10:00:00', '10', '100', 'EUR', '-1000', '0'),
+            ('2025-02-01T10:00:00', '-10', '120', 'EUR', '1200', '0'),
+            ('2025-03-01T10:00:00', '12', '100', 'EUR', '-1200', '0'),
+        ],
+    )
+    # This was the cash immediately after the sale, before the March purchase.
+    mem_db.execute(
+        "INSERT INTO balance_snapshots(account_id,date,balance_eur) VALUES(1,'2025-02-01','1200')"
+    )
+    mem_db.commit()
+
+    summary = get_portfolio_summary(mem_db)
+
+    assert summary["holdings_value"] == Decimal("1200.00")
+    assert summary["cash_balance"] == Decimal("0")
+    assert summary["total_pl"] == Decimal("200.00")
+    # The dashboard chart uses the same stale-cash protection and must remain
+    # queryable after a snapshot is present.
+    series = get_portfolio_value_series(mem_db)
+    assert series[-1]["value"] == Decimal("1200.00")
+
+
+def test_cash_snapshot_is_carried_forward_with_later_activity(mem_db):
+    """An incremental import after a snapshot must not make cash disappear."""
+    mem_db.execute(
+        "INSERT INTO instruments(id,isin,name,symbol) VALUES(1,'IE00B3RBWM25','VWRL','VWRL.AS')"
+    )
+    mem_db.execute(
+        "INSERT INTO prices(instrument_id,date,close,currency,fetched_at) "
+        "VALUES(1,'2025-06-01','100','EUR',datetime('now'))"
+    )
+    mem_db.execute(
+        "INSERT INTO cash_events(account_id,ts,type,amount_eur) "
+        "VALUES(1,'2025-01-01T00:00:00','deposit','1000')"
+    )
+    mem_db.execute(
+        "INSERT INTO balance_snapshots(account_id,date,balance_eur) VALUES(1,'2025-01-01','1000')"
+    )
+    mem_db.execute(
+        """INSERT INTO transactions(account_id,instrument_id,ts,quantity,price,local_currency,value_eur,fees_eur,source)
+           VALUES(1,1,'2025-01-02T10:00:00','5','100','EUR','-500','0','degiro_account_csv')"""
+    )
+    mem_db.execute(
+        "INSERT INTO cash_events(account_id,ts,type,amount_eur) "
+        "VALUES(1,'2025-01-03T00:00:00','dividend','25')"
+    )
+    mem_db.commit()
+
+    summary = get_portfolio_summary(mem_db)
+    assert get_cash_balance(mem_db) == Decimal("525.00")
+    assert summary["total_value"] == Decimal("1025.00")
+    assert summary["total_pl"] == Decimal("25.00")
+    assert get_portfolio_value_series(mem_db)[-1]["value"] == Decimal("1025.00")
+
+
+def test_reopened_position_uses_only_its_new_cost_basis(mem_db):
+    """A fully sold position must not affect a later repurchase's average cost."""
+    _seed_data(mem_db)
+    mem_db.executemany(
+        """INSERT INTO transactions(account_id,instrument_id,ts,quantity,price,local_currency,value_eur,fees_eur,source)
+           VALUES(1,1,?,?,?,?,?,?, 'degiro_account_csv')""",
+        [
+            ('2025-02-01T10:00:00', '-8', '120', 'EUR', '960', '0'),
+            ('2025-03-01T10:00:00', '4', '150', 'EUR', '-600', '0'),
+        ],
+    )
+    mem_db.commit()
+
+    holding = get_holdings(mem_db)[0]
+    assert holding.quantity == Decimal("4")
+    assert holding.avg_cost == Decimal("150.00")
+    assert holding.unrealized_pl == Decimal("-126.00")
+    assert get_realized_pl(mem_db) == Decimal("59.40")
+    assert Decimal(get_unrealized_pl_series(mem_db)[-1]["value"]) == Decimal("-126.00")
 
 
 class TestRealizedPL:

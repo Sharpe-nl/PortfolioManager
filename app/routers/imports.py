@@ -20,6 +20,18 @@ _STAGING_TTL_MINUTES = 60
 _MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 
+def _upload_error(request: Request, message: str, filename: str = "upload.csv") -> RedirectResponse:
+    """Show a useful error instead of leaving an empty import preview."""
+    request.session["import_result"] = {
+        "imported": 0,
+        "skipped": 0,
+        "errors": 1,
+        "error_details": [message],
+        "filename": filename,
+    }
+    return RedirectResponse(url="/import?result=1", status_code=303)
+
+
 # ---------------------------------------------------------------------------
 # Import landing page
 # ---------------------------------------------------------------------------
@@ -27,7 +39,7 @@ _MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 @router.get("", response_class=HTMLResponse)
 async def import_page(request: Request, conn=Depends(get_db), _=Depends(require_auth)):
     _cleanup_staging(conn)
-    accounts = list_accounts(conn)
+    accounts = [account for account in list_accounts(conn) if account.type in ("broker", "pension")]
     import_history = conn.execute(
         """SELECT il.*, a.name AS account_name
            FROM import_log il LEFT JOIN accounts a ON a.id=il.account_id
@@ -65,34 +77,43 @@ async def upload(
     account_id: int = Form(...),
     file: UploadFile = File(...),
 ):
+    filename = file.filename or "upload.csv"
+    if not file.filename:
+        return _upload_error(request, t(request, "imports.file_required"), filename)
+    account = conn.execute("SELECT type FROM accounts WHERE id=?", (account_id,)).fetchone()
+    if not account:
+        return _upload_error(request, t(request, "imports.account_not_found"), filename)
+
     # Imports are parsed in memory; bound the input before decoding it so a
     # large upload cannot exhaust the small home-server process.
     raw_bytes = await file.read(_MAX_UPLOAD_BYTES + 1)
     if len(raw_bytes) > _MAX_UPLOAD_BYTES:
-        request.session["import_result"] = {
-            "imported": 0,
-            "skipped": 0,
-            "errors": 1,
-            "error_details": [t(request, "imports.file_too_large")],
-            "filename": file.filename or "upload.csv",
-        }
-        return RedirectResponse(url="/import?result=1", status_code=303)
+        return _upload_error(request, t(request, "imports.file_too_large"), filename)
+    if not raw_bytes:
+        return _upload_error(request, t(request, "imports.file_empty"), filename)
     try:
         content = raw_bytes.decode("utf-8-sig")  # handles BOM
     except UnicodeDecodeError:
         content = raw_bytes.decode("latin-1")
-
-    filename = file.filename or "upload.csv"
+    if not content.strip():
+        return _upload_error(request, t(request, "imports.file_empty"), filename)
 
     # Auto-detect file type
-    if degiro_account.is_account_csv(content):
-        file_type = "degiro_account"
-        parse_result = degiro_account.parse(content)
-        rows = _stage_account_events(parse_result, account_id, conn)
-    else:
-        file_type = "generic"
-        parse_result = generic.parse(content)
-        rows = _stage_generic(parse_result, account_id, conn)
+    try:
+        if degiro_account.is_account_csv(content):
+            if account["type"] not in ("broker", "pension"):
+                return _upload_error(request, t(request, "imports.account_csv_broker_only"), filename)
+            file_type = "degiro_account"
+            parse_result = degiro_account.parse(content)
+            rows = _stage_account_events(parse_result, account_id, conn)
+        else:
+            file_type = "generic"
+            parse_result = generic.parse(content)
+            rows = _stage_generic(parse_result, account_id, conn)
+    except (ValueError, UnicodeError):
+        return _upload_error(request, t(request, "imports.file_invalid"), filename)
+    if not rows:
+        return _upload_error(request, t(request, "imports.no_importable_rows"), filename)
 
     session_key = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
@@ -104,6 +125,11 @@ async def upload(
             (session_key, row_type, row_json, status, error_msg, now),
         )
 
+    # The next browser request follows this redirect immediately. Commit the
+    # staging rows before returning it: FastAPI finalizes yield-dependencies
+    # after sending a response, which otherwise lets /preview race this write
+    # and render an empty table.
+    conn.commit()
     request.session["import_session"] = session_key
     request.session["import_filename"] = filename
     request.session["import_file_type"] = file_type
@@ -293,7 +319,9 @@ def _stage_transactions(parse_result, account_id: int, conn) -> list[tuple]:
             dedup_hash=getattr(txn, 'dedup_hash', None),
         )
         status = "duplicate" if is_dup else "new"
-        instrument_id = _get_or_create_instrument(conn, txn.isin or txn.product)
+        instrument_id = _get_or_create_instrument(
+            conn, txn.isin or txn.product, txn.local_currency
+        )
         direction = "Koop" if txn.quantity > 0 else "Verkoop"
         desc = f"{txn.ts[:10]}  {txn.product}  {direction} {abs(txn.quantity)}x  @{txn.price} {txn.price_currency}"
         row_json = json.dumps({
@@ -338,7 +366,9 @@ def _stage_account_events(parse_result, account_id: int, conn) -> list[tuple]:
             dedup_hash=txn.dedup_hash,
         )
         status = "duplicate" if is_dup else "new"
-        instrument_id = _get_or_create_instrument(conn, txn.isin or txn.product)
+        instrument_id = _get_or_create_instrument(
+            conn, txn.isin or txn.product, txn.local_currency
+        )
         direction = "Koop" if txn.quantity > 0 else "Verkoop"
         desc = (f"{txn.ts[:10]}  {txn.product}  {direction} {abs(txn.quantity)}x"
                 f"  @{txn.price} {txn.price_currency}")
@@ -377,7 +407,9 @@ def _stage_account_events(parse_result, account_id: int, conn) -> list[tuple]:
             bought_isins.add(r["isin"])
 
     for ca in parse_result.corporate_actions:
-        instrument_id = _get_or_create_instrument(conn, ca.isin or ca.product)
+        instrument_id = _get_or_create_instrument(
+            conn, ca.isin or ca.product, ca.price_currency
+        )
 
         has_position = bool(ca.isin and ca.isin in bought_isins)
         if has_position:
@@ -424,7 +456,9 @@ def _stage_account_events(parse_result, account_id: int, conn) -> list[tuple]:
         seen_event_hashes.add(row.dedup_hash)
         is_dup = in_session or _check_event_dup(conn, row.dedup_hash)
         status = "duplicate" if is_dup else "new"
-        instrument_id = _get_instrument_id(conn, row.isin, row.product)
+        instrument_id = _get_instrument_id(
+            conn, row.isin, row.product, row.amount_currency
+        )
         desc = f"{row.ts[:10]}  {row.description}  {row.amount_eur} EUR"
         row_json = json.dumps({
             "_label": desc,

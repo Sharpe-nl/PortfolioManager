@@ -2,22 +2,54 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+import os
+import sqlite3
+import tempfile
+from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 
-from ..auth import list_credentials
+from ..auth import has_local_credentials, list_credentials
 from ..db import get_db, get_setting, set_setting
 from ..helpers import templates, require_auth
-from ..services.bitvavo import BitvavoError, sync_bitvavo
-from ..services.credentials import clear_bitvavo_credentials, has_bitvavo_credentials, save_bitvavo_credentials
 from ..services.logo_cache import clear_missing_logo_cache
-from ..services.refresh_scheduler import get_refresh_times, save_refresh_times
+from ..services.refresh_scheduler import (
+    DEFAULT_REFRESH_TIMEZONE,
+    get_refresh_times,
+    get_refresh_timezone,
+    save_refresh_times,
+    save_refresh_timezone,
+)
 from ..services.updates import check_for_update, current_version, self_update_enabled, start_self_update
 
 router = APIRouter(prefix="/settings", tags=["settings"])
+_MAX_RESTORE_BYTES = 100 * 1024 * 1024
+_RESTORE_DATA_TABLES = (
+    "accounts", "instruments", "transactions", "cash_events", "balance_snapshots",
+    "savings_interest_rates", "savings_interest_adjustments", "crypto_balances", "crypto_transactions",
+)
+
+
+def _restore_allowed(conn) -> bool:
+    return all(conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0 for table in _RESTORE_DATA_TABLES)
+
+
+def _validate_backup(path: str) -> None:
+    source = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    try:
+        if source.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
+            raise ValueError("invalid")
+        tables = {row[0] for row in source.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if not {"accounts", "transactions", "cash_events", "settings", "_migrations"}.issubset(tables):
+            raise ValueError("invalid")
+        expected = {path.name for path in (Path(__file__).parent.parent.parent / "migrations").glob("*.sql")}
+        applied = {row[0] for row in source.execute("SELECT name FROM _migrations")}
+        if not expected.issubset(applied):
+            raise ValueError("outdated")
+    finally:
+        source.close()
 
 
 @router.get("", response_class=HTMLResponse)
@@ -37,24 +69,37 @@ async def settings_page(request: Request, conn=Depends(get_db), _=Depends(requir
     txn_count  = conn.execute("SELECT COUNT(*) AS n FROM transactions").fetchone()["n"]
     inst_count = conn.execute("SELECT COUNT(*) AS n FROM instruments").fetchone()["n"]
     acct_count = conn.execute("SELECT COUNT(*) AS n FROM accounts").fetchone()["n"]
+    savings_dashboard_accounts = [dict(row) for row in conn.execute(
+        "SELECT id, name, include_in_dashboard FROM accounts WHERE type='savings' ORDER BY name"
+    )]
 
     return templates.TemplateResponse("settings.html", {
         "request": request,
         "logo_dev_token_configured": logo_dev_token_configured,
-        "bitvavo_configured": has_bitvavo_credentials(conn),
         "refresh_time_1": refresh_times[0],
         "refresh_time_2": refresh_times[1] if len(refresh_times) > 1 else refresh_times[0],
         "refresh_last_run": get_setting(conn, "automatic_refresh_last_run"),
-        "server_timezone": datetime.now().astimezone().tzname() or "local",
+        "refresh_timezone": get_refresh_timezone(conn).key,
+        "default_refresh_timezone": DEFAULT_REFRESH_TIMEZONE,
         "app_version": current_version(),
         "self_update_enabled": self_update_enabled(),
         "webauthn_credentials": list_credentials(conn),
+        "local_credentials": [dict(row) for row in conn.execute(
+            "SELECT id, username, created_at FROM local_credentials ORDER BY username"
+        )],
+        "password_fallback_available": has_local_credentials(conn),
         "unmapped_instruments": [dict(r) for r in unmapped],
         "mapped_instruments": [dict(r) for r in mapped],
         "db_counts": {
             "transactions": txn_count,
             "instruments": inst_count,
             "accounts": acct_count,
+        },
+        "restore_allowed": _restore_allowed(conn),
+        "dashboard_visibility": {
+            "stocks": get_setting(conn, "include_stocks_in_dashboard", "1") != "0",
+            "crypto": get_setting(conn, "include_crypto_in_dashboard", "1") != "0",
+            "savings": savings_dashboard_accounts,
         },
     })
 
@@ -96,13 +141,37 @@ async def save_settings(
 async def save_refresh_schedule(
     refresh_time_1: str = Form(...),
     refresh_time_2: str = Form(...),
+    refresh_timezone: str = Form(DEFAULT_REFRESH_TIMEZONE),
     conn=Depends(get_db),
     _=Depends(require_auth),
 ):
     try:
         save_refresh_times(conn, [refresh_time_1, refresh_time_2])
+        save_refresh_timezone(conn, refresh_timezone)
     except ValueError:
         return RedirectResponse(url="/settings?schedule_error=1", status_code=303)
+    return RedirectResponse(url="/settings?saved=1", status_code=303)
+
+
+@router.post("/dashboard-visibility")
+async def set_dashboard_visibility(
+    target: str = Form(...),
+    include_in_dashboard: int = Form(0),
+    account_id: int | None = Form(None),
+    conn=Depends(get_db),
+    _=Depends(require_auth),
+):
+    enabled = "1" if include_in_dashboard else "0"
+    if target == "stocks":
+        set_setting(conn, "include_stocks_in_dashboard", enabled)
+    elif target == "crypto":
+        set_setting(conn, "include_crypto_in_dashboard", enabled)
+    elif target == "savings" and account_id is not None:
+        conn.execute(
+            "UPDATE accounts SET include_in_dashboard=? WHERE id=? AND type='savings'",
+            (1 if include_in_dashboard else 0, account_id),
+        )
+    conn.commit()
     return RedirectResponse(url="/settings?saved=1", status_code=303)
 
 
@@ -112,30 +181,39 @@ async def clear_logo_key(conn=Depends(get_db), _=Depends(require_auth)):
     return RedirectResponse(url="/settings?saved=1", status_code=303)
 
 
-@router.post("/bitvavo")
-async def save_bitvavo(
-    api_key: str = Form(""),
-    api_secret: str = Form(""),
+@router.post("/restore")
+async def restore_db(
+    backup: UploadFile = File(...),
     conn=Depends(get_db),
     _=Depends(require_auth),
 ):
-    api_key, api_secret = api_key.strip(), api_secret.strip()
-    if not api_key and not api_secret and has_bitvavo_credentials(conn):
-        return RedirectResponse(url="/settings?saved=1", status_code=303)
-    if not api_key or not api_secret:
-        return RedirectResponse(url="/settings?bitvavo_error=missing", status_code=303)
+    """Restore a verified same-version backup only into an empty installation."""
+    if not _restore_allowed(conn):
+        return RedirectResponse(url="/settings?restore=not_empty", status_code=303)
+    suffix = Path(backup.filename or "backup.db").suffix or ".db"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as handle:
+        temp_path = handle.name
+        size = 0
+        while chunk := await backup.read(1024 * 1024):
+            size += len(chunk)
+            if size > _MAX_RESTORE_BYTES:
+                handle.close()
+                os.unlink(temp_path)
+                return RedirectResponse(url="/settings?restore=too_large", status_code=303)
+            handle.write(chunk)
     try:
-        result = sync_bitvavo(conn, api_key, api_secret)
-    except BitvavoError as exc:
-        return RedirectResponse(url=f"/settings?bitvavo_error={quote(str(exc)[:180])}", status_code=303)
-    save_bitvavo_credentials(conn, api_key, api_secret)
-    return RedirectResponse(url=f"/settings?bitvavo_saved={result['balances']}", status_code=303)
-
-
-@router.post("/clear-bitvavo")
-async def clear_bitvavo(conn=Depends(get_db), _=Depends(require_auth)):
-    clear_bitvavo_credentials(conn)
-    return RedirectResponse(url="/settings?saved=1", status_code=303)
+        _validate_backup(temp_path)
+        source = sqlite3.connect(temp_path)
+        try:
+            source.backup(conn)
+        finally:
+            source.close()
+        conn.commit()
+    except (ValueError, sqlite3.Error):
+        return RedirectResponse(url="/settings?restore=invalid", status_code=303)
+    finally:
+        os.unlink(temp_path)
+    return RedirectResponse(url="/settings?restore=success", status_code=303)
 
 
 @router.post("/delete-transactions")

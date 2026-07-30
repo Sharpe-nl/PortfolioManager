@@ -4,11 +4,16 @@
 {% block content %}
 <div class="page-header">
   <h1>{{ t(request, 'nav.stocks') }}</h1>
-  <form method="post" action="/stocks/visibility" class="dashboard-visibility-toggle">
-    <input type="hidden" name="include_in_dashboard" value="0">
-    <label><input type="checkbox" name="include_in_dashboard" value="1" {% if include_in_dashboard %}checked{% endif %} onchange="this.form.submit()"> {{ t(request, 'savings.dashboard') }}</label>
+  <form method="get" class="inline-form">
+    <select name="account" onchange="this.form.submit()">
+      <option value="">{{ t(request, 'common.all_accounts') }}</option>
+      {% for acc in accounts %}
+      <option value="{{ acc.id }}" {% if selected_account == acc.id %}selected{% endif %}>{{ acc.name }}</option>
+      {% endfor %}
+    </select>
   </form>
   <span class="range-selector">
+    <button onclick="setRange(this,'1D')" data-range="1D">{{ t(request, 'range.1d') }}</button>
     <button onclick="setRange(this,'1M')" data-range="1M">{{ t(request, 'range.1m') }}</button>
     <button onclick="setRange(this,'YTD')" data-range="YTD">{{ t(request, 'range.ytd') }}</button>
     <button onclick="setRange(this,'1Y')" class="active" data-range="1Y">{{ t(request, 'range.1y') }}</button>
@@ -119,6 +124,23 @@
   </article>
 </dialog>
 
+<dialog id="feeDetailDialog" class="realized-actions-dialog">
+  <article style="margin:0;">
+    <header>
+      <button aria-label="{{ t(request, 'common.close') }}" rel="prev" type="button" onclick="document.getElementById('feeDetailDialog').close()"></button>
+      <strong>{{ t(request, 'dashboard.fees_title') }}</strong>
+      <small id="feeDetailPeriod" class="muted"></small>
+    </header>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>{{ t(request, 'common.date') }}</th><th>{{ t(request, 'common.account') }}</th><th>{{ t(request, 'common.description') }}</th><th class="num">{{ t(request, 'common.amount') }}</th></tr></thead>
+        <tbody id="feeDetailBody"></tbody>
+      </table>
+    </div>
+    <p id="feeDetailEmpty" class="muted" hidden>{{ t(request, 'dashboard.no_fees_period') }}</p>
+  </article>
+</dialog>
+
 <!-- Portfolio hero — left = static totals (don't move with the period selector) -->
 <div class="portfolio-hero">
   <div class="portfolio-hero-left">
@@ -160,6 +182,11 @@
               onclick="openDividendDetail()" title="{{ t(request, 'dashboard.dividend_tooltip') }}">
         {{ trailing_12m_income | eur }}
       </button>
+    </div>
+    <div class="portfolio-hero-stat">
+      <div class="portfolio-hero-stat-label">{{ t(request, 'dashboard.fees') }}</div>
+      <button class="portfolio-hero-stat-value stat-action pl-negative" id="stat-fees" type="button"
+              onclick="openFeeDetail()">€ 0,00</button>
     </div>
   </div>
 </div>
@@ -216,7 +243,7 @@
         onclick="window.location='/instrument/{{ h.instrument.id }}'">
       <td><a href="/instrument/{{ h.instrument.id }}" class="instrument-name-with-logo">
         <span data-instrument-logo data-isin="{{ h.instrument.isin or '' }}" data-symbol="{{ h.instrument.symbol or '' }}" data-name="{{ h.instrument.name }}"></span>
-        <span>{{ h.instrument.name }}</span>
+        <span>{{ h.instrument.name }}{% if h.instrument.trading_currency %} <small class="muted">{{ h.instrument.trading_currency }}</small>{% endif %}</span>
       </a></td>
       <td>{{ h.account_name }}</td>
       <td class="num hv-value">{{ h.current_value | eur }}</td>
@@ -251,6 +278,7 @@
 // chart) follows the selected period without a server round-trip.
 const valueSeriesAll = {{ value_series | tojson }};
 const realizedEventsAll = {{ realized_events | tojson }};
+const feeEventsAll = {{ fee_events | tojson }};
 const dividendEventsAll = {{ dividend_events | tojson }};
 const dividendEventsDetailAll = {{ dividend_events_detail | tojson }};
 const holdingsValueSeriesAll = {{ holdings_value_series | tojson }};
@@ -327,11 +355,28 @@ function setPlText(el, value, text) {
 }
 
 // ── Range bounds ─────────────────────────────────────────────────────────
+function rangeReferenceDate() {
+  const lastPoint = valueSeriesAll[valueSeriesAll.length - 1];
+  if (lastPoint?.date) {
+    const date = new Date(`${lastPoint.date}T23:59:59`);
+    if (!Number.isNaN(date.getTime())) return date;
+  }
+  const date = new Date();
+  date.setHours(23, 59, 59, 999);
+  return date;
+}
+
 function getRangeBounds(range) {
-  const today = new Date();
-  today.setHours(23, 59, 59, 999);
+  // Market data is not updated overnight or during weekends. Anchor ranges
+  // to the newest available point, so 1D never becomes an empty chart.
+  const today = rangeReferenceDate();
   let start = null;
-  if (range === '1M') { start = new Date(today); start.setDate(start.getDate() - 31); }
+  if (range === '1D') {
+    start = new Date(today);
+    start.setDate(start.getDate() - 1);
+    start.setHours(0, 0, 0, 0);
+  }
+  else if (range === '1M') { start = new Date(today); start.setDate(start.getDate() - 31); }
   else if (range === 'YTD') { start = new Date(today.getFullYear(), 0, 1); }
   else if (range === '1Y') { start = new Date(today); start.setDate(start.getDate() - 366); }
   else if (range === 'CUSTOM' && customRange) {
@@ -351,6 +396,7 @@ function updateDashboard(range) {
   updateUnrealized(start, end);
   updateRealized(start, end);
   updateDividend(start, end);
+  updateFees(start, end);
   updateHoldings(start, end);
 }
 
@@ -492,6 +538,37 @@ function updateDividend(start, end) {
     .filter(e => inRange(e.ts, start, end))
     .reduce((sum, e) => sum + parseFloat(e.amount_eur), 0);
   document.getElementById('stat-dividend').textContent = fmtEur(total);
+}
+
+// ── Account fees within period ─────────────────────────────────────────
+function updateFees(start, end) {
+  const total = feeEventsAll
+    .filter(e => inRange(e.ts, start, end))
+    .reduce((sum, e) => sum + parseFloat(e.amount_eur), 0);
+  // Costs are shown as a positive amount; their red treatment communicates
+  // that they reduce the result without a visually redundant minus sign.
+  setPlText(document.getElementById('stat-fees'), -Math.abs(total), fmtEur(Math.abs(total)));
+}
+
+function openFeeDetail() {
+  const { start, end } = getRangeBounds(selectedRange);
+  const events = feeEventsAll.filter(e => inRange(e.ts, start, end));
+  const body = document.getElementById('feeDetailBody');
+  body.replaceChildren();
+  events.slice().reverse().forEach(e => {
+    const row = document.createElement('tr');
+    const amount = Math.abs(parseFloat(e.amount_eur));
+    row.innerHTML = `<td class="nowrap">${e.ts.slice(0, 10)}</td>
+      <td class="muted small"></td><td></td>
+      <td class="num pl-negative">${fmtEur(amount)}</td>`;
+    row.children[1].textContent = e.account_name;
+    row.children[2].textContent = e.description || '—';
+    body.appendChild(row);
+  });
+  document.getElementById('feeDetailEmpty').hidden = events.length > 0;
+  document.getElementById('feeDetailPeriod').textContent =
+    selectedRange === 'ALL' ? I18N.allPeriods : I18N.selectedPeriod.replace('{range}', selectedRange);
+  document.getElementById('feeDetailDialog').showModal();
 }
 
 // ── Per-holding value + unrealized P/L change over the period ───────────

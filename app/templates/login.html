@@ -10,16 +10,28 @@
   <script>(function(){ var t=localStorage.getItem('pm-theme')||'dark'; document.documentElement.setAttribute('data-theme',t); })();</script>
 </head>
 <body class="auth-page">
+{% if lan_mode() %}<div class="lan-mode-banner" role="alert">{{ t(request, 'security.lan_mode_warning') }}</div>{% endif %}
 <main class="auth-card">
   <h1>PortfolioManager</h1>
   <h2>{{ t(request, 'auth.login_heading') }}</h2>
-  <p>{{ t(request, 'auth.login_instructions') }}</p>
+  {% if webauthn_available %}<p>{{ t(request, 'auth.login_instructions') }}</p>{% endif %}
+
+  {% if request.query_params.get('password_error') %}<div class="notice error">{{ t(request, 'auth.password_error') }}</div>{% endif %}
+  {% if request.query_params.get('password_setup') %}<div class="notice success">{{ t(request, 'auth.password_setup_success') }}</div>{% endif %}
 
   <div id="status" class="status-msg" hidden></div>
 
-  <button id="login-btn" onclick="doLogin()">
+  {% if webauthn_available %}<button id="login-btn" onclick="doLogin()">
     {{ t(request, 'auth.login_button') }}
-  </button>
+  </button>{% endif %}
+  {% if password_available %}
+  <form method="post" action="/auth/login/password" class="auth-password-form">
+    {% if webauthn_available %}<h3>{{ t(request, 'auth.password_login_heading') }}</h3>{% endif %}
+    <label>{{ t(request, 'auth.username') }}<input name="username" autocomplete="username" required></label>
+    <label>{{ t(request, 'auth.password') }}<input type="password" name="password" autocomplete="current-password" required></label>
+    <button type="submit">{{ t(request, 'auth.password_login_button') }}</button>
+  </form>
+  {% endif %}
 </main>
 
 <script src="/static/app.js"></script>

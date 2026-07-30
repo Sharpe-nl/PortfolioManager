@@ -1,7 +1,7 @@
 """holdings.html translations."""
 
 NL = {
-    "holdings.page_title": "Holdings",
+    "holdings.page_title": "Posities",
     "holdings.stat_total_account": "Totaal account",
     "holdings.stat_portfolio": "Portefeuille",
     "holdings.col_name": "Naam",

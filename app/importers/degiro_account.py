@@ -45,9 +45,9 @@ _ENGLISH_HEADERS = {
 
 def is_account_csv(content: str) -> bool:
     from . import strip_bom
-    first_line = strip_bom(content).split("\n")[0]
-    return (("Omschrijving" in first_line and "Valutadatum" in first_line)
-            or ("Description" in first_line and "Value date" in first_line))
+    first_line = strip_bom(content).split("\n")[0].casefold()
+    return (("omschrijving" in first_line and "valutadatum" in first_line)
+            or ("description" in first_line and "value date" in first_line))
 
 
 # ---------------------------------------------------------------------------
@@ -111,6 +111,11 @@ _SKIP_KEYWORDS = (
     "geldrekening bij flatexdegiro",
 )
 
+
+def _is_pending_ideal_reservation(description: str) -> bool:
+    """Whether a row is DEGIRO's temporary, not-yet-settled iDEAL credit."""
+    return "reservation ideal" in description.casefold()
+
 _TYPE_KEYWORDS: list[tuple[str, str]] = [
     ("dividend tax",        "dividend_tax"),
     ("dividendbelasting",    "dividend_tax"),
@@ -131,7 +136,7 @@ _TYPE_KEYWORDS: list[tuple[str, str]] = [
     ("rente",                "interest"),
     ("interest",             "interest"),
     ("kapitaalsuitkering",   "other"),
-    ("verrekening promotie", "other"),
+    ("verrekening promotie", "bonus"),
 ]
 
 
@@ -284,8 +289,10 @@ def parse(content: str) -> AccountParseResult:
     # Pass 2 – parse rows
     for raw in data_rows:
         try:
+            description = col.get(raw, "Omschrijving")
+            pending_ideal_reservation = _is_pending_ideal_reservation(description)
             datum = col.get(raw, "Datum")
-            if datum:
+            if datum and not pending_ideal_reservation:
                 datum_iso = parse_dutch_date(datum)
                 tijd = col.get(raw, "Tijd")
                 ts = f"{datum_iso}T{tijd}:00" if tijd else f"{datum_iso}T00:00:00"
@@ -297,10 +304,15 @@ def parse(content: str) -> AccountParseResult:
                 if saldo_ccy and saldo_str and re.fullmatch(r"[A-Za-z]{3}", saldo_ccy):
                     saldo_val = parse_dutch_decimal(saldo_str)
                     prev = latest_balance.get(saldo_ccy)
-                    if prev is None or ts >= prev[0]:
+                    # DEGIRO exports newest entries first. Several linked
+                    # ledger events (iDEAL reservation/deposit and cash
+                    # sweep) may share an identical second; the first row is
+                    # then the final balance, while a later row is only an
+                    # intermediate balance. Keep the first value on a tie.
+                    if prev is None or ts > prev[0]:
                         latest_balance[saldo_ccy] = (ts, saldo_val)
 
-            row_type = classify_row(col.get(raw, "Omschrijving"))
+            row_type = classify_row(description)
             if row_type is None:
                 result.skipped += 1
             elif row_type == "transaction":
@@ -509,17 +521,29 @@ def _parse_event_row(
 # Database helpers
 # ---------------------------------------------------------------------------
 
-def _get_instrument_id(conn: sqlite3.Connection, isin: str | None,
-                        name: str) -> int | None:
+def _get_instrument_id(
+    conn: sqlite3.Connection,
+    isin: str | None,
+    name: str,
+    trading_currency: str | None = None,
+) -> int | None:
+    """Return the trade line for an ISIN and its transaction currency."""
     if not isin:
         return None
-    row = conn.execute(
-        "SELECT id FROM instruments WHERE isin=?", (isin,)
-    ).fetchone()
+    if trading_currency:
+        row = conn.execute(
+            "SELECT id FROM instruments WHERE isin=? AND trading_currency=?",
+            (isin, trading_currency),
+        ).fetchone()
+    else:
+        row = conn.execute(
+            "SELECT id FROM instruments WHERE isin=? ORDER BY id LIMIT 1", (isin,)
+        ).fetchone()
     if row:
         return row["id"]
     cur = conn.execute(
-        "INSERT INTO instruments(isin, name) VALUES (?,?)", (isin, name)
+        "INSERT INTO instruments(isin, name, trading_currency) VALUES (?,?,?)",
+        (isin, name, trading_currency),
     )
     return cur.lastrowid  # type: ignore[return-value]
 
@@ -538,7 +562,9 @@ def commit_account_events(
 
     for txn in result.txn_rows:
         try:
-            instrument_id = _get_instrument_id(conn, txn.isin, txn.product)
+            instrument_id = _get_instrument_id(
+                conn, txn.isin, txn.product, txn.local_currency
+            )
             if instrument_id is None:
                 raise ValueError("transaction has no ISIN")
             cur = conn.execute(
@@ -560,7 +586,9 @@ def commit_account_events(
 
     for row in result.rows:
         try:
-            instrument_id = _get_instrument_id(conn, row.isin, row.product)
+            instrument_id = _get_instrument_id(
+                conn, row.isin, row.product, row.amount_currency
+            )
             cur = conn.execute(
                 """INSERT OR IGNORE INTO cash_events
                    (account_id, instrument_id, ts, type, amount_eur, description, dedup_hash)

@@ -6,6 +6,7 @@ from starlette.requests import Request
 from app.db import get_setting
 from app.routers.crypto import set_crypto_visibility
 from app.routers.portfolio import dashboard, set_stocks_visibility, stocks_dashboard
+from app.routers.settings import set_dashboard_visibility
 
 
 def _request(path: str) -> Request:
@@ -20,21 +21,44 @@ def test_main_and_stocks_dashboards_are_separate(mem_db):
     main_response = asyncio.run(dashboard(_request("/"), conn=mem_db, _=None))
     assert main_response.template.name == "overview_dashboard.html"
 
-    stocks_response = asyncio.run(stocks_dashboard(_request("/stocks"), conn=mem_db, _=None))
+    stocks_response = asyncio.run(stocks_dashboard(_request("/stocks"), account=None, conn=mem_db, _=None))
     assert stocks_response.template.name == "dashboard.html"
     assert "dashboard_savings" not in stocks_response.context
 
 
 def test_stock_and_crypto_dashboard_visibility_is_saved(mem_db):
-    asyncio.run(set_stocks_visibility(include_in_dashboard=0, conn=mem_db, _=None))
+    asyncio.run(set_stocks_visibility(include_in_dashboard=0, account=None, conn=mem_db, _=None))
     asyncio.run(set_crypto_visibility(include_in_dashboard=0, conn=mem_db, _=None))
     assert get_setting(mem_db, "include_stocks_in_dashboard") == "0"
     assert get_setting(mem_db, "include_crypto_in_dashboard") == "0"
 
-    asyncio.run(set_stocks_visibility(include_in_dashboard=1, conn=mem_db, _=None))
+    asyncio.run(set_stocks_visibility(include_in_dashboard=1, account=None, conn=mem_db, _=None))
     asyncio.run(set_crypto_visibility(include_in_dashboard=1, conn=mem_db, _=None))
     assert get_setting(mem_db, "include_stocks_in_dashboard") == "1"
     assert get_setting(mem_db, "include_crypto_in_dashboard") == "1"
+
+
+def test_central_dashboard_visibility_updates_savings_account(mem_db):
+    mem_db.execute("INSERT INTO accounts(id,name,type,currency) VALUES(2,'Savings','savings','EUR')")
+    mem_db.commit()
+
+    asyncio.run(set_dashboard_visibility("savings", 0, 2, conn=mem_db, _=None))
+
+    assert mem_db.execute("SELECT include_in_dashboard FROM accounts WHERE id=2").fetchone()[0] == 0
+    assert not mem_db.in_transaction
+
+
+def test_stock_dashboard_account_filter_excludes_savings(mem_db):
+    mem_db.execute("INSERT INTO accounts(id,name,type,currency) VALUES(2,'Savings','savings','EUR')")
+    mem_db.execute("INSERT INTO accounts(id,name,type,currency) VALUES(3,'Pension','pension','EUR')")
+    mem_db.commit()
+
+    response = asyncio.run(stocks_dashboard(_request("/stocks"), account=3, conn=mem_db, _=None))
+
+    assert response.context["selected_account"] == 3
+    assert [(account.id, account.name) for account in response.context["accounts"]] == [
+        (1, "DeGiro"), (3, "Pension"),
+    ]
 
 
 def test_main_dashboard_chart_has_ranges_and_total_toggle(mem_db):
@@ -47,3 +71,12 @@ def test_main_dashboard_chart_has_ranges_and_total_toggle(mem_db):
     assert "dashboardOverviewChart" in html
     assert 'data-series="savings"' not in html
     assert html.index("dashboard-chart-ranges") < html.index("portfolio-hero")
+
+
+def test_stock_dashboard_applies_the_one_day_range(mem_db):
+    response = asyncio.run(stocks_dashboard(_request("/stocks"), account=None, conn=mem_db, _=None))
+
+    html = response.body.decode()
+    assert "if (range === '1D')" in html
+    assert "function rangeReferenceDate()" in html
+    assert "start.setHours(0, 0, 0, 0)" in html

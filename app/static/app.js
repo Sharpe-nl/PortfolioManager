@@ -64,6 +64,14 @@ document.addEventListener('keydown', function (event) {
 // Logo.dev supports ISINs and tickers, including ETFs. The publishable key is
 // optional: without it, the compact monogram remains as a local fallback.
 function createInstrumentLogo({ isin = '', symbol = '', name = '' } = {}) {
+  // Database joins intentionally yield null for unmapped/legacy instruments.
+  // Normalise here because this helper is also used by popup rows, where a
+  // missing ticker must still render the name fallback instead of aborting
+  // the entire dialog on `symbol.replace(...)`.
+  isin = typeof isin === 'string' ? isin : '';
+  symbol = typeof symbol === 'string' ? symbol : '';
+  name = typeof name === 'string' ? name : '';
+
   const logo = document.createElement('span');
   logo.className = 'instrument-logo';
   logo.setAttribute('aria-hidden', 'true');
@@ -302,7 +310,7 @@ function formatPct(value) {
   return (n >= 0 ? '+' : '-') + formatted + '%';
 }
 
-// ── Period range selector (1M/YTD/1J/Custom/Alles) ─────────────────────────
+// ── Period range selector (1D/1M/YTD/1J/Custom/Alles) ──────────────────────
 // Shared by any page with a .range-selector + optional #customRangeDialog
 // (dashboard.html, dividends.html, benchmark.html). Each page keeps its own
 // `customRange` state and thin setRange/openCustomRange/applyCustomRange
@@ -310,7 +318,7 @@ function formatPct(value) {
 // the actual date-math is centralized here to avoid three copies drifting.
 
 /**
- * @param {string} range - '1M' | 'YTD' | '1Y' | 'ALL' | 'CUSTOM'
+ * @param {string} range - '1D' | '1M' | 'YTD' | '1Y' | 'ALL' | 'CUSTOM'
  * @param {{start: string, end: string}|null} customRange - only used when range === 'CUSTOM'
  * @returns {{start: Date|null, end: Date}}
  */
@@ -318,7 +326,8 @@ function getRangeBounds(range, customRange) {
   const today = new Date();
   today.setHours(23, 59, 59, 999);
   let start = null;
-  if (range === '1M') { start = new Date(today); start.setDate(start.getDate() - 31); }
+  if (range === '1D') { start = new Date(today); start.setDate(start.getDate() - 1); }
+  else if (range === '1M') { start = new Date(today); start.setDate(start.getDate() - 31); }
   else if (range === 'YTD') { start = new Date(today.getFullYear(), 0, 1); }
   else if (range === '1Y') { start = new Date(today); start.setDate(start.getDate() - 366); }
   else if (range === 'CUSTOM' && customRange) {

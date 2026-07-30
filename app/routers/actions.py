@@ -1,6 +1,8 @@
 """Actions: unified timeline of all transactions and cash events."""
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 
@@ -46,7 +48,8 @@ async def actions_page(
         FROM transactions t
         JOIN accounts    a ON a.id = t.account_id
         JOIN instruments i ON i.id = t.instrument_id
-        WHERE (:acct IS NULL OR t.account_id = :acct)
+        WHERE a.type IN ('broker', 'pension')
+          AND (:acct IS NULL OR t.account_id = :acct)
     """
 
     # --- cash events query --------------------------------------------------
@@ -69,7 +72,8 @@ async def actions_page(
         FROM cash_events ce
         JOIN accounts    a ON a.id  = ce.account_id
         LEFT JOIN instruments i ON i.id = ce.instrument_id
-        WHERE (:acct IS NULL OR ce.account_id = :acct)
+        WHERE a.type IN ('broker', 'pension')
+          AND (:acct IS NULL OR ce.account_id = :acct)
     """
 
     flagged_txn_where  = " AND CAST(t.price AS REAL) = 0"
@@ -92,16 +96,33 @@ async def actions_page(
         rows = _fetch(txn_sql) + _fetch(cash_sql)
         events = sorted(rows, key=lambda x: x["ts"] or "", reverse=True)[:500]
 
+    # The action badge already communicates buy versus sell. Displaying a
+    # second minus sign in the quantity column is redundant and makes a sale
+    # look like a negative number rather than a quantity of sold units.
+    for event in events:
+        quantity = event.get("quantity")
+        if quantity is None:
+            event["display_quantity"] = None
+            continue
+        try:
+            event["display_quantity"] = abs(Decimal(str(quantity)))
+        except (InvalidOperation, ValueError):
+            event["display_quantity"] = quantity
+
     # count flagged for the badge
     flagged_count = conn.execute(
         """
         SELECT COUNT(*) AS n FROM (
             SELECT t.ts FROM transactions t
-            WHERE (:acct IS NULL OR t.account_id = :acct)
+            JOIN accounts a ON a.id = t.account_id
+            WHERE a.type IN ('broker', 'pension')
+              AND (:acct IS NULL OR t.account_id = :acct)
               AND CAST(t.price AS REAL) = 0
             UNION ALL
             SELECT ce.ts FROM cash_events ce
-            WHERE (:acct IS NULL OR ce.account_id = :acct)
+            JOIN accounts a ON a.id = ce.account_id
+            WHERE a.type IN ('broker', 'pension')
+              AND (:acct IS NULL OR ce.account_id = :acct)
               AND ce.type = 'other'
         )
         """,
@@ -111,7 +132,7 @@ async def actions_page(
     return templates.TemplateResponse("actions.html", {
         "request":          request,
         "events":           events,
-        "accounts":         list_accounts(conn),
+        "accounts":         [acc for acc in list_accounts(conn) if acc.type in ("broker", "pension")],
         "selected_account": account,
         "filter":           filter,
         "flagged_count":    flagged_count,

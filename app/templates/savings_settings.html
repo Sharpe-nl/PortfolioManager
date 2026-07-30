@@ -4,13 +4,6 @@
 <div class="page-header"><h1>{{ account.name }}</h1><a href="/savings" class="btn-sm outline secondary">{{ t(request, 'savings.back') }}</a></div>
 {% if request.query_params.get('saved') %}<div class="notice success">✓ {{ t(request, 'common.save') }}</div>{% endif %}
 
-<article><header>{{ t(request, 'savings.dashboard') }}</header>
-  <form method="post" action="/savings/{{ account.id }}/visibility" class="savings-visibility-form">
-    <input type="hidden" name="include_in_dashboard" value="0">
-    <label><input type="checkbox" name="include_in_dashboard" value="1" {% if account.include_in_dashboard %}checked{% endif %} onchange="this.form.submit()"> {{ t(request, 'savings.dashboard') }}</label>
-  </form>
-</article>
-
 <article><header>{{ t(request, 'savings.rate') }}</header>
   <details class="savings-new-entry">
     <summary>{{ t(request, 'savings.new_rate') }}</summary>

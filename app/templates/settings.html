@@ -19,27 +19,35 @@
 {% if request.query_params.get('classified') is not none %}
 <div class="notice success">{{ t(request, 'settings.notice_classified', count=request.query_params.get('classified')) }}</div>
 {% endif %}
-{% if request.query_params.get('bitvavo_saved') is not none %}
-<div class="notice success">{{ t(request, 'settings.bitvavo_connected', count=request.query_params.get('bitvavo_saved')) }}</div>
-{% endif %}
-{% if request.query_params.get('bitvavo_error') %}
-<div class="notice error">{{ t(request, 'settings.bitvavo_error') }}{% if request.query_params.get('bitvavo_error') != 'missing' %} {{ request.query_params.get('bitvavo_error') }}{% endif %}</div>
-{% endif %}
+{% if request.query_params.get('restore') == 'success' %}<div class="notice success">{{ t(request, 'settings.restore_success') }}</div>
+{% elif request.query_params.get('restore') %}<div class="notice error">{{ t(request, 'settings.restore_' ~ request.query_params.get('restore')) }}</div>{% endif %}
 
 <!-- Quick links -->
 <div class="settings-quicklinks">
   <a href="/accounts" class="quicklink-card">
-    <span class="quicklink-icon">🏦</span>
+    <span class="quicklink-icon"><svg class="ui-icon"><use href="/static/icons.svg?v={{ sv }}#bank"></use></svg></span>
     <span class="quicklink-label">{{ t(request, 'settings.quicklink_accounts') }}</span>
     <span class="quicklink-count">{{ db_counts.accounts }}</span>
   </a>
   <a href="/import" class="quicklink-card">
-    <span class="quicklink-icon">⬆</span>
+    <span class="quicklink-icon"><svg class="ui-icon"><use href="/static/icons.svg?v={{ sv }}#upload"></use></svg></span>
     <span class="quicklink-label">{{ t(request, 'settings.quicklink_import') }}</span>
-    <span class="quicklink-count">{{ db_counts.transactions }} txn</span>
   </a>
 </div>
 
+<nav class="settings-section-nav" aria-label="{{ t(request, 'settings.title') }}">
+  <a href="#connections" data-settings-section="connections">{{ t(request, 'settings.group_connections') }}</a>
+  <a href="#security" data-settings-section="security">{{ t(request, 'settings.group_security') }}</a>
+  <a href="#market-data" data-settings-section="market-data">{{ t(request, 'settings.group_market_data') }}</a>
+  <a href="#danger-zone" data-settings-section="danger-zone">{{ t(request, 'settings.section_danger') }}</a>
+</nav>
+
+<section id="connections" class="settings-section">
+  <div class="settings-section-heading">
+    <h2>{{ t(request, 'settings.group_connections') }}</h2>
+    <p>{{ t(request, 'settings.group_connections_hint') }}</p>
+  </div>
+  <div class="settings-card-grid settings-card-grid--connections">
 <!-- ── Logo settings ─────────────────────────────────────────────────── -->
 <article class="logo-settings-card">
   <form method="post" action="/settings/save" class="logo-key-row">
@@ -61,27 +69,6 @@
   </form>
 </article>
 
-<!-- ── Bitvavo read-only API ─────────────────────────────────────────── -->
-<article class="api-credentials-card">
-  <form method="post" action="/settings/bitvavo" class="api-credentials-row" onsubmit="showPageLoadingOverlay()">
-    <span class="logo-key-title">
-      {{ t(request, 'settings.section_bitvavo') }}
-      <button type="button" class="info-tooltip" aria-label="{{ t(request, 'settings.section_bitvavo') }}"
-              aria-describedby="bitvavo-key-info">ⓘ</button>
-      <span id="bitvavo-key-info" class="info-popover" role="tooltip">{{ t(request, 'settings.bitvavo_info') }}</span>
-    </span>
-    <label><span>{{ t(request, 'settings.bitvavo_key') }}</span><input type="password" name="api_key" autocomplete="off" placeholder="{% if bitvavo_configured %}••••••••••••{% else %}{{ t(request, 'settings.bitvavo_key_placeholder') }}{% endif %}"></label>
-    <label><span>{{ t(request, 'settings.bitvavo_secret') }}</span><input type="password" name="api_secret" autocomplete="new-password" placeholder="{% if bitvavo_configured %}••••••••••••{% else %}{{ t(request, 'settings.bitvavo_secret_placeholder') }}{% endif %}"></label>
-    <button type="submit" class="logo-key-save">{{ t(request, 'settings.bitvavo_connect') }}</button>
-    {% if bitvavo_configured %}
-    <span class="badge">{{ t(request, 'settings.logo_dev_key_configured') }}</span>
-    <button type="submit" formaction="/settings/clear-bitvavo" class="outline secondary logo-key-remove"
-            aria-label="{{ t(request, 'settings.bitvavo_remove') }}" title="{{ t(request, 'settings.bitvavo_remove') }}">×</button>
-    {% endif %}
-  </form>
-  <p class="muted api-credentials-hint">{{ t(request, 'settings.bitvavo_readonly_warning') }}</p>
-</article>
-
 <!-- ── Automatic refresh schedule ───────────────────────────────────── -->
 <article class="schedule-settings-card">
   <header>{{ t(request, 'settings.section_schedule') }}</header>
@@ -89,9 +76,28 @@
   <form method="post" action="/settings/refresh-schedule" class="schedule-settings-row">
     <label>{{ t(request, 'settings.schedule_time_1') }}<input type="time" name="refresh_time_1" value="{{ refresh_time_1 }}" required></label>
     <label>{{ t(request, 'settings.schedule_time_2') }}<input type="time" name="refresh_time_2" value="{{ refresh_time_2 }}" required></label>
+    <label class="schedule-timezone">{{ t(request, 'settings.schedule_timezone') }}
+      <select name="refresh_timezone" required>
+      {% for timezone in ['Europe/Amsterdam', 'Europe/London', 'UTC', 'America/New_York', 'America/Los_Angeles', 'Asia/Tokyo', 'Australia/Sydney'] %}
+      <option value="{{ timezone }}" {% if refresh_timezone == timezone %}selected{% endif %}>{{ timezone }}</option>
+      {% endfor %}
+      </select>
+    </label>
     <button type="submit" class="outline secondary btn-sm">{{ t(request, 'common.save') }}</button>
   </form>
-  <p class="muted schedule-settings-hint">{{ t(request, 'settings.schedule_hint', timezone=server_timezone) }}{% if refresh_last_run %} {{ t(request, 'settings.schedule_last_run', value=refresh_last_run) }}{% endif %}</p>
+  <p class="muted schedule-settings-hint">{{ t(request, 'settings.schedule_hint', timezone=refresh_timezone) }}{% if refresh_last_run %} {{ t(request, 'settings.schedule_last_run', value=refresh_last_run) }}{% endif %}</p>
+</article>
+
+<article class="dashboard-visibility-settings-card">
+  <header>{{ t(request, 'settings.section_dashboard_visibility') }}</header>
+  <p class="muted small">{{ t(request, 'settings.dashboard_visibility_hint') }}</p>
+  <div class="dashboard-visibility-list">
+    <form method="post" action="/settings/dashboard-visibility"><input type="hidden" name="target" value="stocks"><input type="hidden" name="include_in_dashboard" value="0"><label><span>{{ t(request, 'nav.stocks') }}</span><input type="checkbox" name="include_in_dashboard" value="1" {% if dashboard_visibility.stocks %}checked{% endif %} onchange="this.form.submit()"></label></form>
+    <form method="post" action="/settings/dashboard-visibility"><input type="hidden" name="target" value="crypto"><input type="hidden" name="include_in_dashboard" value="0"><label><span>{{ t(request, 'nav.crypto') }}</span><input type="checkbox" name="include_in_dashboard" value="1" {% if dashboard_visibility.crypto %}checked{% endif %} onchange="this.form.submit()"></label></form>
+    {% for account in dashboard_visibility.savings %}
+    <form method="post" action="/settings/dashboard-visibility"><input type="hidden" name="target" value="savings"><input type="hidden" name="account_id" value="{{ account.id }}"><input type="hidden" name="include_in_dashboard" value="0"><label><span>{{ t(request, 'nav.savings') }} · {{ account.name }}</span><input type="checkbox" name="include_in_dashboard" value="1" {% if account.include_in_dashboard %}checked{% endif %} onchange="this.form.submit()"></label></form>
+    {% endfor %}
+  </div>
 </article>
 
 <!-- ── Application updates ─────────────────────────────────────────── -->
@@ -126,58 +132,96 @@
   {% endif %}
   <p class="muted update-settings-hint">{{ t(request, 'settings.update_hint') }}</p>
 </article>
+  </div>
+</section>
 
+<section id="security" class="settings-section">
+  <div class="settings-section-heading">
+    <h2>{{ t(request, 'settings.group_security') }}</h2>
+    <p>{{ t(request, 'settings.group_security_hint') }}</p>
+  </div>
+  <div class="settings-card-grid settings-card-grid--security">
 <!-- ── YubiKeys / beveiligingssleutels ─────────────────────────────────── -->
 <article>
   <header>{{ t(request, 'settings.section_yubikeys') }}</header>
-  {% if request.query_params.get('cred_error') %}
-  <div class="notice error">✗ {{ request.query_params.get('cred_error') }}</div>
-  {% endif %}
-  <p class="muted">
-    {{ t(request, 'settings.yubikeys_intro') }}
-  </p>
-  {% if webauthn_credentials %}
-  <div class="table-scroll">
-  <table>
-    <thead><tr><th>{{ t(request, 'settings.col_name') }}</th><th>{{ t(request, 'settings.col_added') }}</th><th></th></tr></thead>
-    <tbody>
-    {% for cred in webauthn_credentials %}
-    <tr>
-      <td>
-        <form method="post" action="/auth/credentials/{{ cred.id }}/rename" class="credential-rename-form">
-          <input type="text" name="name" value="{{ cred.name or '' }}"
-                 placeholder="{{ t(request, 'settings.key_default_name', id=cred.id) }}"
-                 aria-label="{{ t(request, 'settings.rename_key_aria', id=cred.id) }}">
-          <button type="submit" class="outline secondary btn-sm">{{ t(request, 'settings.btn_rename') }}</button>
-        </form>
-      </td>
-      <td class="muted">{{ cred.created_at[:10] }}</td>
-      <td>
-        <form method="post" action="/auth/credentials/{{ cred.id }}/delete" style="display:inline"
-              onsubmit="return confirm('{{ t(request, 'settings.confirm_delete_key') }}')">
-          <button type="submit" class="outline secondary small danger-btn"
-                  {% if webauthn_credentials | length <= 1 %}
-                  disabled title="{{ t(request, 'settings.last_key_hint') }}"
-                  {% endif %}>
-            {{ t(request, 'settings.btn_delete') }}
-          </button>
-        </form>
-      </td>
-    </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  </div>
-  {% endif %}
-
-  <div id="yk-status" class="status-msg" hidden style="margin-top:.75rem"></div>
-  <div class="settings-inline-form" style="margin-top:.75rem;">
-    <label>{{ t(request, 'settings.yk_name_label') }}
-      <input type="text" id="yk-name" placeholder="{{ t(request, 'settings.yk_name_placeholder') }}">
-    </label>
-    <button type="button" id="yk-add-btn" onclick="addYubikey()">{{ t(request, 'settings.yk_add_btn') }}</button>
-  </div>
+  <p class="muted">{{ t(request, 'settings.yubikeys_intro') }}</p>
+  <button type="button" class="outline secondary btn-sm" onclick="openSecurityDialog('yubikeyDialog')">{{ t(request, 'settings.btn_manage') }}</button>
 </article>
+
+<article>
+  <header>{{ t(request, 'settings.section_password_login') }}</header>
+  <p class="muted">{{ t(request, 'settings.password_intro') }}</p>
+  <button type="button" class="outline secondary btn-sm" onclick="openSecurityDialog('passwordDialog')">{{ t(request, 'settings.btn_manage') }}</button>
+</article>
+
+<dialog id="yubikeyDialog" class="settings-security-dialog">
+  <article>
+    <header><strong>{{ t(request, 'settings.section_yubikeys') }}</strong><button aria-label="{{ t(request, 'common.close') }}" rel="prev" type="button" onclick="document.getElementById('yubikeyDialog').close()"></button></header>
+    {% if request.query_params.get('cred_error') %}<div class="notice error">✗ {{ request.query_params.get('cred_error') }}</div>{% endif %}
+    <p class="muted">{{ t(request, 'settings.yubikeys_intro') }}</p>
+    {% if webauthn_credentials %}
+    <div class="table-scroll"><table>
+      <thead><tr><th>{{ t(request, 'settings.col_name') }}</th><th>{{ t(request, 'settings.col_added') }}</th><th></th></tr></thead>
+      <tbody>{% for cred in webauthn_credentials %}<tr>
+        <td><form method="post" action="/auth/credentials/{{ cred.id }}/rename" class="credential-rename-form"><input type="text" name="name" value="{{ cred.name or '' }}" placeholder="{{ t(request, 'settings.key_default_name', id=cred.id) }}" aria-label="{{ t(request, 'settings.rename_key_aria', id=cred.id) }}"><button type="submit" class="outline secondary btn-sm">{{ t(request, 'settings.btn_rename') }}</button></form></td>
+        <td class="muted">{{ cred.created_at[:10] }}</td>
+        <td><form method="post" action="/auth/credentials/{{ cred.id }}/delete" onsubmit="return confirm('{{ t(request, 'settings.confirm_delete_key') }}')"><button type="submit" class="outline secondary btn-sm danger-btn" {% if webauthn_credentials | length <= 1 and not password_fallback_available %}disabled title="{{ t(request, 'settings.last_key_hint') }}"{% endif %}>{{ t(request, 'settings.btn_delete') }}</button></form></td>
+      </tr>{% endfor %}</tbody>
+    </table></div>
+    {% endif %}
+    <div id="yk-status" class="status-msg" hidden></div>
+    <div class="settings-inline-form">
+      <label>{{ t(request, 'settings.yk_name_label') }}<input type="text" id="yk-name" placeholder="{{ t(request, 'settings.yk_name_placeholder') }}"></label>
+      <button type="button" id="yk-add-btn" onclick="addYubikey()">{{ t(request, 'settings.yk_add_btn') }}</button>
+    </div>
+  </article>
+</dialog>
+
+<dialog id="passwordDialog" class="settings-security-dialog">
+  <article>
+    <header><strong>{{ t(request, 'settings.section_password_login') }}</strong><button aria-label="{{ t(request, 'common.close') }}" rel="prev" type="button" onclick="document.getElementById('passwordDialog').close()"></button></header>
+    {% if request.query_params.get('password_error') == 'mismatch' %}<div class="notice error">{{ t(request, 'settings.password_error_mismatch') }}</div>
+    {% elif request.query_params.get('password_error') == 'last' %}<div class="notice error">{{ t(request, 'settings.password_last_method') }}</div>
+    {% elif request.query_params.get('password_error') %}<div class="notice error">{{ t(request, 'settings.password_error_invalid') }}</div>{% endif %}
+    <p class="muted">{{ t(request, 'settings.password_intro') }}</p>
+  {% if local_credentials %}
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>{{ t(request, 'auth.username') }}</th><th>{{ t(request, 'settings.col_added') }}</th><th></th></tr></thead>
+      <tbody>
+      {% for credential in local_credentials %}
+        <tr>
+          <td>{{ credential.username }}</td>
+          <td class="muted">{{ credential.created_at[:10] }}</td>
+          <td class="credential-actions">
+            <details>
+              <summary>{{ t(request, 'settings.password_change') }}</summary>
+              <form method="post" action="/auth/local-credentials/{{ credential.id }}/password" class="settings-inline-form password-fields-form">
+                <label><span>{{ t(request, 'auth.password') }}</span><input type="password" name="password" autocomplete="new-password" minlength="12" required></label>
+                <label><span>{{ t(request, 'auth.password_confirm') }}</span><input type="password" name="confirm_password" autocomplete="new-password" minlength="12" required></label>
+                <button type="submit" class="outline secondary btn-sm">{{ t(request, 'settings.password_change') }}</button>
+              </form>
+            </details>
+            <form method="post" action="/auth/local-credentials/{{ credential.id }}/delete" onsubmit="return confirm('{{ t(request, 'settings.confirm_delete_password_user') }}')">
+              <button type="submit" class="outline secondary btn-sm danger-btn"
+                {% if local_credentials | length <= 1 and not webauthn_credentials %}disabled title="{{ t(request, 'settings.password_last_method') }}"{% endif %}>{{ t(request, 'settings.btn_delete') }}</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  <form method="post" action="/auth/local-credentials" class="settings-inline-form password-fields-form" style="margin-top:.75rem">
+    <label><span>{{ t(request, 'auth.username') }}</span><input name="username" autocomplete="username" required></label>
+    <label><span>{{ t(request, 'auth.password') }}</span><input type="password" name="password" autocomplete="new-password" minlength="12" required></label>
+    <label><span>{{ t(request, 'auth.password_confirm') }}</span><input type="password" name="confirm_password" autocomplete="new-password" minlength="12" required></label>
+    <button type="submit" class="outline secondary btn-sm">{{ t(request, 'settings.password_add') }}</button>
+  </form>
+  <p class="muted small">{{ t(request, 'auth.password_minimum') }}</p>
+</article>
+</dialog>
 
 <!-- ── Database info & backup ─────────────────────────────────────────── -->
 <article>
@@ -188,8 +232,22 @@
     <strong>{{ db_counts.accounts }}</strong> {{ t(request, 'settings.db_accounts') }}
   </p>
   <a href="/settings/backup" role="button" class="outline" download>{{ t(request, 'settings.download_backup') }}</a>
+  {% if restore_allowed %}
+  <form method="post" action="/settings/restore" enctype="multipart/form-data" class="settings-inline-form database-restore-form">
+    <label><span>{{ t(request, 'settings.restore_backup') }}</span><input type="file" name="backup" accept=".db,application/octet-stream" required></label>
+    <button type="submit" class="outline secondary btn-sm">{{ t(request, 'settings.restore_backup') }}</button>
+  </form>
+  <p class="muted small">{{ t(request, 'settings.restore_hint') }}</p>
+  {% endif %}
 </article>
+  </div>
+</section>
 
+<section id="market-data" class="settings-section">
+  <div class="settings-section-heading">
+    <h2>{{ t(request, 'settings.group_market_data') }}</h2>
+    <p>{{ t(request, 'settings.group_market_data_hint') }}</p>
+  </div>
 <!-- ── Ticker mapping overview ───────────────────────────────────────── -->
 <article>
   <header>{{ t(request, 'settings.section_ticker_mapping', count=mapped_instruments | length) }}</header>
@@ -239,7 +297,7 @@
     {{ t(request, 'settings.refresh_classifications_hint') }}
   </p>
   {% else %}
-  <p class="muted">{{ t(request, 'settings.no_tickers_mapped') }} <a href="/import">{{ t(request, 'settings.auto_map_link') }}</a>.</p>
+  <p class="muted">{{ t(request, 'settings.no_tickers_mapped') }}</p>
   {% endif %}
 </article>
 
@@ -263,8 +321,10 @@
   </ul>
 </article>
 {% endif %}
+</section>
 
 <!-- ── Danger zone: deliberately the final settings section ─────────── -->
+<section id="danger-zone" class="settings-section settings-section--danger">
 <article class="danger-zone-card">
   <header>{{ t(request, 'settings.section_danger') }}</header>
   <p class="muted">{{ t(request, 'settings.danger_intro') }}</p>
@@ -279,6 +339,7 @@
     </form>
   </div>
 </article>
+</section>
 </div>
 {% endblock %}
 
@@ -291,6 +352,53 @@ const I18N = {
   keyAdded: {{ t(request, 'settings.js_key_added') | tojson }},
   errorPrefix: {{ t(request, 'settings.js_error_prefix') | tojson }},
 };
+
+function initialiseSettingsSections() {
+  const page = document.querySelector('.settings-page');
+  const links = [...document.querySelectorAll('[data-settings-section]')];
+  const sections = [...document.querySelectorAll('.settings-page > .settings-section')];
+  if (!page || !links.length || !sections.length) return;
+
+  const selectSection = (id, { updateHash = false } = {}) => {
+    const target = sections.find(section => section.id === id);
+    if (!target) return;
+    page.classList.add('settings-filter-ready');
+    sections.forEach(section => section.classList.toggle('is-active', section === target));
+    links.forEach(link => {
+      const active = link.dataset.settingsSection === id;
+      link.classList.toggle('active', active);
+      link.toggleAttribute('aria-current', active);
+    });
+    localStorage.setItem('settings-active-section', id);
+    if (updateHash) history.replaceState(null, '', `#${id}`);
+  };
+
+  const initial = window.location.hash.slice(1)
+    || localStorage.getItem('settings-active-section')
+    || links[0].dataset.settingsSection;
+  selectSection(initial);
+
+  links.forEach(link => link.addEventListener('click', event => {
+    event.preventDefault();
+    selectSection(link.dataset.settingsSection, { updateHash: true });
+  }));
+  window.addEventListener('hashchange', () => selectSection(window.location.hash.slice(1)));
+}
+
+initialiseSettingsSections();
+
+function openSecurityDialog(id) {
+  document.getElementById(id)?.showModal();
+}
+
+document.querySelectorAll('.settings-security-dialog').forEach(dialog => {
+  dialog.addEventListener('click', event => {
+    if (event.target === dialog) dialog.close();
+  });
+});
+
+if (new URLSearchParams(window.location.search).has('cred_error')) openSecurityDialog('yubikeyDialog');
+if (new URLSearchParams(window.location.search).has('password_error')) openSecurityDialog('passwordDialog');
 
 async function addYubikey() {
   const btn = document.getElementById('yk-add-btn');

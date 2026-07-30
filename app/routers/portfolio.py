@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 import sys
 import threading
 import json as _json
+from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from ..db import get_db, get_setting, set_setting, _open as _db_open
@@ -141,30 +142,31 @@ def _ticker_map_run() -> None:
 # Dashboard
 # ---------------------------------------------------------------------------
 
-def _stock_dashboard_context(conn) -> dict:
-    summary = svc_portfolio.get_portfolio_summary(conn)
-    allocation = svc_portfolio.get_allocation(conn)
-    allocation_details = svc_portfolio.get_allocation_details(conn)
-    holdings = svc_portfolio.get_holdings(conn)
+def _stock_dashboard_context(conn, account_id: int | None = None) -> dict:
+    summary = svc_portfolio.get_portfolio_summary(conn, account_id=account_id)
+    allocation = svc_portfolio.get_allocation(conn, account_id=account_id)
+    allocation_details = svc_portfolio.get_allocation_details(conn, account_id=account_id)
+    holdings = svc_portfolio.get_holdings(conn, account_id=account_id)
 
     from ..services.dividends import get_trailing_12m_income, get_dividend_events, get_dividend_events_detail
-    trailing = get_trailing_12m_income(conn)
-    dividend_events = get_dividend_events(conn)
-    dividend_events_detail = get_dividend_events_detail(conn)
+    trailing = get_trailing_12m_income(conn, account_id=account_id)
+    dividend_events = get_dividend_events(conn, account_id=account_id)
+    dividend_events_detail = get_dividend_events_detail(conn, account_id=account_id)
 
     # Portfolio value series — full history; the range selector (1M/YTD/1J/
     # Custom/Alles) filters this client-side, along with the realized P/L,
     # dividend events, and per-holding series below, so every range-dependent
     # number on the dashboard (not just the chart) can be recomputed without
     # a server round-trip.
-    value_series = svc_portfolio.get_portfolio_value_series(conn)
-    realized_events = svc_portfolio.get_realized_pl_events(conn)
-    holdings_value_series = svc_portfolio.get_holdings_value_series(conn)
+    value_series = svc_portfolio.get_portfolio_value_series(conn, account_id=account_id)
+    realized_events = svc_portfolio.get_realized_pl_events(conn, account_id=account_id)
+    fee_events = svc_portfolio.get_fee_events(conn, account_id=account_id)
+    holdings_value_series = svc_portfolio.get_holdings_value_series(conn, account_id=account_id)
 
     # Unrealized P/L over time (value minus running avg-cost, no cash) for
     # the "Ongerealiseerd" stat — naturally immune to deposits/cash-snapshot
     # jumps and to simply buying more (see get_unrealized_pl_series docstring).
-    unrealized_series = svc_portfolio.get_unrealized_pl_series(conn)
+    unrealized_series = svc_portfolio.get_unrealized_pl_series(conn, account_id=account_id)
     return {
         "summary": summary,
         "allocation": allocation,
@@ -173,11 +175,13 @@ def _stock_dashboard_context(conn) -> dict:
         "trailing_12m_income": trailing,
         "value_series": value_series,
         "realized_events": realized_events,
+        "fee_events": fee_events,
         "dividend_events": dividend_events,
         "dividend_events_detail": dividend_events_detail,
         "unrealized_series": unrealized_series,
         "holdings_value_series": holdings_value_series,
-        "accounts": svc_portfolio.list_accounts(conn),
+        "accounts": [acc for acc in svc_portfolio.list_accounts(conn) if acc.type in ("broker", "pension")],
+        "selected_account": account_id,
         "include_in_dashboard": get_setting(conn, "include_stocks_in_dashboard", "1") != "0",
     }
 
@@ -185,16 +189,24 @@ def _stock_dashboard_context(conn) -> dict:
 @router.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, conn=Depends(get_db), _=Depends(require_auth)):
     from ..services.bitvavo import crypto_overview
-    from ..services.savings import savings_accounts
+    from ..services.savings import savings_accounts, savings_value_series
 
     show_stocks = get_setting(conn, "include_stocks_in_dashboard", "1") != "0"
     show_crypto = get_setting(conn, "include_crypto_in_dashboard", "1") != "0"
     stock_summary = svc_portfolio.get_portfolio_summary(conn) if show_stocks else None
     crypto = crypto_overview(conn) if show_crypto else None
     dashboard_savings = savings_accounts(conn, include_hidden=False)
+    savings_series = savings_value_series(conn, include_hidden=False)
     stock_value_series = svc_portfolio.get_portfolio_value_series(conn) if show_stocks else []
     savings_balance = sum((item["balance"] for item in dashboard_savings), Decimal("0"))
     savings_interest = sum((item["interest"] for item in dashboard_savings), Decimal("0"))
+    interest_since_dates = [
+        item["interest_since"] for item in dashboard_savings if item.get("interest_since")
+    ]
+    savings_interest_since = (
+        date.fromisoformat(min(interest_since_dates)).strftime("%d-%m-%Y")
+        if interest_since_dates else None
+    )
     total_value = (
         (stock_summary["total_value"] if stock_summary else Decimal("0"))
         + (crypto["total"] if crypto else Decimal("0"))
@@ -214,31 +226,40 @@ async def dashboard(request: Request, conn=Depends(get_db), _=Depends(require_au
         "dashboard_savings": dashboard_savings,
         "savings_balance": savings_balance,
         "savings_interest": savings_interest,
+        "savings_interest_since": savings_interest_since,
         "total_value": total_value,
         "total_result": total_result,
         "overview_series": {
             "stocks": stock_value_series,
             "crypto": crypto["value_series"] if crypto else [],
+            "savings": savings_series,
         },
     })
 
 
 @router.get("/stocks", response_class=HTMLResponse)
-async def stocks_dashboard(request: Request, conn=Depends(get_db), _=Depends(require_auth)):
+async def stocks_dashboard(
+    request: Request,
+    account: int | None = Depends(optional_account_id),
+    conn=Depends(get_db),
+    _=Depends(require_auth),
+):
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
-        **_stock_dashboard_context(conn),
+        **_stock_dashboard_context(conn, account_id=account),
     })
 
 
 @router.post("/stocks/visibility")
 async def set_stocks_visibility(
     include_in_dashboard: int = Form(0),
+    account: int | None = Depends(optional_account_id),
     conn=Depends(get_db),
     _=Depends(require_auth),
 ):
     set_setting(conn, "include_stocks_in_dashboard", "1" if include_in_dashboard else "0")
-    return RedirectResponse(url="/stocks", status_code=303)
+    suffix = f"?account={account}" if account is not None else ""
+    return RedirectResponse(url=f"/stocks{suffix}", status_code=303)
 
 
 # ---------------------------------------------------------------------------
@@ -264,7 +285,11 @@ async def holdings_page(
     }
     holdings.sort(key=key_map.get(sort, key_map["value"]))
     closed = svc_portfolio.get_closed_positions(conn, account_id=account)
-    cash_balances = svc_portfolio.get_cash_balances(conn, account_id=account)
+    # Savings has its own dashboard and must not look like uninvested broker
+    # cash on the holdings page.
+    cash_balances = svc_portfolio.get_cash_balances(
+        conn, account_id=account, include_savings=False
+    )
     summary = svc_portfolio.get_portfolio_summary(conn, account_id=account)
     return templates.TemplateResponse("holdings.html", {
         "request": request,
@@ -273,7 +298,7 @@ async def holdings_page(
         "cash_balances": cash_balances,
         "total_account": summary["total_value"],
         "portfolio_value": summary["holdings_value"],
-        "accounts": svc_portfolio.list_accounts(conn),
+        "accounts": [acc for acc in svc_portfolio.list_accounts(conn) if acc.type in ("broker", "pension")],
         "selected_account": account,
         "sort": sort,
     })
@@ -361,7 +386,7 @@ async def instrument_update(
     """Update ticker mapping, sector, region, asset_type overrides."""
     form = await request.form()
     fields = {}
-    for col in ("symbol", "sector", "region", "asset_type"):
+    for col in ("symbol", "exchange", "sector", "region", "asset_type"):
         if col in form:
             val = str(form[col]).strip() or None
             fields[col] = val

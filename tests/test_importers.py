@@ -1,6 +1,7 @@
 """Tests for DeGiro CSV importers."""
 from __future__ import annotations
 
+import asyncio
 from decimal import Decimal
 from pathlib import Path
 
@@ -8,6 +9,72 @@ import pytest
 
 from app.importers import degiro_account as acc_parser
 from app.importers import generic as gen_parser
+from app.routers import imports as imports_router
+
+
+class _UploadRequest:
+    """Minimal request object needed by the upload route in these unit tests."""
+    def __init__(self):
+        self.session = {}
+        self.cookies = {}
+
+
+class _UploadFile:
+    def __init__(self, filename: str, content: bytes):
+        self.filename = filename
+        self._content = content
+
+    async def read(self, _size: int = -1) -> bytes:
+        return self._content if _size < 0 else self._content[:_size]
+
+
+def test_upload_stages_account_csv_and_redirects_to_preview(mem_db, account_csv):
+    request = _UploadRequest()
+    upload = _UploadFile("Account.csv", account_csv.encode("utf-8"))
+
+    response = asyncio.run(imports_router.upload(request, mem_db, None, 1, upload))
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/import/preview"
+    assert request.session["import_file_type"] == "degiro_account"
+    assert mem_db.execute("SELECT COUNT(*) FROM import_staging").fetchone()[0] > 0
+    assert not mem_db.in_transaction
+
+
+def test_upload_empty_csv_returns_visible_error(mem_db):
+    request = _UploadRequest()
+    upload = _UploadFile("Account.csv", b"")
+
+    response = asyncio.run(imports_router.upload(request, mem_db, None, 1, upload))
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/import?result=1"
+    assert request.session["import_result"]["errors"] == 1
+
+
+def test_account_csv_upload_is_rejected_for_non_broker_account(mem_db, account_csv):
+    mem_db.execute("INSERT INTO accounts(id,name,type,currency) VALUES(2,'Savings','savings','EUR')")
+    mem_db.commit()
+    request = _UploadRequest()
+    upload = _UploadFile("Account.csv", account_csv.encode("utf-8"))
+
+    response = asyncio.run(imports_router.upload(request, mem_db, None, 2, upload))
+
+    assert response.headers["location"] == "/import?result=1"
+    assert request.session["import_result"]["errors"] == 1
+    assert mem_db.execute("SELECT COUNT(*) FROM import_staging").fetchone()[0] == 0
+
+
+def test_account_csv_upload_is_accepted_for_pension_account(mem_db, account_csv):
+    mem_db.execute("INSERT INTO accounts(id,name,type,currency) VALUES(2,'Pension','pension','EUR')")
+    mem_db.commit()
+    request = _UploadRequest()
+    upload = _UploadFile("Account.csv", account_csv.encode("utf-8"))
+
+    response = asyncio.run(imports_router.upload(request, mem_db, None, 2, upload))
+
+    assert response.headers["location"] == "/import/preview"
+    assert mem_db.execute("SELECT COUNT(*) FROM import_staging").fetchone()[0] > 0
 
 # ── Account.csv ──────────────────────────────────────────────────────────────
 
@@ -22,6 +89,19 @@ class TestAccountParser:
         assert result.txn_rows[0].quantity == Decimal("8")
         assert result.txn_rows[1].quantity == Decimal("-2")
         assert any(row.event_type == "deposit" for row in result.rows)
+
+    def test_parses_semicolon_separated_account_csv(self):
+        content = (
+            "Datum;Tijd;Valutadatum;Product;ISIN;Omschrijving;FX;Mutatie;;Saldo;;Order Id\n"
+            "16-01-2025;04:51;16-01-2025;;;iDEAL storting;;EUR;\"2500,00\";EUR;\"2500,00\";\n"
+        )
+
+        result = acc_parser.parse(content)
+
+        assert acc_parser.is_account_csv(content)
+        assert len(result.rows) == 1
+        assert result.rows[0].event_type == "deposit"
+        assert result.rows[0].amount_eur == Decimal("2500.00")
 
     @pytest.mark.parametrize("fixture_name", ["account_csv", "account_en_csv"])
     def test_spin_off_and_split_adjustments(self, request, fixture_name):
@@ -70,6 +150,9 @@ class TestAccountParser:
         interest = [r for r in result.rows if r.event_type == "interest"]
         assert len(interest) == 1
 
+    def test_promotion_credit_is_classified_as_bonus(self):
+        assert acc_parser.classify_row("DEGIRO Verrekening Promotie") == "bonus"
+
     def test_eur_dividend_amount_correct(self, account_csv):
         result = acc_parser.parse(account_csv)
         eur_div = next(
@@ -103,6 +186,23 @@ class TestAccountParser:
         assert imp > 0
         assert errors == []
 
+    def test_same_isin_in_two_currencies_creates_separate_trade_lines(self, mem_db):
+        content = (
+            "Datum,Tijd,Valutadatum,Product,ISIN,Omschrijving,FX,Mutatie,,Saldo,,Order Id\n"
+            "01-01-2025,10:00,01-01-2025,Example ETF,IE00TEST0001,Koop 1 @ 100 EUR,,EUR,-100,EUR,900,order-eur\n"
+            "02-01-2025,10:00,02-01-2025,Example ETF,IE00TEST0001,Koop 1 @ 100 USD,1.1,USD,-100,EUR,800,order-usd\n"
+        )
+        result = acc_parser.parse(content)
+        imported, _, errors = acc_parser.commit_account_events(mem_db, result, account_id=1)
+        mem_db.commit()
+
+        assert imported == 2
+        assert errors == []
+        lines = mem_db.execute(
+            "SELECT trading_currency FROM instruments WHERE isin='IE00TEST0001' ORDER BY trading_currency"
+        ).fetchall()
+        assert [row["trading_currency"] for row in lines] == ["EUR", "USD"]
+
     def test_reimport_idempotent(self, account_csv, mem_db):
         result = acc_parser.parse(account_csv)
         acc_parser.commit_account_events(mem_db, result, account_id=1)
@@ -134,6 +234,36 @@ class TestAccountParser:
         result = acc_parser.parse(content)
         assert len(result.rows) == 1
         assert result.rows[0].order_id is None
+
+    def test_pending_ideal_reservation_does_not_inflate_cash_snapshot(self):
+        content = (
+            "Datum,Tijd,Valutadatum,Product,ISIN,Omschrijving,FX,Mutatie,,Saldo,,Order Id\n"
+            "16-01-2025,04:51,16-01-2025,,,iDEAL storting,,EUR,\"100,00\",EUR,\"100,00\",\n"
+            "17-01-2025,04:51,17-01-2025,,,Reservation iDEAL,,EUR,\"100,00\",EUR,\"200,00\",\n"
+        )
+
+        result = acc_parser.parse(content)
+
+        assert len(result.rows) == 1
+        assert result.rows[0].event_type == "deposit"
+        # The reservation has not settled yet, so its cash must not be shown
+        # as portfolio value before its matching iDEAL deposit exists.
+        assert result.cash_balances_raw == {"EUR": Decimal("100.00")}
+
+    def test_cash_sweep_rows_keep_the_final_balance_when_timestamps_match(self):
+        """A cash sweep's intermediate €1,000 must not replace €106.79 cash."""
+        content = (
+            "Datum,Tijd,Valutadatum,Product,ISIN,Omschrijving,FX,Mutatie,,Saldo,,Order Id\n"
+            "23-07-2026,03:21,23-07-2026,,,Overboeking van uw geldrekening bij flatexDEGIRO Bank 893,21 EUR,,,EUR,\"106,79\",\n"
+            "23-07-2026,03:21,23-07-2026,,,Degiro Cash Sweep Transfer,,EUR,\"893,21\",EUR,\"1000,00\",\n"
+            "23-07-2026,02:40,22-07-2026,,,iDEAL Deposit,,EUR,\"1000,00\",EUR,\"106,79\",\n"
+            "23-07-2026,02:40,22-07-2026,,,Reservation iDEAL,,EUR,\"-1000,00\",EUR,\"-893,21\",\n"
+        )
+
+        result = acc_parser.parse(content)
+
+        assert result.cash_balances_raw == {"EUR": Decimal("106.79")}
+        assert result.cash_balance_eur == Decimal("106.79")
 
 
 # ── Generic CSV ───────────────────────────────────────────────────────────────

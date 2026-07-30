@@ -15,20 +15,26 @@ POST /auth/credentials/{id}/delete → (logged in) remove a key
 from __future__ import annotations
 
 import json
+import sqlite3
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from ..auth import (
     begin_authentication,
     begin_registration,
+    add_local_credential,
     complete_initial_setup,
     delete_credential,
     finish_authentication,
     finish_registration,
     get_rp_id,
     has_credentials,
+    has_local_credentials,
+    has_any_credentials,
+    set_local_password,
+    verify_local_credential,
     verify_initial_setup_token,
 )
 from ..db import get_db
@@ -50,14 +56,14 @@ def _origin(request: Request) -> str:
 
 @router.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request, conn=Depends(get_db)):
-    if has_credentials(conn):
+    if has_any_credentials(conn):
         return RedirectResponse(url="/auth/login", status_code=303)
     return _templates.TemplateResponse("register.html", {"request": request})
 
 
 @router.post("/register/options")
 async def register_options(request: Request, conn=Depends(get_db)):
-    if has_credentials(conn):
+    if has_any_credentials(conn):
         return JSONResponse({"error": "Already registered"}, status_code=400)
     if not verify_initial_setup_token(conn, request.headers.get(_SETUP_TOKEN_HEADER)):
         return JSONResponse({"error": "Invalid setup token"}, status_code=403)
@@ -69,7 +75,7 @@ async def register_options(request: Request, conn=Depends(get_db)):
 
 @router.post("/register/verify")
 async def register_verify(request: Request, conn=Depends(get_db)):
-    if has_credentials(conn):
+    if has_any_credentials(conn):
         return JSONResponse({"error": "Already registered"}, status_code=400)
     if not verify_initial_setup_token(conn, request.headers.get(_SETUP_TOKEN_HEADER)):
         return JSONResponse({"error": "Invalid setup token"}, status_code=403)
@@ -96,17 +102,56 @@ async def register_verify(request: Request, conn=Depends(get_db)):
         return JSONResponse({"error": str(exc)}, status_code=400)
 
 
+@router.post("/register/password")
+async def register_password(
+    request: Request,
+    setup_token: str = Form(""),
+    username: str = Form(""),
+    password: str = Form(""),
+    confirm_password: str = Form(""),
+    conn=Depends(get_db),
+):
+    if has_any_credentials(conn) or not verify_initial_setup_token(conn, setup_token):
+        return RedirectResponse(url="/auth/register?password_error=invalid", status_code=303)
+    if password != confirm_password:
+        return RedirectResponse(url="/auth/register?password_error=mismatch", status_code=303)
+    try:
+        add_local_credential(conn, username, password)
+        complete_initial_setup(conn)
+        conn.commit()
+    except (ValueError, sqlite3.IntegrityError):
+        return RedirectResponse(url="/auth/register?password_error=invalid", status_code=303)
+    return RedirectResponse(url="/auth/login?password_setup=1", status_code=303)
+
+
 # ---------------------------------------------------------------------------
 # Login
 # ---------------------------------------------------------------------------
 
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request, conn=Depends(get_db)):
-    if not has_credentials(conn):
+    if not has_any_credentials(conn):
         return RedirectResponse(url="/auth/register", status_code=303)
     if request.session.get("authenticated"):
         return RedirectResponse(url="/", status_code=303)
-    return _templates.TemplateResponse("login.html", {"request": request})
+    return _templates.TemplateResponse("login.html", {
+        "request": request,
+        "webauthn_available": has_credentials(conn),
+        "password_available": has_local_credentials(conn),
+    })
+
+
+@router.post("/login/password")
+async def password_login(
+    request: Request,
+    username: str = Form(""),
+    password: str = Form(""),
+    conn=Depends(get_db),
+):
+    if verify_local_credential(conn, username, password):
+        request.session["authenticated"] = True
+        return RedirectResponse(url="/", status_code=303)
+    return RedirectResponse(url="/auth/login?password_error=1", status_code=303)
 
 
 @router.post("/login/options")
@@ -206,6 +251,47 @@ async def rename_credential_route(
     form = await request.form()
     name = str(form.get("name", "")).strip() or None
     conn.execute("UPDATE webauthn_credentials SET name=? WHERE id=?", (name, cred_id))
+    return RedirectResponse(url="/settings?saved=1", status_code=303)
+
+
+@router.post("/local-credentials")
+async def add_local_credential_route(
+    username: str = Form(""), password: str = Form(""), confirm_password: str = Form(""),
+    conn=Depends(get_db), _=Depends(require_auth),
+):
+    if password != confirm_password:
+        return RedirectResponse(url="/settings?password_error=mismatch", status_code=303)
+    try:
+        add_local_credential(conn, username, password)
+        conn.commit()
+    except (ValueError, sqlite3.IntegrityError):
+        return RedirectResponse(url="/settings?password_error=invalid", status_code=303)
+    return RedirectResponse(url="/settings?saved=1", status_code=303)
+
+
+@router.post("/local-credentials/{credential_id}/password")
+async def update_local_password_route(
+    credential_id: int, password: str = Form(""), confirm_password: str = Form(""),
+    conn=Depends(get_db), _=Depends(require_auth),
+):
+    if password != confirm_password:
+        return RedirectResponse(url="/settings?password_error=mismatch", status_code=303)
+    try:
+        if not set_local_password(conn, credential_id, password):
+            return RedirectResponse(url="/settings?password_error=invalid", status_code=303)
+        conn.commit()
+    except ValueError:
+        return RedirectResponse(url="/settings?password_error=invalid", status_code=303)
+    return RedirectResponse(url="/settings?saved=1", status_code=303)
+
+
+@router.post("/local-credentials/{credential_id}/delete")
+async def delete_local_credential_route(credential_id: int, conn=Depends(get_db), _=Depends(require_auth)):
+    count = conn.execute("SELECT COUNT(*) AS n FROM local_credentials").fetchone()["n"]
+    if count <= 1 and not has_credentials(conn):
+        return RedirectResponse(url="/settings?password_error=last", status_code=303)
+    conn.execute("DELETE FROM local_credentials WHERE id=?", (credential_id,))
+    conn.commit()
     return RedirectResponse(url="/settings?saved=1", status_code=303)
 
 

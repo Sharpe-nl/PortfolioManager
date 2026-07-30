@@ -1015,6 +1015,7 @@ def _ticker_validate(ticker: str, timeout: int = 12) -> tuple:
 def lookup_ticker_by_isin(
     isin: str,
     exchange=None,
+    trading_currency: str | None = None,
     provider=None,
 ):
     """Find a yfinance-compatible ticker for an ISIN via OpenFIGI.
@@ -1030,8 +1031,16 @@ def lookup_ticker_by_isin(
     if not candidates:
         return None
 
+    # A manually supplied DEGIRO exchange code narrows the preferred listing
+    # before the currency check below.  Account.csv exports do not include
+    # this field, but it lets users resolve same-currency dual listings.
+    exchange_suffix = _DEGIRO_EXCH_SUFFIX.get(str(exchange or "").upper())
+    if exchange_suffix is not None:
+        candidates.sort(key=lambda ticker: not ticker.endswith(exchange_suffix))
+
     print(f"[ticker-mapper]   OpenFIGI candidates ({len(candidates)}): {candidates[:8]}", file=sys.stderr, flush=True)
 
+    desired_currency = (trading_currency or "").upper()
     for ticker in candidates:
         if not ticker or not ticker.strip():
             continue
@@ -1041,6 +1050,14 @@ def lookup_ticker_by_isin(
             t = yf.Ticker(ticker)
             df = t.history(period="5d", auto_adjust=True)
             if df is not None and not df.empty:
+                quote_currency = (getattr(t.fast_info, "currency", "") or "").upper()
+                if desired_currency and quote_currency and quote_currency != desired_currency:
+                    print(
+                        f"[ticker-mapper]   {ticker}: {quote_currency}, expected {desired_currency}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
+                    continue
                 print(f"[ticker-mapper]   validated: {ticker}", file=sys.stderr, flush=True)
                 return ticker
             else:
@@ -1070,7 +1087,7 @@ def auto_map_tickers(
         provider = _default_provider
 
     unmapped = conn.execute(
-        "SELECT id, isin, name, exchange FROM instruments "
+        "SELECT id, isin, name, exchange, trading_currency FROM instruments "
         "WHERE isin IS NOT NULL AND isin != '' AND (symbol IS NULL OR symbol = '')"
     ).fetchall()
 
@@ -1089,7 +1106,12 @@ def auto_map_tickers(
         if i > 0:
             time.sleep(1.0)
 
-        ticker = lookup_ticker_by_isin(isin, exchange=row["exchange"], provider=provider)
+        ticker = lookup_ticker_by_isin(
+            isin,
+            exchange=row["exchange"],
+            trading_currency=row["trading_currency"],
+            provider=provider,
+        )
         if not ticker:
             failed.append(f"{name} ({isin})")
             continue

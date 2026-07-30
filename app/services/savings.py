@@ -73,7 +73,7 @@ def account_interest(conn: sqlite3.Connection, account_id: int, as_of: date | No
             (account_id, account_id, account_id),
         ).fetchone()["day"]
         if not first:
-            return {"balance": _ZERO, "principal": _ZERO, "interest": _ZERO, "events": [], "as_of": as_of.isoformat(), "active_rate": None, "next_payout": None}
+            return {"balance": _ZERO, "principal": _ZERO, "interest": _ZERO, "events": [], "as_of": as_of.isoformat(), "interest_since": None, "active_rate": None, "next_payout": None}
         balance = principal = _ZERO
         start = date.fromisoformat(first)
     rates = [dict(row) for row in conn.execute(
@@ -138,6 +138,7 @@ def account_interest(conn: sqlite3.Connection, account_id: int, as_of: date | No
     return {
         "balance": balance.quantize(_CENT), "principal": principal, "interest": interest,
         "events": sorted(events, key=lambda e: e["date"], reverse=True), "as_of": as_of.isoformat(),
+        "interest_since": start.isoformat(),
         "active_rate": dict(active_rate) if active_rate else None, "next_payout": next_payout,
     }
 
@@ -150,3 +151,44 @@ def savings_accounts(conn: sqlite3.Connection, include_hidden: bool = True) -> l
         data = account_interest(conn, row["id"])
         result.append({**dict(row), **data})
     return result
+
+
+def savings_value_series(conn: sqlite3.Connection, include_hidden: bool = False) -> list[dict]:
+    """Return the combined savings balance at each balance-changing date.
+
+    Savings balances only change on a confirmed snapshot, deposit/withdrawal,
+    manual correction or scheduled interest payout. Returning those points
+    (rather than an expensive row for every calendar day) lets chart clients
+    carry the balance forward between changes.
+    """
+    accounts = savings_accounts(conn, include_hidden=include_hidden)
+    changes: dict[str, Decimal] = {}
+    today = date.today().isoformat()
+
+    for account in accounts:
+        account_id = account["id"]
+        snapshot = conn.execute(
+            "SELECT balance_eur, date FROM balance_snapshots "
+            "WHERE account_id=? AND date<=? ORDER BY date DESC, id DESC LIMIT 1",
+            (account_id, today),
+        ).fetchone()
+        if snapshot:
+            changes[snapshot["date"]] = changes.get(snapshot["date"], _ZERO) + _d(snapshot["balance_eur"])
+
+        overview = account_interest(conn, account_id)
+        # account_interest events start from that confirmed snapshot (or from
+        # zero when none exists), so each amount is a true delta afterwards.
+        for event in overview["events"]:
+            changes[event["date"]] = changes.get(event["date"], _ZERO) + _d(event["amount"])
+
+    if not changes:
+        return []
+
+    total = _ZERO
+    series: list[dict] = []
+    for day in sorted(changes):
+        total += changes[day]
+        series.append({"date": day, "value": total.quantize(_CENT)})
+    if series[-1]["date"] != today:
+        series.append({"date": today, "value": total.quantize(_CENT)})
+    return series

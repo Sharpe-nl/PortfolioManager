@@ -6,7 +6,8 @@ NL = {
     "nav.aria": "Hoofdnavigatie",
     "nav.dashboard": "Dashboard",
     "nav.stocks": "Aandelen",
-    "nav.holdings": "Holdings",
+    "nav.stock_dashboard": "Dashboard",
+    "nav.holdings": "Posities",
     "nav.dividends": "Dividenden",
     "nav.benchmark": "Benchmark",
     "nav.actions": "Acties",
@@ -19,6 +20,7 @@ NL = {
     "nav.menu": "Menu",
 
     # ── Range selector (dashboard/dividends/benchmark) ───────────────────
+    "range.1d": "1D",
     "range.1m": "1M",
     "range.ytd": "YTD",
     "range.1y": "1J",
@@ -43,12 +45,14 @@ NL = {
     "common.instrument": "Instrument",
     "common.none_dash": "—",
     "common.loading": "Bezig…",
+    "security.lan_mode_warning": "LAN-modus: deze verbinding is niet versleuteld. Gebruik dit alleen op een vertrouwd thuisnetwerk en stel poort 8080 nooit bloot aan internet.",
 }
 
 EN = {
     "nav.aria": "Main navigation",
     "nav.dashboard": "Dashboard",
     "nav.stocks": "Stocks",
+    "nav.stock_dashboard": "Dashboard",
     "nav.holdings": "Holdings",
     "nav.dividends": "Dividends",
     "nav.benchmark": "Benchmark",
@@ -61,6 +65,7 @@ EN = {
     "nav.logout": "Log out",
     "nav.menu": "Menu",
 
+    "range.1d": "1D",
     "range.1m": "1M",
     "range.ytd": "YTD",
     "range.1y": "1Y",
@@ -84,4 +89,5 @@ EN = {
     "common.instrument": "Instrument",
     "common.none_dash": "—",
     "common.loading": "Loading…",
+    "security.lan_mode_warning": "LAN mode: this connection is not encrypted. Use it only on a trusted home network and never expose port 8080 to the internet.",
 }
