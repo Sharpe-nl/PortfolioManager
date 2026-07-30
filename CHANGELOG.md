@@ -3,6 +3,10 @@
 All notable user-facing changes are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.1.3 — 2026-07-30
+
+First stable release of PortfolioManager.
+
 ## 0.1.0-beta.3 — 2026-07-30
 
 ### Fixed
