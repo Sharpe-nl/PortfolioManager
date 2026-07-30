@@ -4,6 +4,28 @@ PortfolioManager is a private, self-hosted wealth tracker for stocks, ETFs, cryp
 
 It is designed for a small home server: one Python process, one SQLite database, no external database service, and no frontend build step.
 
+## Quick start
+
+Choose one of these two paths before you start:
+
+| Path | Choose this when | Command |
+|---|---|---|
+| **Trusted LAN** | You want the simplest setup with a username and password, and the app stays on your private home network | `docker compose -f compose.lan.yml up -d --build` |
+| **HTTPS (recommended)** | You use a reverse proxy, a domain, or want to use a YubiKey/passkey | `docker compose up -d --build` |
+
+### Trusted LAN: the shortest route
+
+```bash
+git clone https://github.com/Sharpe-nl/PortfolioManager.git
+cd PortfolioManager
+docker compose -f compose.lan.yml up -d --build
+docker compose -f compose.lan.yml logs
+```
+
+Open `http://SERVER-IP:8080`, copy the one-time setup token from the logs and create a username and password. Next, add a broker account and import its `Account.csv` export.
+
+This intentionally uses unencrypted HTTP. Use it only on a network you trust, never expose port `8080` to the internet, and do not use it on public Wi-Fi. For HTTPS, YubiKeys/passkeys or a more detailed LXC/Proxmox installation, continue with [Deployment options](#deployment-options).
+
 ## Interface
 
 <table>
@@ -42,7 +64,7 @@ The screenshots use an isolated demo portfolio with fictitious data.
 - Savings accounts with dated deposits and withdrawals, rate history, payout frequency, optional end dates, rate tiers and manual interest corrections
 - Configurable automatic stock and crypto refresh schedule (06:00 and 18:00 by default, using server time)
 - Company, ETF and crypto logos through an optional Logo.dev publishable key; fetched assets are cached locally after the first request
-- WebAuthn/FIDO2 authentication (YubiKey-compatible)
+- Optional username/password login with rate limiting, plus WebAuthn/FIDO2 authentication (YubiKey/passkey-compatible)
 - SQLite backup download from the settings page
 - Responsive liquid-glass interface for desktop and mobile
 
@@ -89,7 +111,7 @@ cd PortfolioManager
 docker compose -f compose.lan.yml up -d --build
 ```
 
-Open `http://SERVER-IP:8080` and use the one-time setup token from `docker compose -f compose.lan.yml logs` to create a username and password. The app shows a persistent warning while LAN mode is active.
+Open `http://SERVER-IP:8080` and use the one-time setup token from `docker compose -f compose.lan.yml logs` to create a username and password. The app shows a persistent warning while LAN mode is active. This is the same route as the [Quick start](#quick-start) above.
 
 This mode uses unencrypted HTTP. Only use it on a network you trust, do not create a router port-forward for `8080`, and do not use it on public Wi-Fi. Passkeys and YubiKeys need HTTPS, so use password login in LAN mode. You can later switch to [the normal Compose configuration](#option-1-docker-compose) or the self-signed setup; both use the same `portfoliomanager-data` volume.
 
@@ -225,9 +247,9 @@ Open `https://portfolio.home:8443`. Add a local DNS entry for that hostname if n
 
 ## First run and settings
 
-1. Retrieve the one-time setup token from the application log (`docker compose logs` or `journalctl -u portfoliomanager`). Use it to register the first FIDO2/WebAuthn authenticator or to create the first username and password. To choose your own code instead, set `PM_SETUP_TOKEN` before the first start. Register a second key or password user from Settings as a backup login method.
+1. Retrieve the one-time setup token from the application log (`docker compose logs` or `journalctl -u portfoliomanager`). Use it to register the first FIDO2/WebAuthn authenticator or to create the first username and password. To choose your own code instead, set `PM_SETUP_TOKEN` before the first start. Register a second key or password user from **Settings → Security & data** as a backup login method.
 2. For stocks and ETFs, create a broker account and import DeGiro's `Account.csv` from **Stocks → Actions → Import**. Overlapping exports are safe: previously imported rows are recognized automatically.
-3. For crypto, create a Bitvavo API key with **View/read-only permissions only**. Never enable trading or withdrawals. Enter the API key and its one-time secret under **Settings → Bitvavo API**, then start the first synchronization from the Crypto page.
+3. For crypto, create a Bitvavo API key with **View/read-only permissions only**. Never enable trading or withdrawals. Add it through **Settings → Accounts → Crypto (Bitvavo)**, then start the first synchronization from the Crypto page.
 4. For savings, create an account with type **Savings**. Open its settings to add deposits or withdrawals and define the applicable interest rates, payout frequency and optional balance tiers.
 5. Use the **Show on dashboard** switch on the Stocks, Crypto and Savings pages to decide which category cards appear on the main dashboard. Savings is shown as a separate card; the combined history line contains stocks and crypto.
 6. Review the automatic refresh times in Settings. Stocks and crypto refresh at 06:00 and 18:00 by default, in the server's local time zone. The application must be running at those times.
@@ -277,6 +299,10 @@ git diff --check
 ```
 
 `AGENTS.md` documents the repository conventions for contributors and coding agents.
+
+## Documentation and support
+
+The README is the current source of truth for installation, updates and security. The detailed [LXC/Proxmox guide](deploy/install.md) covers native systemd and reverse-proxy deployments. A GitHub Wiki can later hold screenshots or provider-specific walkthroughs, but installation and security instructions should remain in this repository so they are versioned with the code.
 
 ## Project layout
 
