@@ -118,7 +118,7 @@ NL = {
     "settings.more_prefix": "… en nog {count} meer (zie",
 
     # ── JS: add-YubiKey flow ──────────────────────────────────────────
-    "settings.js_https_required": "✗ WebAuthn werkt alleen via HTTPS (of localhost).",
+    "settings.js_https_required": "✗ Een YubiKey werkt alleen via HTTPS (of localhost). Gebruik in LAN-modus de wachtwoordlogin, of schakel HTTPS in via een reverse proxy of self-signed certificaat.",
     "settings.js_connecting": "Verbinden met server…",
     "settings.js_touch_key": "Raak je YubiKey aan…",
     "settings.js_key_added": "✓ Sleutel toegevoegd. Pagina wordt vernieuwd…",
@@ -234,7 +234,7 @@ EN = {
     "settings.unmapped_intro2": "for an overview table, or click on an instrument below.",
     "settings.more_prefix": "… and {count} more (see",
 
-    "settings.js_https_required": "✗ WebAuthn only works over HTTPS (or localhost).",
+    "settings.js_https_required": "✗ A YubiKey only works over HTTPS (or localhost). In LAN mode, use password login or enable HTTPS with a reverse proxy or self-signed certificate.",
     "settings.js_connecting": "Connecting to server…",
     "settings.js_touch_key": "Touch your YubiKey…",
     "settings.js_key_added": "✓ Key added. Reloading page…",

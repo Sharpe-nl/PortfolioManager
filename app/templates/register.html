@@ -136,7 +136,9 @@ async function doRegister() {
     setTimeout(() => window.location.href = '/auth/login', 1500);
 
   } catch (err) {
-    status.textContent = I18N.errorPrefix + err.message;
+    status.textContent = err?.name === 'SecurityError' || /insecure/i.test(err?.message || '')
+      ? I18N.httpsRequired.replace(/<[^>]+>/g, ' ')
+      : I18N.errorPrefix + err.message;
     btn.disabled = false;
   }
 }

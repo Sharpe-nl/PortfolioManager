@@ -453,7 +453,9 @@ async function addYubikey() {
     setTimeout(() => window.location.reload(), 1000);
   } catch (err) {
     status.className = 'status-msg error';
-    status.textContent = I18N.errorPrefix + err.message;
+    status.textContent = err?.name === 'SecurityError' || /insecure/i.test(err?.message || '')
+      ? I18N.httpsRequired
+      : I18N.errorPrefix + err.message;
     btn.disabled = false;
   }
 }

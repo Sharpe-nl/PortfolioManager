@@ -3,6 +3,14 @@
 All notable user-facing changes are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.1.7 — 2026-07-30
+
+### Changed
+
+- YubiKey registration now explains the HTTPS requirement and password-login
+  alternative instead of exposing a browser's technical insecure-operation
+  error in LAN mode.
+
 ## 0.1.6 — 2026-07-30
 
 ### Changed
