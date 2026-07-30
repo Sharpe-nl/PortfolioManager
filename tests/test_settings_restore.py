@@ -8,6 +8,7 @@ import pytest
 
 from app.routers.settings import (
     _local_security_snapshot,
+    _remove_crypto_backup_data,
     _remove_local_security,
     _restore_allowed,
     _restore_local_security,
@@ -93,3 +94,26 @@ def test_security_data_is_removed_from_export_copy(mem_db):
     assert mem_db.execute(
         "SELECT COUNT(*) FROM settings WHERE key='bitvavo_api_secret_encrypted'"
     ).fetchone()[0] == 0
+
+
+def test_crypto_data_is_removed_from_portable_backup(mem_db):
+    mem_db.execute(
+        "INSERT INTO crypto_assets(symbol, name) VALUES ('BTC', 'Bitcoin')"
+    )
+    mem_db.execute(
+        "INSERT INTO crypto_balances(symbol, available, value_eur, updated_at) VALUES ('BTC', '1', '100', '2026-01-01')"
+    )
+    mem_db.execute(
+        "INSERT INTO crypto_transactions(transaction_id, executed_at, type) VALUES ('transaction', '2026-01-01', 'buy')"
+    )
+    mem_db.execute(
+        "INSERT INTO crypto_prices(symbol, date, close_eur) VALUES ('BTC', '2026-01-01', '100')"
+    )
+    mem_db.execute(
+        "INSERT INTO crypto_portfolio_snapshots(captured_at, total_eur, crypto_eur, cash_eur) VALUES ('2026-01-01', '100', '100', '0')"
+    )
+
+    _remove_crypto_backup_data(mem_db)
+
+    for table in ("crypto_assets", "crypto_balances", "crypto_transactions", "crypto_prices", "crypto_portfolio_snapshots"):
+        assert mem_db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0

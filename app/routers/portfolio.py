@@ -192,7 +192,13 @@ async def dashboard(request: Request, conn=Depends(get_db), _=Depends(require_au
     from ..services.savings import savings_accounts, savings_value_series
 
     show_stocks = get_setting(conn, "include_stocks_in_dashboard", "1") != "0"
-    show_crypto = get_setting(conn, "include_crypto_in_dashboard", "1") != "0"
+    # Crypto is synced from Bitvavo and intentionally excluded from portable
+    # database backups. Do not render an empty crypto card after a restore;
+    # it returns automatically after a fresh synchronization.
+    has_crypto_data = conn.execute(
+        "SELECT 1 FROM crypto_balances UNION SELECT 1 FROM crypto_transactions LIMIT 1"
+    ).fetchone() is not None
+    show_crypto = get_setting(conn, "include_crypto_in_dashboard", "1") != "0" and has_crypto_data
     stock_summary = svc_portfolio.get_portfolio_summary(conn) if show_stocks else None
     crypto = crypto_overview(conn) if show_crypto else None
     dashboard_savings = savings_accounts(conn, include_hidden=False)
