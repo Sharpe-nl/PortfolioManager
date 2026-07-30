@@ -5,17 +5,16 @@
 #   bash scripts/deploy_to_server.sh [server]
 #
 # Voorbeelden:
-#   bash scripts/deploy_to_server.sh                     # gebruikt PM_SERVER uit omgeving of standaard
-#   bash scripts/deploy_to_server.sh root@192.168.1.100
+#   bash scripts/deploy_to_server.sh                     # gebruikt PM_SERVER uit omgeving
+#   bash scripts/deploy_to_server.sh root@YOUR_SERVER
 #
-# Stel SERVER in als omgevingsvariabele om de standaard te overschrijven:
-#   export PM_SERVER=root@192.168.1.100
+# Stel de server in als omgevingsvariabele om het argument weg te laten:
+#   export PM_SERVER=root@YOUR_SERVER
 
 set -euo pipefail
 
 # ── Configuratie ─────────────────────────────────────────────────────────────
-DEFAULT_SERVER="${PM_SERVER:-root@192.168.1.100}"
-SERVER="${1:-$DEFAULT_SERVER}"
+SERVER="${1:-${PM_SERVER:-}}"
 REMOTE_DIR="/opt/portfoliomanager"
 LOCAL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
@@ -28,6 +27,12 @@ NC='\033[0m'
 ok()   { echo -e "${GREEN}✓${NC} $*"; }
 info() { echo -e "${YELLOW}→${NC} $*"; }
 warn() { echo -e "${RED}!${NC} $*"; }
+
+if [[ -z "$SERVER" ]]; then
+  echo "Gebruik: $0 root@YOUR_SERVER" >&2
+  echo "Of stel PM_SERVER=root@YOUR_SERVER in." >&2
+  exit 2
+fi
 
 echo ""
 echo "══════════════════════════════════════════════"
