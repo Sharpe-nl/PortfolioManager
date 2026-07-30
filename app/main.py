@@ -85,11 +85,13 @@ def _session_secret() -> str:
 
 import os as _os
 _https_only = _os.getenv("PM_HTTPS_ONLY", "true").lower() != "false"
+_lan_mode = _os.getenv("PM_LAN_MODE", "").lower() in {"1", "true", "yes"}
+app.state.lan_mode = _lan_mode and not _https_only
 
 app.add_middleware(
     SessionMiddleware,
     secret_key=_session_secret(),
-    https_only=_https_only,   # set PM_HTTPS_ONLY=false for local dev over HTTP
+    https_only=_https_only,
     same_site="strict",
     session_cookie="pm_session",
     max_age=86400 * 7,  # 7 days

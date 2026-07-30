@@ -10,6 +10,7 @@
   <script>(function(){ var t=localStorage.getItem('pm-theme')||'dark'; document.documentElement.setAttribute('data-theme',t); })();</script>
 </head>
 <body class="auth-page">
+{% if lan_mode() %}<div class="lan-mode-banner" role="alert">{{ t(request, 'security.lan_mode_warning') }}</div>{% endif %}
 <main class="auth-card">
   <h1>PortfolioManager</h1>
   <h2>{{ t(request, 'auth.register_heading') }}</h2>

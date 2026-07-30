@@ -45,6 +45,7 @@ NL = {
     "common.instrument": "Instrument",
     "common.none_dash": "—",
     "common.loading": "Bezig…",
+    "security.lan_mode_warning": "LAN-modus: deze verbinding is niet versleuteld. Gebruik dit alleen op een vertrouwd thuisnetwerk en stel poort 8080 nooit bloot aan internet.",
 }
 
 EN = {
@@ -88,4 +89,5 @@ EN = {
     "common.instrument": "Instrument",
     "common.none_dash": "—",
     "common.loading": "Loading…",
+    "security.lan_mode_warning": "LAN mode: this connection is not encrypted. Use it only on a trusted home network and never expose port 8080 to the internet.",
 }

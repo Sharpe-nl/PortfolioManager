@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 from typing import Any
@@ -41,6 +42,17 @@ class PortfolioTemplates(Jinja2Templates):
 
 
 templates = PortfolioTemplates(directory=str(_TEMPLATE_DIR))
+
+
+def lan_mode_enabled() -> bool:
+    """Whether the explicit, HTTP-only home-network mode is active."""
+    return (
+        os.getenv("PM_LAN_MODE", "").lower() in {"1", "true", "yes"}
+        and os.getenv("PM_HTTPS_ONLY", "true").lower() == "false"
+    )
+
+
+templates.env.globals["lan_mode"] = lan_mode_enabled
 
 
 # ---------------------------------------------------------------------------

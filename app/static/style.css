@@ -1435,6 +1435,18 @@ td.num, th.num {
 .notice.warning { border-color: var(--warn); background: var(--warn-bg); }
 .notice.error   { border-color: var(--red); background: var(--red-bg); }
 
+.lan-mode-banner {
+  position: sticky;
+  top: 0;
+  z-index: 150;
+  padding: .48rem max(1rem, calc((100vw - 1400px) / 2));
+  border-bottom: 1px solid var(--warn);
+  background: color-mix(in srgb, var(--warn-bg) 90%, var(--surface));
+  color: var(--text);
+  font-size: .76rem;
+  text-align: center;
+}
+
 /* ── 20. Price staleness badge ───────────────────────────────────────────── */
 .price-badge {
   display: inline-flex;

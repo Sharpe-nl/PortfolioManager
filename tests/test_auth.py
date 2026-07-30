@@ -11,6 +11,7 @@ from app.auth import (
     verify_initial_setup_token,
     verify_local_credential,
 )
+from app.helpers import lan_mode_enabled
 
 
 def test_generated_setup_token_is_required_and_one_time(mem_db, monkeypatch):
@@ -52,3 +53,12 @@ def test_local_password_rejects_weak_password_and_invalid_username(mem_db):
         add_local_credential(mem_db, "owner", "short")
     with pytest.raises(ValueError):
         add_local_credential(mem_db, "has space", "a long, unique test password")
+
+
+def test_lan_mode_requires_explicit_http_opt_in(monkeypatch):
+    monkeypatch.setenv("PM_LAN_MODE", "true")
+    monkeypatch.setenv("PM_HTTPS_ONLY", "false")
+    assert lan_mode_enabled()
+
+    monkeypatch.setenv("PM_HTTPS_ONLY", "true")
+    assert not lan_mode_enabled()

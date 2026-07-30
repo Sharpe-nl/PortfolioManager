@@ -49,7 +49,7 @@ The screenshots use an isolated demo portfolio with fictitious data.
 ## Requirements
 
 - A modern browser
-- HTTPS and a stable hostname for WebAuthn in production
+- HTTPS and a stable hostname for WebAuthn in production (or the LAN mode below when using password login only)
 - Outbound internet access for market prices, Bitvavo synchronization and optional Logo.dev images
 - One of the deployment options below
 
@@ -60,6 +60,7 @@ The app stores all persistent state in `data/portfolio.db`. Do not commit or sha
 | Option | Best for | Notes |
 |---|---|---|
 | Docker Compose | Most home servers | Easiest upgrades and a persistent named volume |
+| Docker Compose LAN mode | A trusted home network with password login | One command; HTTP only, never expose it to the internet |
 | Docker CLI | Existing Docker setup | Use your own reverse proxy and bind mount |
 | Native systemd in an LXC | Proxmox users | Small footprint and straightforward backups |
 | Direct Python | Development or a trusted LAN | Not recommended for public exposure |
@@ -75,6 +76,20 @@ In production, place the application behind a reverse proxy such as Caddy, Nginx
 | Self-signed certificate | A private LAN, one or a few devices, and no proxy | Fast to start, but every device must trust or accept the certificate |
 
 For most home servers, use your existing Nginx Proxy Manager/nginx setup. A self-signed certificate is simpler on the server, but the browser warning and device trust step make it less convenient in daily use.
+
+### Simple LAN mode (password login)
+
+For a private home network, without a reverse proxy or certificates, use the dedicated LAN configuration:
+
+```bash
+git clone https://github.com/Sharpe-nl/PortfolioManager.git
+cd PortfolioManager
+docker compose -f compose.lan.yml up -d --build
+```
+
+Open `http://SERVER-IP:8080` and use the one-time setup token from `docker compose -f compose.lan.yml logs` to create a username and password. The app shows a persistent warning while LAN mode is active.
+
+This mode uses unencrypted HTTP. Only use it on a network you trust, do not create a router port-forward for `8080`, and do not use it on public Wi-Fi. Passkeys and YubiKeys need HTTPS, so use password login in LAN mode. You can later switch to [the normal Compose configuration](#option-1-docker-compose) or the self-signed setup; both use the same `portfoliomanager-data` volume.
 
 ## Option 1: Docker Compose
 
@@ -208,7 +223,7 @@ Open `https://portfolio.home:8443`. Add a local DNS entry for that hostname if n
 
 ## First run and settings
 
-1. Retrieve the one-time setup token from the application log (`docker compose logs` or `journalctl -u portfoliomanager`). Enter it when registering the first FIDO2/WebAuthn authenticator. To choose your own code instead, set `PM_SETUP_TOKEN` before the first start. Register a second key from Settings when possible, so you have a backup login method.
+1. Retrieve the one-time setup token from the application log (`docker compose logs` or `journalctl -u portfoliomanager`). Use it to register the first FIDO2/WebAuthn authenticator or to create the first username and password. To choose your own code instead, set `PM_SETUP_TOKEN` before the first start. Register a second key or password user from Settings as a backup login method.
 2. For stocks and ETFs, create a broker account and import DeGiro's `Account.csv` from **Stocks → Actions → Import**. Overlapping exports are safe: previously imported rows are recognized automatically.
 3. For crypto, create a Bitvavo API key with **View/read-only permissions only**. Never enable trading or withdrawals. Enter the API key and its one-time secret under **Settings → Bitvavo API**, then start the first synchronization from the Crypto page.
 4. For savings, create an account with type **Savings**. Open its settings to add deposits or withdrawals and define the applicable interest rates, payout frequency and optional balance tiers.
