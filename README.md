@@ -55,6 +55,8 @@ The screenshots use an isolated demo portfolio with fictitious data.
 
 The app stores all persistent state in `data/portfolio.db`. Do not commit or share this file: it contains portfolio data, the generated session secret, WebAuthn credentials, and encrypted external-service credentials. The generated encryption key is stored separately as `data/.credential_key`; keep it private as well.
 
+See [SECURITY.md](SECURITY.md) for deployment hardening and private vulnerability reporting.
+
 ## Deployment options
 
 | Option | Best for | Notes |
