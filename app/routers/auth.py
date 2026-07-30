@@ -25,6 +25,7 @@ from ..auth import (
     begin_authentication,
     begin_registration,
     add_local_credential,
+    clear_password_login_failures,
     complete_initial_setup,
     delete_credential,
     finish_authentication,
@@ -33,6 +34,8 @@ from ..auth import (
     has_credentials,
     has_local_credentials,
     has_any_credentials,
+    password_login_is_limited,
+    record_password_login_failure,
     set_local_password,
     verify_local_credential,
     verify_initial_setup_token,
@@ -148,9 +151,14 @@ async def password_login(
     password: str = Form(""),
     conn=Depends(get_db),
 ):
+    client_ip = request.client.host if request.client else "unknown"
+    if password_login_is_limited(client_ip, username):
+        return RedirectResponse(url="/auth/login?password_error=rate_limited", status_code=303)
     if verify_local_credential(conn, username, password):
+        clear_password_login_failures(client_ip, username)
         request.session["authenticated"] = True
         return RedirectResponse(url="/", status_code=303)
+    record_password_login_failure(client_ip, username)
     return RedirectResponse(url="/auth/login?password_error=1", status_code=303)
 
 

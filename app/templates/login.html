@@ -16,7 +16,8 @@
   <h2>{{ t(request, 'auth.login_heading') }}</h2>
   {% if webauthn_available %}<p>{{ t(request, 'auth.login_instructions') }}</p>{% endif %}
 
-  {% if request.query_params.get('password_error') %}<div class="notice error">{{ t(request, 'auth.password_error') }}</div>{% endif %}
+  {% if request.query_params.get('password_error') == 'rate_limited' %}<div class="notice error">{{ t(request, 'auth.password_rate_limited') }}</div>
+  {% elif request.query_params.get('password_error') %}<div class="notice error">{{ t(request, 'auth.password_error') }}</div>{% endif %}
   {% if request.query_params.get('password_setup') %}<div class="notice success">{{ t(request, 'auth.password_setup_success') }}</div>{% endif %}
 
   <div id="status" class="status-msg" hidden></div>
