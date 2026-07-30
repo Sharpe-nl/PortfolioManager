@@ -1,6 +1,6 @@
 # PortfolioManager
 
-PortfolioManager is a private, self-hosted wealth tracker for stocks, ETFs, crypto and savings. It imports DeGiro account exports, synchronizes a read-only Bitvavo account, calculates savings interest and brings the enabled categories together on one dashboard. Access is protected with WebAuthn/FIDO2 security keys.
+PortfolioManager is a private, self-hosted wealth tracker for stocks, ETFs, crypto and savings. It imports DeGiro account exports, synchronizes a read-only Bitvavo account, calculates savings interest and brings the enabled categories together on one dashboard. Sign in with a password or a WebAuthn/FIDO2 security key.
 
 It is designed for a small home server: one Python process, one SQLite database, no external database service, and no frontend build step.
 
@@ -55,9 +55,9 @@ The screenshots use an isolated demo portfolio with fictitious data.
 ## Features
 
 - A configurable main dashboard with separate stock, crypto and savings cards
-- A combined stock-and-crypto history chart with 1M, YTD, 1Y, custom and all-time ranges
+- A configurable history chart for stocks, crypto and optional savings, with 1D, 1M, YTD, 1Y, custom and all-time ranges
 - DeGiro `Account.csv` imports with drag and drop, a built-in export guide and safe overlapping re-imports
-- Manual broker, pension, savings and other accounts
+- Broker, pension, savings and Bitvavo crypto accounts
 - Stock and ETF holdings, value history, realised/unrealised P&L, dividends, actions and benchmark comparison
 - Allocation by sector, continent and asset type, including manual ETF country weights
 - Read-only Bitvavo integration with crypto balances, deposits, activity, historical EUR valuation and staking/lending income
@@ -87,7 +87,6 @@ See [SECURITY.md](SECURITY.md) for deployment hardening and private vulnerabilit
 | Docker Compose LAN mode | A trusted home network with password login | One command; HTTP only, never expose it to the internet |
 | Docker CLI | Existing Docker setup | Use your own reverse proxy and bind mount |
 | Native systemd in an LXC | Proxmox users | Small footprint and straightforward backups |
-| Direct Python | Development or a trusted LAN | Not recommended for public exposure |
 
 In production, place the application behind a reverse proxy such as Caddy, Nginx Proxy Manager, Traefik, or nginx. Terminate TLS there and forward requests to the application. Do not expose the internal HTTP port directly to the internet.
 
@@ -129,7 +128,7 @@ Useful commands:
 
 ```bash
 docker compose logs -f
-docker compose pull
+git pull
 docker compose up -d --build
 docker compose down                 # keeps the data volume
 ```
@@ -196,19 +195,6 @@ The updater verifies the official repository, requires a clean `main` checkout,
 and keeps code and deploy scripts root-owned. Docker installations should use
 their normal image update procedure instead.
 
-## Option 4: Direct Python for development
-
-```bash
-python3 -m venv .venv
-. .venv/bin/activate
-pip install -r requirements.txt
-
-# WebAuthn permits HTTP on localhost only.
-PM_HTTPS_ONLY=false uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-```
-
-Open <http://127.0.0.1:8000>. Do not use this mode as an internet-facing production server.
-
 ## Reverse proxy and WebAuthn
 
 WebAuthn needs a secure browser context. Use HTTPS in production and always access the application by the same hostname used when registering your security key.
@@ -221,7 +207,7 @@ proxy_set_header X-Forwarded-Proto $scheme;
 proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 ```
 
-Keep `PM_HTTPS_ONLY=true` behind HTTPS. Set it to `false` only for local HTTP development.
+Keep `PM_HTTPS_ONLY=true` behind HTTPS. Use the dedicated `compose.lan.yml` configuration only when you explicitly choose trusted-LAN HTTP mode.
 
 ## Self-signed TLS without a reverse proxy
 
@@ -251,7 +237,7 @@ Open `https://portfolio.home:8443`. Add a local DNS entry for that hostname if n
 2. For stocks and ETFs, create a broker account and import DeGiro's `Account.csv` from **Stocks → Actions → Import**. Overlapping exports are safe: previously imported rows are recognized automatically.
 3. For crypto, create a Bitvavo API key with **View/read-only permissions only**. Never enable trading or withdrawals. Add it through **Settings → Accounts → Crypto (Bitvavo)**, then start the first synchronization from the Crypto page.
 4. For savings, create an account with type **Savings**. Open its settings to add deposits or withdrawals and define the applicable interest rates, payout frequency and optional balance tiers.
-5. Use the **Show on dashboard** switch on the Stocks, Crypto and Savings pages to decide which category cards appear on the main dashboard. Savings is shown as a separate card; the combined history line contains stocks and crypto.
+5. Use **Settings → Show on dashboard** to choose which stock, crypto and savings cards appear on the main dashboard. On the dashboard chart you can toggle the category series; savings starts disabled there by default.
 6. Review the automatic refresh schedule in Settings. Stocks and crypto refresh at 06:00 and 18:00 by default in the configurable `Europe/Amsterdam` time zone. The application must be running at those times.
 7. Optionally add a Logo.dev **publishable** key under **Settings → Company logo API keys**. Without one, the interface falls back to initials.
 8. Download a backup from Settings after the first successful import or synchronization.
@@ -261,7 +247,7 @@ Open `https://portfolio.home:8443`. Add a local DNS entry for that hostname if n
 - **Stocks** are calculated only from broker-account transactions, cash events and market prices. Crypto and savings deposits do not affect stock performance.
 - **Crypto unrealised result** is the current Bitvavo account value minus net EUR deposits. Staking and lending rewards are reported separately using their historical EUR value when available.
 - **Savings growth** contains calculated and manually corrected interest. Deposits and withdrawals change the balance but are not treated as investment growth.
-- **Main dashboard total value** adds all enabled category values. Its result adds stock performance, crypto unrealised result and savings interest, while its chart deliberately combines only stock and crypto history.
+- **Main dashboard total value** adds all enabled category values. Its result adds stock performance, crypto unrealised result and savings interest. In the chart, savings is available as an optional series and is off by default.
 
 ### Automatic refresh
 
@@ -288,17 +274,7 @@ sudo -u service_portfolio_manager .venv/bin/pip install -r requirements.txt
 systemctl restart portfoliomanager
 ```
 
-For Docker, rebuild and recreate the container with `docker compose up -d --build`. Database migrations run automatically at application startup.
-
-## Tests and development
-
-```bash
-python -m pytest
-python -m py_compile app/main.py app/routers/portfolio.py app/routers/crypto.py app/routers/savings.py
-git diff --check
-```
-
-`AGENTS.md` documents the repository conventions for contributors and coding agents.
+For Docker, pull the latest source and rebuild the container with `git pull` followed by `docker compose up -d --build`. In trusted LAN mode, add `-f compose.lan.yml` to the Compose command. Database migrations run automatically at application startup.
 
 ## Documentation and support
 
@@ -309,7 +285,6 @@ The README is the current source of truth for installation, updates and security
 ```text
 app/          FastAPI application, templates, static assets and services
 migrations/   Ordered SQLite migrations, applied automatically at startup
-tests/        Unit tests and CSV fixtures
 deploy/       systemd unit and detailed LXC deployment guide
 scripts/      Deployment and maintenance utilities
 data/         Local SQLite database (ignored by Git)
@@ -317,9 +292,9 @@ data/         Local SQLite database (ignored by Git)
 
 ## License
 
-Copyright © 2026 Sharpe-nl. All rights reserved.
+Copyright © 2026 Ruben M. All rights reserved.
 
 PortfolioManager is available for personal, non-commercial use under the
 [PortfolioManager Personal Use License](LICENSE). Ownership and all
-intellectual-property rights remain with Sharpe-nl; redistribution, resale,
+intellectual-property rights remain with the copyright holder; redistribution, resale,
 sublicensing, and commercial use require prior written permission.
