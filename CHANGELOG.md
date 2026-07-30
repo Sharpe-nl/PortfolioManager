@@ -3,6 +3,13 @@
 All notable user-facing changes are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.1.6 — 2026-07-30
+
+### Changed
+
+- Settings now shows an available application update as a red attention notice
+  instead of a green success message.
+
 ## 0.1.5 — 2026-07-30
 
 ### Changed

@@ -181,7 +181,7 @@ systemctl enable --now portfoliomanager
 
 The service listens on port `8443`. Configure the reverse proxy to reach the LXC IP on that port and forward `Host` and `X-Forwarded-Proto` headers. See [deploy/install.md](deploy/install.md) for a more detailed LXC and proxy guide.
 
-PortfolioManager follows semantic versions. The current stable release is `0.1.5`; see [CHANGELOG.md](CHANGELOG.md) for release notes.
+PortfolioManager follows semantic versions. The current stable release is `0.1.6`; see [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ### Optional updates from Settings
 

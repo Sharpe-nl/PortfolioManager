@@ -110,7 +110,7 @@
     </form>
   </div>
   {% if request.query_params.get('update') == 'available' %}
-  <div class="notice success">{{ t(request, 'settings.update_available', version=request.query_params.get('latest')) }}</div>
+  <div class="notice error">{{ t(request, 'settings.update_available', version=request.query_params.get('latest')) }}</div>
   <div class="update-settings-row">
     {% if self_update_enabled %}
     <form method="post" action="/settings/install-update"
