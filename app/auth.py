@@ -49,7 +49,7 @@ _PASSWORD_LOGIN_MAX_FAILURES = 5
 _PASSWORD_LOGIN_WINDOW_SECONDS = 15 * 60
 _PASSWORD_LOGIN_LOCKOUT_SECONDS = 15 * 60
 _PASSWORD_LOGIN_ATTEMPT_LIMIT = 10_000
-_password_login_attempts: dict[tuple[str, str], tuple[int, float, float]] = {}
+_password_login_attempts: dict[str, tuple[int, float, float]] = {}
 _password_login_lock = threading.Lock()
 
 
@@ -137,20 +137,21 @@ def verify_local_credential(conn: sqlite3.Connection, username: str, password: s
         return False
 
 
-def _password_login_attempt_key(client_ip: str, username: str) -> tuple[str, str]:
+def _password_login_attempt_key(client_ip: str) -> str:
     """Create a bounded key without retaining a password or full request data."""
-    return (client_ip.strip()[:64], username.strip().casefold()[:64])
+    return client_ip.strip()[:64]
 
 
-def password_login_is_limited(client_ip: str, username: str, now: float | None = None) -> bool:
+def password_login_is_limited(client_ip: str, now: float | None = None) -> bool:
     """Return whether the password login is temporarily blocked.
 
-    This lightweight in-memory guard is deliberately keyed by both client IP
-    and username. It complements scrypt's work factor without persisting
-    authentication-attempt data in the portfolio database.
+    This lightweight in-memory guard is deliberately keyed only by client IP,
+    so an attacker cannot lock a chosen username. It complements scrypt's work
+    factor without persisting authentication-attempt data in the portfolio
+    database.
     """
     current = time.monotonic() if now is None else now
-    key = _password_login_attempt_key(client_ip, username)
+    key = _password_login_attempt_key(client_ip)
     with _password_login_lock:
         state = _password_login_attempts.get(key)
         if state is None:
@@ -163,10 +164,10 @@ def password_login_is_limited(client_ip: str, username: str, now: float | None =
     return False
 
 
-def record_password_login_failure(client_ip: str, username: str, now: float | None = None) -> None:
+def record_password_login_failure(client_ip: str, now: float | None = None) -> None:
     """Record a failed password login and block repeated attempts temporarily."""
     current = time.monotonic() if now is None else now
-    key = _password_login_attempt_key(client_ip, username)
+    key = _password_login_attempt_key(client_ip)
     with _password_login_lock:
         state = _password_login_attempts.get(key)
         if state is None or state[1] + _PASSWORD_LOGIN_WINDOW_SECONDS <= current:
@@ -184,10 +185,10 @@ def record_password_login_failure(client_ip: str, username: str, now: float | No
         _password_login_attempts[key] = (failures, first_failure, blocked_until)
 
 
-def clear_password_login_failures(client_ip: str, username: str) -> None:
+def clear_password_login_failures(client_ip: str) -> None:
     """Forget failed-attempt state after a successful password login."""
     with _password_login_lock:
-        _password_login_attempts.pop(_password_login_attempt_key(client_ip, username), None)
+        _password_login_attempts.pop(_password_login_attempt_key(client_ip), None)
 
 
 def _token_digest(token: str) -> str:

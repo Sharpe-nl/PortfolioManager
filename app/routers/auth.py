@@ -152,13 +152,13 @@ async def password_login(
     conn=Depends(get_db),
 ):
     client_ip = request.client.host if request.client else "unknown"
-    if password_login_is_limited(client_ip, username):
+    if password_login_is_limited(client_ip):
         return RedirectResponse(url="/auth/login?password_error=rate_limited", status_code=303)
     if verify_local_credential(conn, username, password):
-        clear_password_login_failures(client_ip, username)
+        clear_password_login_failures(client_ip)
         request.session["authenticated"] = True
         return RedirectResponse(url="/", status_code=303)
-    record_password_login_failure(client_ip, username)
+    record_password_login_failure(client_ip)
     return RedirectResponse(url="/auth/login?password_error=1", status_code=303)
 
 
