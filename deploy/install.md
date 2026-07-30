@@ -17,7 +17,7 @@ Cores:    1
 Memory:   1024 MB
 Swap:     512 MB
 Disk:     8 GB
-Network:  static IP, e.g. 192.168.1.100
+Network:  static IP for your home network
 Hostname: portfoliomanager
 ```
 
@@ -75,7 +75,7 @@ In **Nginx Proxy Manager**, create a new Proxy Host:
 |-------|-------|
 | Domain name | e.g. `portfolio.lan` or the IP/hostname you use |
 | Scheme | `http` |
-| Forward Hostname / IP | LXC IP, e.g. `192.168.1.100` |
+| Forward Hostname / IP | Your LXC IP or hostname |
 | Forward Port | `8443` |
 | SSL | your signed certificate (Let's Encrypt or uploaded) |
 | Force SSL | ✓ enabled |
@@ -207,7 +207,7 @@ survive LXC deletion.
 
 ```bash
 # Set the server address once (or add it to your shell profile)
-export PM_SERVER=root@192.168.1.100
+export PM_SERVER=root@YOUR_SERVER
 
 # Copy code and restart the service
 bash scripts/deploy_to_server.sh
