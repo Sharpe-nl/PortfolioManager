@@ -3,6 +3,14 @@
 All notable user-facing changes are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.1.5 — 2026-07-30
+
+### Changed
+
+- The initial password-login button activates as soon as the required values
+  are valid and match. The YubiKey registration control now uses the compact,
+  subtle button treatment used elsewhere in the interface.
+
 ## 0.1.4 — 2026-07-30
 
 ### Fixed

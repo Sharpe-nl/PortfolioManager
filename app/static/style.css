@@ -1529,6 +1529,13 @@ body.auth-page {
 
 .auth-card .auth-password-form label { margin: 0; }
 
+.auth-card .auth-key-register {
+  width: auto;
+  min-width: 0;
+  margin: .25rem auto .75rem;
+  padding: .38rem .78rem;
+}
+
 /* Password fields need a readable vertical rhythm in the settings drawer. */
 .settings-inline-form.password-fields-form {
   display: grid;

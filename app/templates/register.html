@@ -24,7 +24,7 @@
 
   <div id="status" class="status-msg" hidden></div>
 
-  <button id="register-btn" onclick="doRegister()">
+  <button id="register-btn" type="button" class="outline secondary btn-sm auth-key-register" onclick="doRegister()">
     {{ t(request, 'auth.register_button') }}
   </button>
 
@@ -37,13 +37,13 @@
   <h3>{{ t(request, 'auth.password_setup_heading') }}</h3>
   {% if request.query_params.get('password_error') == 'mismatch' %}<div class="notice error">{{ t(request, 'auth.password_setup_mismatch') }}</div>
   {% elif request.query_params.get('password_error') %}<div class="notice error">{{ t(request, 'auth.password_setup_invalid') }}</div>{% endif %}
-  <form method="post" action="/auth/register/password" class="auth-password-form">
+  <form id="password-setup-form" method="post" action="/auth/register/password" class="auth-password-form">
     <label>{{ t(request, 'auth.setup_token_label') }}<input name="setup_token" type="password" autocomplete="one-time-code" required></label>
-    <label>{{ t(request, 'auth.username') }}<input name="username" autocomplete="username" required></label>
+    <label>{{ t(request, 'auth.username') }}<input name="username" autocomplete="username" minlength="3" maxlength="64" pattern="\S+" required></label>
     <label>{{ t(request, 'auth.password') }}<input name="password" type="password" autocomplete="new-password" minlength="12" required></label>
     <label>{{ t(request, 'auth.password_confirm') }}<input name="confirm_password" type="password" autocomplete="new-password" minlength="12" required></label>
     <small>{{ t(request, 'auth.password_minimum') }}</small>
-    <button type="submit" class="outline secondary">{{ t(request, 'auth.password_setup_button') }}</button>
+    <button type="submit" disabled>{{ t(request, 'auth.password_setup_button') }}</button>
   </form>
 </main>
 
@@ -57,6 +57,16 @@ const I18N = {
   errorPrefix: {{ t(request, 'auth.error_prefix') | tojson }},
   setupTokenRequired: {{ t(request, 'auth.setup_token_required') | tojson }},
 };
+const passwordSetupForm = document.getElementById('password-setup-form');
+const passwordSetupButton = passwordSetupForm.querySelector('button[type="submit"]');
+function updatePasswordSetupButton() {
+  const password = passwordSetupForm.elements.password.value;
+  const confirmation = passwordSetupForm.elements.confirm_password.value;
+  passwordSetupButton.disabled = !passwordSetupForm.checkValidity() || password !== confirmation;
+}
+passwordSetupForm.addEventListener('input', updatePasswordSetupButton);
+updatePasswordSetupButton();
+
 async function doRegister() {
   const btn = document.getElementById('register-btn');
   const status = document.getElementById('status');
