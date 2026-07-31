@@ -10,28 +10,36 @@
   <script>(function(){ var t=localStorage.getItem('pm-theme')||'dark'; document.documentElement.setAttribute('data-theme',t); })();</script>
 </head>
 <body class="auth-page">
-{% if lan_mode() %}<div id="lan-mode-banner" class="lan-mode-banner" role="alert"><span>{{ t(request, 'security.lan_mode_warning') }}</span><button type="button" onclick="hideLanModeWarning()">{{ t(request, 'common.hide') }}</button></div>{% endif %}
+{% if lan_mode() %}<div id="lan-mode-banner" class="lan-mode-banner" role="alert" data-hide-title="{{ t(request, 'security.lan_hide_title') }}" data-hide-description="{{ t(request, 'security.lan_hide_description') }}" data-hide-1d="{{ t(request, 'security.lan_hide_1d') }}" data-hide-1m="{{ t(request, 'security.lan_hide_1m') }}" data-hide-3m="{{ t(request, 'security.lan_hide_3m') }}" data-hide-1y="{{ t(request, 'security.lan_hide_1y') }}" data-close="{{ t(request, 'common.close') }}" data-cancel="{{ t(request, 'common.cancel') }}"><span>{{ t(request, 'security.lan_mode_warning') }}</span><button type="button" onclick="openLanModeWarningDialog()">{{ t(request, 'common.hide') }}</button></div>{% endif %}
+<div class="auth-page-controls">
+  <button class="lang-toggle" onclick="toggleLanguage()" title="{{ t(request, 'nav.lang_toggle') }}" aria-label="{{ t(request, 'nav.lang_toggle') }}">{% if get_lang(request) == 'nl' %}🇳🇱{% else %}🇬🇧{% endif %}</button>
+  <button class="theme-toggle" onclick="toggleTheme()" title="{{ t(request, 'nav.theme_toggle') }}" aria-label="{{ t(request, 'nav.theme_toggle') }}"><svg class="ui-icon theme-icon-light"><use href="/static/icons.svg#moon"></use></svg><svg class="ui-icon theme-icon-dark"><use href="/static/icons.svg#sun"></use></svg></button>
+</div>
 <main class="auth-card">
   <h1>PortfolioManager</h1>
   <h2>{{ t(request, 'auth.login_heading') }}</h2>
-  {% if webauthn_available %}<p>{{ t(request, 'auth.login_instructions') }}</p>{% endif %}
-
   {% if request.query_params.get('password_error') == 'rate_limited' %}<div class="notice error">{{ t(request, 'auth.password_rate_limited') }}</div>
   {% elif request.query_params.get('password_error') %}<div class="notice error">{{ t(request, 'auth.password_error') }}</div>{% endif %}
   {% if request.query_params.get('password_setup') %}<div class="notice success">{{ t(request, 'auth.password_setup_success') }}</div>{% endif %}
 
   <div id="status" class="status-msg" hidden></div>
 
-  {% if webauthn_available %}<button id="login-btn" onclick="doLogin()">
-    {{ t(request, 'auth.login_button') }}
-  </button>{% endif %}
+  {% set show_password_login = request.query_params.get('password_error') or request.query_params.get('password_setup') %}
+  {% if webauthn_available %}
+  <div id="webauthn-login" {% if show_password_login and password_available %}hidden{% endif %}>
+    <p>{{ t(request, 'auth.login_instructions') }}</p>
+    <button id="login-btn" type="button" onclick="doLogin()">{{ t(request, 'auth.login_button') }}</button>
+    {% if password_available %}<button type="button" class="outline secondary btn-sm auth-login-switch" onclick="showPasswordLogin()">{{ t(request, 'auth.show_password_login') }}</button>{% endif %}
+  </div>
+  {% endif %}
   {% if password_available %}
-  <form method="post" action="/auth/login/password" class="auth-password-form">
-    {% if webauthn_available %}<h3>{{ t(request, 'auth.password_login_heading') }}</h3>{% endif %}
+  <form id="password-login" method="post" action="/auth/login/password" class="auth-password-form" {% if webauthn_available and not show_password_login %}hidden{% endif %}>
     <label>{{ t(request, 'auth.username') }}<input name="username" autocomplete="username" required></label>
     <label>{{ t(request, 'auth.password') }}<input type="password" name="password" autocomplete="current-password" required></label>
     <button type="submit">{{ t(request, 'auth.password_login_button') }}</button>
+    {% if webauthn_available %}<button type="button" class="outline secondary btn-sm auth-login-switch" onclick="showYubiKeyLogin()">{{ t(request, 'auth.show_yubikey_login') }}</button>{% endif %}
   </form>
+  {% if webauthn_available %}<noscript><style>#password-login[hidden] { display: grid !important; } #webauthn-login .auth-login-switch { display: none; }</style></noscript>{% endif %}
   {% endif %}
 </main>
 
@@ -44,6 +52,18 @@ const I18N = {
   loginSuccess: {{ t(request, 'auth.login_success') | tojson }},
   errorPrefix: {{ t(request, 'auth.error_prefix') | tojson }},
 };
+function showPasswordLogin() {
+  document.getElementById('webauthn-login').hidden = true;
+  const form = document.getElementById('password-login');
+  form.hidden = false;
+  form.elements.username.focus();
+}
+function showYubiKeyLogin() {
+  document.getElementById('password-login').hidden = true;
+  const panel = document.getElementById('webauthn-login');
+  panel.hidden = false;
+  document.getElementById('login-btn').focus();
+}
 async function doLogin() {
   const btn = document.getElementById('login-btn');
   const status = document.getElementById('status');

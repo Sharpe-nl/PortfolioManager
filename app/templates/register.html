@@ -10,41 +10,51 @@
   <script>(function(){ var t=localStorage.getItem('pm-theme')||'dark'; document.documentElement.setAttribute('data-theme',t); })();</script>
 </head>
 <body class="auth-page">
-{% if lan_mode() %}<div id="lan-mode-banner" class="lan-mode-banner" role="alert"><span>{{ t(request, 'security.lan_mode_warning') }}</span><button type="button" onclick="hideLanModeWarning()">{{ t(request, 'common.hide') }}</button></div>{% endif %}
-<main class="auth-card">
+{% if lan_mode() %}<div id="lan-mode-banner" class="lan-mode-banner" role="alert" data-hide-title="{{ t(request, 'security.lan_hide_title') }}" data-hide-description="{{ t(request, 'security.lan_hide_description') }}" data-hide-1d="{{ t(request, 'security.lan_hide_1d') }}" data-hide-1m="{{ t(request, 'security.lan_hide_1m') }}" data-hide-3m="{{ t(request, 'security.lan_hide_3m') }}" data-hide-1y="{{ t(request, 'security.lan_hide_1y') }}" data-close="{{ t(request, 'common.close') }}" data-cancel="{{ t(request, 'common.cancel') }}"><span>{{ t(request, 'security.lan_mode_warning') }}</span><button type="button" onclick="openLanModeWarningDialog()">{{ t(request, 'common.hide') }}</button></div>{% endif %}
+<div class="auth-page-controls">
+  <button class="lang-toggle" onclick="toggleLanguage()" title="{{ t(request, 'nav.lang_toggle') }}" aria-label="{{ t(request, 'nav.lang_toggle') }}">{% if get_lang(request) == 'nl' %}🇳🇱{% else %}🇬🇧{% endif %}</button>
+  <button class="theme-toggle" onclick="toggleTheme()" title="{{ t(request, 'nav.theme_toggle') }}" aria-label="{{ t(request, 'nav.theme_toggle') }}"><svg class="ui-icon theme-icon-light"><use href="/static/icons.svg#moon"></use></svg><svg class="ui-icon theme-icon-dark"><use href="/static/icons.svg#sun"></use></svg></button>
+</div>
+<main class="auth-card auth-card--setup">
   <h1>PortfolioManager</h1>
   <h2>{{ t(request, 'auth.register_heading') }}</h2>
-  <p>{{ t(request, 'auth.register_instructions_line1') }}<br>
-     {{ t(request, 'auth.login_instructions') }}</p>
+  {% set show_password_setup = request.query_params.get('password_error') %}
+  <div id="webauthn-setup" class="auth-method-panel" {% if show_password_setup %}hidden{% endif %}>
+    <h3>{{ t(request, 'auth.yubikey_setup_heading') }}</h3>
+    <p>{{ t(request, 'auth.register_instructions_line1') }}<br>
+       {{ t(request, 'auth.login_instructions') }}</p>
 
-  <label for="setup-token">{{ t(request, 'auth.setup_token_label') }}
-    <input id="setup-token" type="password" autocomplete="one-time-code" required>
-  </label>
-  <small>{{ t(request, 'auth.setup_token_help') }}</small>
+    <label for="setup-token">{{ t(request, 'auth.setup_token_label') }}
+      <input id="setup-token" type="password" autocomplete="one-time-code" required>
+    </label>
+    <small>{{ t(request, 'auth.setup_token_help') }}</small>
 
-  <div id="status" class="status-msg" hidden></div>
+    <div id="status" class="status-msg" hidden></div>
 
-  <button id="register-btn" type="button" class="outline secondary btn-sm auth-key-register" onclick="doRegister()">
-    {{ t(request, 'auth.register_button') }}
-  </button>
+    <button id="register-btn" type="button" class="outline secondary btn-sm auth-key-register" onclick="doRegister()">
+      {{ t(request, 'auth.register_button') }}
+    </button>
 
-  <details>
-    <summary>{{ t(request, 'auth.no_yubikey_summary') }}</summary>
-    <p>{{ t(request, 'auth.no_yubikey_detail') }}</p>
-  </details>
+    <details>
+      <summary>{{ t(request, 'auth.no_yubikey_summary') }}</summary>
+      <p>{{ t(request, 'auth.no_yubikey_detail') }}</p>
+    </details>
+    <button type="button" class="outline secondary btn-sm auth-login-switch" onclick="showPasswordSetup()">{{ t(request, 'auth.show_password_login') }}</button>
+  </div>
 
-  <hr>
-  <h3>{{ t(request, 'auth.password_setup_heading') }}</h3>
   {% if request.query_params.get('password_error') == 'mismatch' %}<div class="notice error">{{ t(request, 'auth.password_setup_mismatch') }}</div>
   {% elif request.query_params.get('password_error') %}<div class="notice error">{{ t(request, 'auth.password_setup_invalid') }}</div>{% endif %}
-  <form id="password-setup-form" method="post" action="/auth/register/password" class="auth-password-form">
+  <form id="password-setup-form" method="post" action="/auth/register/password" class="auth-password-form auth-method-panel" {% if not show_password_setup %}hidden{% endif %}>
+    <h3>{{ t(request, 'auth.password_setup_heading') }}</h3>
     <label>{{ t(request, 'auth.setup_token_label') }}<input name="setup_token" type="password" autocomplete="one-time-code" required></label>
     <label>{{ t(request, 'auth.username') }}<input name="username" autocomplete="username" minlength="3" maxlength="64" pattern="\S+" required></label>
     <label>{{ t(request, 'auth.password') }}<input name="password" type="password" autocomplete="new-password" minlength="12" required></label>
     <label>{{ t(request, 'auth.password_confirm') }}<input name="confirm_password" type="password" autocomplete="new-password" minlength="12" required></label>
     <small>{{ t(request, 'auth.password_minimum') }}</small>
     <button type="submit" disabled>{{ t(request, 'auth.password_setup_button') }}</button>
+    <button type="button" class="outline secondary btn-sm auth-login-switch" onclick="showYubiKeySetup()">{{ t(request, 'auth.show_yubikey_login') }}</button>
   </form>
+  <noscript><style>#password-setup-form[hidden] { display: grid !important; } #webauthn-setup .auth-login-switch { display: none; }</style></noscript>
 </main>
 
 <script src="/static/app.js"></script>
@@ -66,6 +76,18 @@ function updatePasswordSetupButton() {
 }
 passwordSetupForm.addEventListener('input', updatePasswordSetupButton);
 updatePasswordSetupButton();
+function showPasswordSetup() {
+  document.getElementById('webauthn-setup').hidden = true;
+  document.getElementById('status').hidden = true;
+  passwordSetupForm.hidden = false;
+  passwordSetupForm.elements.setup_token.focus();
+}
+function showYubiKeySetup() {
+  passwordSetupForm.hidden = true;
+  const panel = document.getElementById('webauthn-setup');
+  panel.hidden = false;
+  document.getElementById('setup-token').focus();
+}
 
 async function doRegister() {
   const btn = document.getElementById('register-btn');

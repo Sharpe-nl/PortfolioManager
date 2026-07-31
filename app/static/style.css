@@ -1436,8 +1436,11 @@ td.num, th.num {
 .notice.error   { border-color: var(--red); background: var(--red-bg); }
 
 .lan-mode-banner {
-  position: sticky;
-  top: 0;
+  position: fixed;
+  top: auto;
+  bottom: 0;
+  right: 0;
+  left: 0;
   z-index: 150;
   display: flex;
   align-items: center;
@@ -1451,6 +1454,10 @@ td.num, th.num {
   text-align: center;
 }
 
+/* The banner is fixed so the warning never scrolls out of view. JavaScript
+   measures its responsive height and reserves that space for the page. */
+body.lan-mode-active { padding-bottom: var(--lan-mode-banner-height, 2.5rem); }
+
 .lan-mode-banner button {
   flex: 0 0 auto;
   width: auto;
@@ -1462,6 +1469,26 @@ td.num, th.num {
   color: inherit;
   font-size: .72rem;
 }
+
+.lan-hide-dialog article { display: flex; flex-direction: column; gap: 1rem; }
+.lan-hide-dialog article > header { margin-bottom: 0; }
+.lan-hide-dialog article > p { margin: 0; }
+.lan-hide-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
+.lan-hide-options button {
+  min-height: 2.5rem;
+  margin: 0;
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--surface-2) 78%, transparent);
+  color: var(--text) !important;
+  font-weight: 650;
+}
+.lan-hide-options button:hover,
+.lan-hide-options button:focus-visible {
+  border-color: var(--primary);
+  background: var(--primary-bg);
+  color: var(--primary) !important;
+}
+.lan-hide-dialog footer { display: flex; justify-content: flex-end; margin-top: auto; }
 
 /* ── 20. Price staleness badge ───────────────────────────────────────────── */
 .price-badge {
@@ -1491,6 +1518,21 @@ body.auth-page {
   min-height: 100vh;
 }
 
+.auth-page-controls {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 160;
+  display: flex;
+  gap: .45rem;
+}
+
+.auth-page-controls .lang-toggle,
+.auth-page-controls .theme-toggle {
+  margin: 0;
+}
+
+
 .auth-card {
   width: 100%;
   max-width: 400px;
@@ -1517,12 +1559,39 @@ body.auth-page {
 
 .auth-card p { color: var(--text-muted); font-size: 0.875rem; }
 
+.auth-card--setup {
+  max-width: 460px;
+  text-align: left;
+}
+
+.auth-card--setup > h1,
+.auth-card--setup > h2 { text-align: center; }
+
+.auth-method-panel {
+  margin-top: 1rem;
+  padding: 1.15rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-2) 62%, transparent);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+}
+
+.auth-method-panel > h3 {
+  margin: 0 0 .4rem;
+  font-size: .95rem;
+  text-align: left;
+}
+
+.auth-method-panel > p:first-of-type { margin-top: 0; }
+
 .auth-card .auth-password-form {
   display: grid;
   gap: 0.65rem;
   margin-top: 0.75rem;
   text-align: left;
 }
+
+.auth-card--setup .auth-password-form { margin-top: 1rem; }
 
 .auth-card .auth-password-form h3,
 .auth-card .auth-password-form small { text-align: center; }
@@ -1534,6 +1603,20 @@ body.auth-page {
   min-width: 0;
   margin: .25rem auto .75rem;
   padding: .38rem .78rem;
+}
+
+.auth-card .auth-login-switch {
+  display: block;
+  width: fit-content;
+  min-width: 0;
+  margin: .8rem auto 0;
+  padding: .34rem .72rem;
+}
+
+@media (max-width: 520px) {
+  .auth-page-controls { top: .65rem; right: .65rem; }
+  .auth-card--setup { padding: 4.25rem 1rem 1.25rem; }
+  .auth-method-panel { padding: 1rem; }
 }
 
 /* Password fields need a readable vertical rhythm in the settings drawer. */

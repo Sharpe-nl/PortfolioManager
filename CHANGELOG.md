@@ -3,6 +3,67 @@
 All notable user-facing changes are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.4.2 — 2026-07-31
+
+### Fixed
+
+- Restored the visible `1D`, `1M`, `3M` and `1J` labels in the LAN-warning
+  dismissal popup.
+
+## 0.4.1 — 2026-07-31
+
+### Fixed
+
+- LAN-warning duration buttons now use explicit high-contrast liquid-glass
+  styling in both light and dark themes.
+
+## 0.4.0 — 2026-07-31
+
+### Changed
+
+- The LAN-mode warning is now anchored below the screen content. Hiding it
+  opens a duration picker for one day, one month, three months or one year.
+
+## 0.3.1 — 2026-07-31
+
+### Changed
+
+- First-time setup now directs users only to the automatic one-time code in
+  the server log; the optional `PM_SETUP_TOKEN` remains documented for admins.
+
+## 0.3.0 — 2026-07-31
+
+### Added
+
+- Language and light/dark theme controls are now available before login and
+  during first-time setup.
+
+### Changed
+
+- First-time setup now separates YubiKey and password registration into clearer
+  choice panels with more visual spacing.
+
+## 0.2.2 — 2026-07-31
+
+### Fixed
+
+- The LAN-mode warning is now fixed at the top of the screen on every page,
+  while navigation and content remain correctly positioned beneath it.
+
+## 0.2.1 — 2026-07-31
+
+### Fixed
+
+- The first-time setup screen now uses the same YubiKey and password-login
+  choice as the regular login screen.
+
+## 0.2.0 — 2026-07-31
+
+### Added
+
+- The login screen now starts with YubiKey sign-in and lets users switch to a
+  username-and-password form or back again without leaving the page.
+
 ## 0.1.8 — 2026-07-30
 
 ### Changed

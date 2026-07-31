@@ -592,11 +592,72 @@ async function refreshPrices(btn) {
     setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 3000);
   }
 }
-function hideLanModeWarning() {
-  localStorage.setItem('pm-hide-lan-mode-warning', '1');
+const LAN_WARNING_HIDE_KEY = 'pm-hide-lan-mode-warning-until';
+
+function hideLanModeWarning(durationMs) {
+  localStorage.setItem(LAN_WARNING_HIDE_KEY, String(Date.now() + durationMs));
   document.getElementById('lan-mode-banner')?.setAttribute('hidden', '');
+  updateLanModeBannerOffset();
 }
 
-document.getElementById('lan-mode-banner')?.toggleAttribute(
-  'hidden', localStorage.getItem('pm-hide-lan-mode-warning') === '1'
-);
+function openLanModeWarningDialog() {
+  const banner = document.getElementById('lan-mode-banner');
+  if (!banner) return;
+  const dialog = document.createElement('dialog');
+  dialog.className = 'lan-hide-dialog';
+  const article = document.createElement('article');
+  const header = document.createElement('header');
+  const title = document.createElement('strong');
+  title.textContent = banner.dataset.hideTitle;
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.setAttribute('rel', 'prev');
+  close.setAttribute('aria-label', banner.dataset.close);
+  close.addEventListener('click', () => dialog.close());
+  header.append(title, close);
+  const description = document.createElement('p');
+  description.textContent = banner.dataset.hideDescription;
+  const options = document.createElement('div');
+  options.className = 'lan-hide-options';
+  [[86400000, 'data-hide-1d'], [2592000000, 'data-hide-1m'], [7776000000, 'data-hide-3m'], [31536000000, 'data-hide-1y']]
+    .forEach(([duration, labelAttribute]) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'outline secondary btn-sm';
+      button.textContent = banner.getAttribute(labelAttribute);
+      button.addEventListener('click', () => {
+        hideLanModeWarning(duration);
+        dialog.close();
+      });
+      options.append(button);
+    });
+  const footer = document.createElement('footer');
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'outline secondary btn-sm';
+  cancel.textContent = banner.dataset.cancel;
+  cancel.addEventListener('click', () => dialog.close());
+  footer.append(cancel);
+  article.append(header, description, options, footer);
+  dialog.append(article);
+  dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
+  dialog.addEventListener('close', () => dialog.remove());
+  document.body.append(dialog);
+  dialog.showModal();
+}
+
+function updateLanModeBannerOffset() {
+  const banner = document.getElementById('lan-mode-banner');
+  const active = Boolean(banner && !banner.hidden);
+  document.body.classList.toggle('lan-mode-active', active);
+  document.documentElement.style.setProperty(
+    '--lan-mode-banner-height', active ? `${banner.offsetHeight}px` : '0px'
+  );
+}
+
+const lanModeBanner = document.getElementById('lan-mode-banner');
+const lanWarningHiddenUntil = Number(localStorage.getItem(LAN_WARNING_HIDE_KEY) || 0);
+if (localStorage.getItem('pm-hide-lan-mode-warning') === '1') localStorage.removeItem('pm-hide-lan-mode-warning');
+lanModeBanner?.toggleAttribute('hidden', lanWarningHiddenUntil > Date.now());
+updateLanModeBannerOffset();
+window.addEventListener('resize', updateLanModeBannerOffset);
