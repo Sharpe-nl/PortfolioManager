@@ -1536,6 +1536,14 @@ body.auth-page {
   padding: .38rem .78rem;
 }
 
+.auth-card .auth-login-switch {
+  display: block;
+  width: fit-content;
+  min-width: 0;
+  margin: .8rem auto 0;
+  padding: .34rem .72rem;
+}
+
 /* Password fields need a readable vertical rhythm in the settings drawer. */
 .settings-inline-form.password-fields-form {
   display: grid;

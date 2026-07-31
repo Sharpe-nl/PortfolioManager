@@ -3,6 +3,13 @@
 All notable user-facing changes are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.2.0 — 2026-07-31
+
+### Added
+
+- The login screen now starts with YubiKey sign-in and lets users switch to a
+  username-and-password form or back again without leaving the page.
+
 ## 0.1.8 — 2026-07-30
 
 ### Changed
