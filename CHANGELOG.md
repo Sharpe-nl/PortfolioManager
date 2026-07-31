@@ -3,6 +3,18 @@
 All notable user-facing changes are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.3.0 — 2026-07-31
+
+### Added
+
+- Language and light/dark theme controls are now available before login and
+  during first-time setup.
+
+### Changed
+
+- First-time setup now separates YubiKey and password registration into clearer
+  choice panels with more visual spacing.
+
 ## 0.2.2 — 2026-07-31
 
 ### Fixed

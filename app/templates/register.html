@@ -11,11 +11,16 @@
 </head>
 <body class="auth-page">
 {% if lan_mode() %}<div id="lan-mode-banner" class="lan-mode-banner" role="alert"><span>{{ t(request, 'security.lan_mode_warning') }}</span><button type="button" onclick="hideLanModeWarning()">{{ t(request, 'common.hide') }}</button></div>{% endif %}
-<main class="auth-card">
+<div class="auth-page-controls">
+  <button class="lang-toggle" onclick="toggleLanguage()" title="{{ t(request, 'nav.lang_toggle') }}" aria-label="{{ t(request, 'nav.lang_toggle') }}">{% if get_lang(request) == 'nl' %}🇳🇱{% else %}🇬🇧{% endif %}</button>
+  <button class="theme-toggle" onclick="toggleTheme()" title="{{ t(request, 'nav.theme_toggle') }}" aria-label="{{ t(request, 'nav.theme_toggle') }}"><svg class="ui-icon theme-icon-light"><use href="/static/icons.svg#moon"></use></svg><svg class="ui-icon theme-icon-dark"><use href="/static/icons.svg#sun"></use></svg></button>
+</div>
+<main class="auth-card auth-card--setup">
   <h1>PortfolioManager</h1>
   <h2>{{ t(request, 'auth.register_heading') }}</h2>
   {% set show_password_setup = request.query_params.get('password_error') %}
-  <div id="webauthn-setup" {% if show_password_setup %}hidden{% endif %}>
+  <div id="webauthn-setup" class="auth-method-panel" {% if show_password_setup %}hidden{% endif %}>
+    <h3>{{ t(request, 'auth.yubikey_setup_heading') }}</h3>
     <p>{{ t(request, 'auth.register_instructions_line1') }}<br>
        {{ t(request, 'auth.login_instructions') }}</p>
 
@@ -39,7 +44,7 @@
 
   {% if request.query_params.get('password_error') == 'mismatch' %}<div class="notice error">{{ t(request, 'auth.password_setup_mismatch') }}</div>
   {% elif request.query_params.get('password_error') %}<div class="notice error">{{ t(request, 'auth.password_setup_invalid') }}</div>{% endif %}
-  <form id="password-setup-form" method="post" action="/auth/register/password" class="auth-password-form" {% if not show_password_setup %}hidden{% endif %}>
+  <form id="password-setup-form" method="post" action="/auth/register/password" class="auth-password-form auth-method-panel" {% if not show_password_setup %}hidden{% endif %}>
     <h3>{{ t(request, 'auth.password_setup_heading') }}</h3>
     <label>{{ t(request, 'auth.setup_token_label') }}<input name="setup_token" type="password" autocomplete="one-time-code" required></label>
     <label>{{ t(request, 'auth.username') }}<input name="username" autocomplete="username" minlength="3" maxlength="64" pattern="\S+" required></label>

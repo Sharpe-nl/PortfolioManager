@@ -1500,6 +1500,24 @@ body.auth-page {
   min-height: 100vh;
 }
 
+.auth-page-controls {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 160;
+  display: flex;
+  gap: .45rem;
+}
+
+.auth-page-controls .lang-toggle,
+.auth-page-controls .theme-toggle {
+  margin: 0;
+}
+
+body.lan-mode-active .auth-page-controls {
+  top: calc(var(--lan-mode-banner-height, 2.5rem) + 1rem);
+}
+
 .auth-card {
   width: 100%;
   max-width: 400px;
@@ -1526,12 +1544,39 @@ body.auth-page {
 
 .auth-card p { color: var(--text-muted); font-size: 0.875rem; }
 
+.auth-card--setup {
+  max-width: 460px;
+  text-align: left;
+}
+
+.auth-card--setup > h1,
+.auth-card--setup > h2 { text-align: center; }
+
+.auth-method-panel {
+  margin-top: 1rem;
+  padding: 1.15rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-2) 62%, transparent);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+}
+
+.auth-method-panel > h3 {
+  margin: 0 0 .4rem;
+  font-size: .95rem;
+  text-align: left;
+}
+
+.auth-method-panel > p:first-of-type { margin-top: 0; }
+
 .auth-card .auth-password-form {
   display: grid;
   gap: 0.65rem;
   margin-top: 0.75rem;
   text-align: left;
 }
+
+.auth-card--setup .auth-password-form { margin-top: 1rem; }
 
 .auth-card .auth-password-form h3,
 .auth-card .auth-password-form small { text-align: center; }
@@ -1551,6 +1596,13 @@ body.auth-page {
   min-width: 0;
   margin: .8rem auto 0;
   padding: .34rem .72rem;
+}
+
+@media (max-width: 520px) {
+  .auth-page-controls { top: .65rem; right: .65rem; }
+  body.lan-mode-active .auth-page-controls { top: calc(var(--lan-mode-banner-height, 2.5rem) + .65rem); }
+  .auth-card--setup { padding: 4.25rem 1rem 1.25rem; }
+  .auth-method-panel { padding: 1rem; }
 }
 
 /* Password fields need a readable vertical rhythm in the settings drawer. */

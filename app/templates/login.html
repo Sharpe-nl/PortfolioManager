@@ -11,6 +11,10 @@
 </head>
 <body class="auth-page">
 {% if lan_mode() %}<div id="lan-mode-banner" class="lan-mode-banner" role="alert"><span>{{ t(request, 'security.lan_mode_warning') }}</span><button type="button" onclick="hideLanModeWarning()">{{ t(request, 'common.hide') }}</button></div>{% endif %}
+<div class="auth-page-controls">
+  <button class="lang-toggle" onclick="toggleLanguage()" title="{{ t(request, 'nav.lang_toggle') }}" aria-label="{{ t(request, 'nav.lang_toggle') }}">{% if get_lang(request) == 'nl' %}🇳🇱{% else %}🇬🇧{% endif %}</button>
+  <button class="theme-toggle" onclick="toggleTheme()" title="{{ t(request, 'nav.theme_toggle') }}" aria-label="{{ t(request, 'nav.theme_toggle') }}"><svg class="ui-icon theme-icon-light"><use href="/static/icons.svg#moon"></use></svg><svg class="ui-icon theme-icon-dark"><use href="/static/icons.svg#sun"></use></svg></button>
+</div>
 <main class="auth-card">
   <h1>PortfolioManager</h1>
   <h2>{{ t(request, 'auth.login_heading') }}</h2>
