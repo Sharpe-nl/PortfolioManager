@@ -595,8 +595,19 @@ async function refreshPrices(btn) {
 function hideLanModeWarning() {
   localStorage.setItem('pm-hide-lan-mode-warning', '1');
   document.getElementById('lan-mode-banner')?.setAttribute('hidden', '');
+  updateLanModeBannerOffset();
 }
 
-document.getElementById('lan-mode-banner')?.toggleAttribute(
-  'hidden', localStorage.getItem('pm-hide-lan-mode-warning') === '1'
-);
+function updateLanModeBannerOffset() {
+  const banner = document.getElementById('lan-mode-banner');
+  const active = Boolean(banner && !banner.hidden);
+  document.body.classList.toggle('lan-mode-active', active);
+  document.documentElement.style.setProperty(
+    '--lan-mode-banner-height', active ? `${banner.offsetHeight}px` : '0px'
+  );
+}
+
+const lanModeBanner = document.getElementById('lan-mode-banner');
+lanModeBanner?.toggleAttribute('hidden', localStorage.getItem('pm-hide-lan-mode-warning') === '1');
+updateLanModeBannerOffset();
+window.addEventListener('resize', updateLanModeBannerOffset);

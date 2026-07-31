@@ -3,6 +3,13 @@
 All notable user-facing changes are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.2.2 — 2026-07-31
+
+### Fixed
+
+- The LAN-mode warning is now fixed at the top of the screen on every page,
+  while navigation and content remain correctly positioned beneath it.
+
 ## 0.2.1 — 2026-07-31
 
 ### Fixed

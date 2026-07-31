@@ -1436,8 +1436,10 @@ td.num, th.num {
 .notice.error   { border-color: var(--red); background: var(--red-bg); }
 
 .lan-mode-banner {
-  position: sticky;
+  position: fixed;
   top: 0;
+  right: 0;
+  left: 0;
   z-index: 150;
   display: flex;
   align-items: center;
@@ -1450,6 +1452,13 @@ td.num, th.num {
   font-size: .76rem;
   text-align: center;
 }
+
+/* The banner is fixed so the warning never scrolls out of view. JavaScript
+   measures its responsive height and reserves that space for the page. */
+body.lan-mode-active { padding-top: var(--lan-mode-banner-height, 2.5rem); }
+body.lan-mode-active .topnav,
+body.lan-mode-active .mobile-header { top: var(--lan-mode-banner-height, 2.5rem); }
+body.lan-mode-active .mobile-nav-drawer { top: calc(var(--lan-mode-banner-height, 2.5rem) + 56px); }
 
 .lan-mode-banner button {
   flex: 0 0 auto;
