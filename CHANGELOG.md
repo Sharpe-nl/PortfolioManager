@@ -3,6 +3,13 @@
 All notable user-facing changes are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.4.0 — 2026-07-31
+
+### Changed
+
+- The LAN-mode warning is now anchored below the screen content. Hiding it
+  opens a duration picker for one day, one month, three months or one year.
+
 ## 0.3.1 — 2026-07-31
 
 ### Changed
