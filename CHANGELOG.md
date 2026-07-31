@@ -3,6 +3,13 @@
 All notable user-facing changes are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.2.1 — 2026-07-31
+
+### Fixed
+
+- The first-time setup screen now uses the same YubiKey and password-login
+  choice as the regular login screen.
+
 ## 0.2.0 — 2026-07-31
 
 ### Added
