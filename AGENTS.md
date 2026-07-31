@@ -16,15 +16,20 @@
 
 ## Versioning and changelog
 
-- `VERSION` is the shipped application version and must use Semantic Versioning.
+- `VERSION` is the shipped application version and must use Semantic
+  Versioning (`MAJOR.MINOR.PATCH`).
+- Increment `MAJOR` only for intentionally incompatible changes that require
+  users to change configuration, data or workflow. Increment `MINOR` for new,
+  backwards-compatible functionality. Increment `PATCH` for backwards-compatible
+  bug fixes, security fixes and small user-visible corrections.
 - For every commit that changes user-visible behaviour, security, database
-  schema or deployment, bump `VERSION` and add a concise user-facing entry to
-  `CHANGELOG.md` in the same commit.
+  schema or deployment, choose the appropriate version increment and add
+  release notes to `CHANGELOG.md` in the same commit.
+- Release notes must be user-facing and grouped under relevant headings such
+  as `Added`, `Changed`, `Fixed`, `Security`, `Deprecated` or `Removed`. They
+  must clearly call out upgrades that require user action.
 - Do not bump the version for internal refactors, tests or documentation-only
   corrections that do not affect the shipped application.
-- While the project is in beta, use prerelease iterations such as
-  `0.1.0-beta.1`, then `0.1.0-beta.2`. A stable release removes the prerelease
-  suffix; backwards-compatible fixes increment the patch version afterwards.
 
 ## Implementation
 

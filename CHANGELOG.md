@@ -3,6 +3,13 @@
 All notable user-facing changes are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.1.8 — 2026-07-30
+
+### Changed
+
+- Portable database downloads and restores now exclude all Bitvavo-derived
+  crypto data. Reconnect Bitvavo after a restore to synchronize it again.
+
 ## 0.1.7 — 2026-07-30
 
 ### Changed

@@ -41,6 +41,10 @@ _LOCAL_ONLY_SETTING_KEYS = (
     "session_secret", "webauthn_user_handle", "webauthn_rp_id", "initial_setup_token_hash",
     "bitvavo_api_key_encrypted", "bitvavo_api_secret_encrypted",
 )
+_CRYPTO_BACKUP_TABLES = (
+    "crypto_assets", "crypto_balances", "crypto_transactions", "crypto_prices",
+    "crypto_portfolio_snapshots",
+)
 
 
 def _restore_allowed(conn) -> bool:
@@ -84,6 +88,15 @@ def _remove_local_security(conn: sqlite3.Connection) -> None:
         conn.execute(f"DELETE FROM {table}")
     placeholders = ", ".join("?" for _ in _LOCAL_ONLY_SETTING_KEYS)
     conn.execute(f"DELETE FROM settings WHERE key IN ({placeholders})", _LOCAL_ONLY_SETTING_KEYS)
+
+
+def _remove_crypto_backup_data(conn: sqlite3.Connection) -> None:
+    """Exclude Bitvavo-derived data from portable database backups."""
+    for table in _CRYPTO_BACKUP_TABLES:
+        conn.execute(f"DELETE FROM {table}")
+    conn.execute(
+        "DELETE FROM settings WHERE key IN ('bitvavo_last_sync', 'bitvavo_last_error')"
+    )
 
 
 def _restore_local_security(
@@ -263,6 +276,7 @@ async def restore_db(
         # Also protects users restoring an older backup created before
         # credentials were excluded from exports.
         _restore_local_security(conn, local_security)
+        _remove_crypto_backup_data(conn)
         conn.commit()
     except (ValueError, sqlite3.Error):
         return RedirectResponse(url="/settings?restore=invalid", status_code=303)
@@ -392,6 +406,7 @@ async def backup_db(conn=Depends(get_db), _=Depends(require_auth)):
         dest = sqlite3.connect(tmp_path)
         conn.backup(dest)
         _remove_local_security(dest)
+        _remove_crypto_backup_data(dest)
         dest.commit()
         dest.close()
         with open(tmp_path, "rb") as f:
