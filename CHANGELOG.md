@@ -3,6 +3,13 @@
 All notable user-facing changes are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.3.1 — 2026-07-31
+
+### Changed
+
+- First-time setup now directs users only to the automatic one-time code in
+  the server log; the optional `PM_SETUP_TOKEN` remains documented for admins.
+
 ## 0.3.0 — 2026-07-31
 
 ### Added
