@@ -619,12 +619,12 @@ function openLanModeWarningDialog() {
   description.textContent = banner.dataset.hideDescription;
   const options = document.createElement('div');
   options.className = 'lan-hide-options';
-  [[86400000, 'hide1d'], [2592000000, 'hide1m'], [7776000000, 'hide3m'], [31536000000, 'hide1y']]
-    .forEach(([duration, label]) => {
+  [[86400000, 'data-hide-1d'], [2592000000, 'data-hide-1m'], [7776000000, 'data-hide-3m'], [31536000000, 'data-hide-1y']]
+    .forEach(([duration, labelAttribute]) => {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'outline secondary btn-sm';
-      button.textContent = banner.dataset[label];
+      button.textContent = banner.getAttribute(labelAttribute);
       button.addEventListener('click', () => {
         hideLanModeWarning(duration);
         dialog.close();

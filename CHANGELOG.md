@@ -3,6 +3,13 @@
 All notable user-facing changes are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.4.2 — 2026-07-31
+
+### Fixed
+
+- Restored the visible `1D`, `1M`, `3M` and `1J` labels in the LAN-warning
+  dismissal popup.
+
 ## 0.4.1 — 2026-07-31
 
 ### Fixed
