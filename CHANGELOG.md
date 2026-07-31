@@ -3,6 +3,13 @@
 All notable user-facing changes are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.4.1 — 2026-07-31
+
+### Fixed
+
+- LAN-warning duration buttons now use explicit high-contrast liquid-glass
+  styling in both light and dark themes.
+
 ## 0.4.0 — 2026-07-31
 
 ### Changed
