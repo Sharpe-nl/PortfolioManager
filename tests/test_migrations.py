@@ -113,3 +113,61 @@ def test_stock_uniqueness_migration_merges_existing_duplicate(tmp_path):
         conn.execute(
             "UPDATE instruments SET asset_type='stock' WHERE name='Duplicate'"
         )
+
+
+def _database_before_transaction_repair(tmp_path):
+    conn = sqlite3.connect(tmp_path / "portfolio.db")
+    for migration in sorted(MIGRATIONS.glob("*.sql")):
+        if migration.name < "015_duplicate_transaction_series.sql":
+            conn.executescript(migration.read_text(encoding="utf-8"))
+    conn.execute("INSERT INTO accounts(id,name,type,currency) VALUES(1,'Broker','broker','EUR')")
+    conn.execute(
+        "INSERT INTO instruments(id,isin,name,trading_currency,asset_type) "
+        "VALUES(1,'NL0011872643','ASR Nederland','EUR','stock')"
+    )
+    return conn
+
+
+def test_duplicate_transaction_series_migration_repairs_doubled_history(tmp_path):
+    conn = _database_before_transaction_repair(tmp_path)
+    rows = []
+    for day, price, order_id in (
+        ("2025-01-01", "40", "order-1"),
+        ("2025-02-01", "42", "order-2"),
+    ):
+        for hash_suffix in ("old", "new"):
+            rows.append(
+                (1, 1, f"{day}T10:00:00", "1", price, "EUR", f"-{price}",
+                 "0", order_id, "degiro_account_csv", f"{order_id}-{hash_suffix}")
+            )
+    conn.executemany(
+        """INSERT INTO transactions(
+               account_id,instrument_id,ts,quantity,price,local_currency,
+               value_eur,fees_eur,order_id,source,dedup_hash
+           ) VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+        rows,
+    )
+
+    conn.executescript(
+        (MIGRATIONS / "015_duplicate_transaction_series.sql").read_text(encoding="utf-8")
+    )
+
+    assert conn.execute("SELECT COUNT(*) FROM transactions").fetchone()[0] == 2
+
+
+def test_duplicate_transaction_series_migration_keeps_isolated_equal_fills(tmp_path):
+    conn = _database_before_transaction_repair(tmp_path)
+    conn.executemany(
+        """INSERT INTO transactions(
+               account_id,instrument_id,ts,quantity,price,local_currency,
+               value_eur,fees_eur,order_id,source,dedup_hash
+           ) VALUES(1,1,'2025-01-01T10:00:00','1','40','EUR','-40','0',
+                    'order-1','degiro_account_csv',?)""",
+        [("fill-1",), ("fill-2",)],
+    )
+
+    conn.executescript(
+        (MIGRATIONS / "015_duplicate_transaction_series.sql").read_text(encoding="utf-8")
+    )
+
+    assert conn.execute("SELECT COUNT(*) FROM transactions").fetchone()[0] == 2

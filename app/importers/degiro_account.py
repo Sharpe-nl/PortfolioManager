@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import re
 import sqlite3
+from collections import Counter
 from dataclasses import dataclass, field
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Optional
@@ -31,6 +32,7 @@ from . import (
     row_hash,
 )
 from .instruments import get_or_create_isin_instrument
+from .transaction_dedup import is_duplicate_transaction
 
 # ---------------------------------------------------------------------------
 # Detection
@@ -545,6 +547,7 @@ def commit_account_events(
     """
     imported = skipped = 0
     errors: list[str] = []
+    occurrences: Counter = Counter()
 
     for txn in result.txn_rows:
         try:
@@ -553,6 +556,18 @@ def commit_account_events(
             )
             if instrument_id is None:
                 raise ValueError("transaction has no ISIN")
+            key = (
+                instrument_id, txn.order_id, txn.ts, txn.quantity,
+                txn.price, txn.local_currency,
+            )
+            occurrences[key] += 1
+            if is_duplicate_transaction(
+                conn, account_id, instrument_id, txn.order_id, txn.ts,
+                txn.quantity, txn.price, txn.local_currency,
+                dedup_hash=txn.dedup_hash, occurrence=occurrences[key],
+            ):
+                skipped += 1
+                continue
             cur = conn.execute(
                 """INSERT OR IGNORE INTO transactions
                    (account_id, instrument_id, ts, quantity, price, local_currency,

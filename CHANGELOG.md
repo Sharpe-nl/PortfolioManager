@@ -3,6 +3,14 @@
 All notable user-facing changes are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.4.4 — 2026-08-30
+
+### Fixed
+
+- Reimporting broker history no longer duplicates transactions when CSV row
+  formatting, language or balance fields change. Existing transaction series
+  that occur exactly twice throughout are reduced to one copy on upgrade.
+
 ## 0.4.3 — 2026-08-30
 
 ### Fixed
