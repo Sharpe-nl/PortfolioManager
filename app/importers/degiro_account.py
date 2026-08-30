@@ -30,6 +30,7 @@ from . import (
     read_csv_rows,
     row_hash,
 )
+from .instruments import get_or_create_isin_instrument
 
 # ---------------------------------------------------------------------------
 # Detection
@@ -527,25 +528,10 @@ def _get_instrument_id(
     name: str,
     trading_currency: str | None = None,
 ) -> int | None:
-    """Return the trade line for an ISIN and its transaction currency."""
+    """Return the appropriate trade line for an ISIN."""
     if not isin:
         return None
-    if trading_currency:
-        row = conn.execute(
-            "SELECT id FROM instruments WHERE isin=? AND trading_currency=?",
-            (isin, trading_currency),
-        ).fetchone()
-    else:
-        row = conn.execute(
-            "SELECT id FROM instruments WHERE isin=? ORDER BY id LIMIT 1", (isin,)
-        ).fetchone()
-    if row:
-        return row["id"]
-    cur = conn.execute(
-        "INSERT INTO instruments(isin, name, trading_currency) VALUES (?,?,?)",
-        (isin, name, trading_currency),
-    )
-    return cur.lastrowid  # type: ignore[return-value]
+    return get_or_create_isin_instrument(conn, isin, name, trading_currency)
 
 
 def commit_account_events(
