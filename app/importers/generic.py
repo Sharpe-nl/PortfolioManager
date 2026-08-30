@@ -17,6 +17,7 @@ from decimal import Decimal
 from typing import Optional
 
 from . import parse_decimal, read_csv_rows, row_hash
+from .instruments import get_or_create_isin_instrument
 
 GENERIC_EVENT_TYPES = {
     "dividend", "fee", "deposit", "withdrawal", "interest",
@@ -126,22 +127,9 @@ def _get_or_create_instrument(
     """Resolve an ISIN within its trading currency, then create if missing."""
     # Try ISIN lookup
     if len(isin_or_name) == 12 and isin_or_name[:2].isalpha():
-        if trading_currency:
-            row = conn.execute(
-                "SELECT id FROM instruments WHERE isin=? AND trading_currency=?",
-                (isin_or_name, trading_currency),
-            ).fetchone()
-        else:
-            row = conn.execute(
-                "SELECT id FROM instruments WHERE isin=? ORDER BY id LIMIT 1", (isin_or_name,)
-            ).fetchone()
-        if row:
-            return row["id"]
-        cur = conn.execute(
-            "INSERT INTO instruments(isin, name, trading_currency) VALUES (?,?,?)",
-            (isin_or_name, isin_or_name, trading_currency),
+        return get_or_create_isin_instrument(
+            conn, isin_or_name, isin_or_name, trading_currency
         )
-        return cur.lastrowid  # type: ignore[return-value]
     # Name lookup
     row = conn.execute(
         "SELECT id FROM instruments WHERE name=?", (isin_or_name,)

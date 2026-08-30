@@ -203,6 +203,43 @@ class TestAccountParser:
         ).fetchall()
         assert [row["trading_currency"] for row in lines] == ["EUR", "USD"]
 
+    def test_existing_stock_is_reused_when_import_currency_differs(self, mem_db):
+        mem_db.execute(
+            "INSERT INTO instruments(isin,name,trading_currency,asset_type) "
+            "VALUES('NL0011872643','ASR Nederland','EUR','stock')"
+        )
+
+        eur_id = acc_parser._get_instrument_id(
+            mem_db, "NL0011872643", "ASR Nederland", "EUR"
+        )
+        usd_id = acc_parser._get_instrument_id(
+            mem_db, "NL0011872643", "ASR Nederland", "USD"
+        )
+
+        assert usd_id == eur_id
+        assert mem_db.execute(
+            "SELECT COUNT(*) FROM instruments WHERE isin='NL0011872643'"
+        ).fetchone()[0] == 1
+
+    def test_import_claims_legacy_instrument_without_currency(self, mem_db):
+        cur = mem_db.execute(
+            "INSERT INTO instruments(isin,name,asset_type) "
+            "VALUES('NL0011872643','ASR Nederland','other')"
+        )
+
+        instrument_id = acc_parser._get_instrument_id(
+            mem_db, "NL0011872643", "ASR Nederland", "EUR"
+        )
+
+        assert instrument_id == cur.lastrowid
+        row = mem_db.execute(
+            "SELECT trading_currency FROM instruments WHERE id=?", (instrument_id,)
+        ).fetchone()
+        assert row["trading_currency"] == "EUR"
+        assert mem_db.execute(
+            "SELECT COUNT(*) FROM instruments WHERE isin='NL0011872643'"
+        ).fetchone()[0] == 1
+
     def test_reimport_idempotent(self, account_csv, mem_db):
         result = acc_parser.parse(account_csv)
         acc_parser.commit_account_events(mem_db, result, account_id=1)

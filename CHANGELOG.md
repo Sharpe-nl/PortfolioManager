@@ -3,6 +3,14 @@
 All notable user-facing changes are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.4.3 — 2026-08-30
+
+### Fixed
+
+- CSV imports no longer create a second holding for an existing stock when
+  its transaction currency differs or was previously unknown. Existing
+  duplicate stock records with the same ISIN are merged during the upgrade.
+
 ## 0.4.2 — 2026-07-31
 
 ### Fixed
