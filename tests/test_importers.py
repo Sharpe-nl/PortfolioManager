@@ -248,6 +248,45 @@ class TestAccountParser:
         # All previously imported rows should be skipped
         assert imp2 == 0
 
+    def test_reimport_with_changed_csv_representation_is_deduplicated(self, mem_db):
+        dutch = (
+            "Datum,Tijd,Valutadatum,Product,ISIN,Omschrijving,FX,Mutatie,,Saldo,,Order Id\n"
+            "01-01-2025,10:00,01-01-2025,ASR Nederland,NL0011872643,"
+            "Koop 1 @ 40 EUR,,EUR,-40,EUR,960,order-asr\n"
+        )
+        changed = dutch.replace("Koop 1", "Buy 1").replace(",960,", ",920,")
+        first = acc_parser.parse(dutch)
+        second = acc_parser.parse(changed)
+
+        imported, _, _ = acc_parser.commit_account_events(mem_db, first, account_id=1)
+        imported_again, skipped, errors = acc_parser.commit_account_events(
+            mem_db, second, account_id=1
+        )
+
+        assert imported == 1
+        assert imported_again == 0
+        assert skipped == 1
+        assert errors == []
+        assert first.txn_rows[0].dedup_hash != second.txn_rows[0].dedup_hash
+
+    def test_repeated_identical_fills_keep_their_occurrence_count(self, mem_db):
+        content = (
+            "Datum,Tijd,Valutadatum,Product,ISIN,Omschrijving,FX,Mutatie,,Saldo,,Order Id\n"
+            "01-01-2025,10:00,01-01-2025,ASR Nederland,NL0011872643,Koop 1 @ 40 EUR,,EUR,-40,EUR,960,order-asr\n"
+            "01-01-2025,10:00,01-01-2025,ASR Nederland,NL0011872643,Koop 1 @ 40 EUR,,EUR,-40,EUR,920,order-asr\n"
+        )
+        result = acc_parser.parse(content)
+
+        imported, _, _ = acc_parser.commit_account_events(mem_db, result, account_id=1)
+        imported_again, skipped, errors = acc_parser.commit_account_events(
+            mem_db, result, account_id=1
+        )
+
+        assert imported == 2
+        assert imported_again == 0
+        assert skipped == 2
+        assert errors == []
+
     def test_overlapping_export_safe(self, account_csv, mem_db):
         """Uploading a file that overlaps with a previous upload should produce zero new rows."""
         result = acc_parser.parse(account_csv)

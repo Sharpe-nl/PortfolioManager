@@ -255,48 +255,6 @@ async def confirm(request: Request, conn=Depends(get_db), _=Depends(require_auth
 # Internal staging helpers
 # ---------------------------------------------------------------------------
 
-def _check_transaction_dup(conn, account_id, order_id, ts, quantity, price,
-                           dedup_hash: str | None = None) -> bool:
-    """Check whether a transaction already exists in the DB.
-
-    Priority:
-    1. dedup_hash  — SHA-256 of the full raw CSV row (includes Saldo column).
-       This is the most reliable discriminator: two buys of the same stock at
-       the same price in the same minute are NOT duplicates if the running
-       balance differs, and their hashes will differ.
-    2. order_id   — DeGiro order ID when it is present in the export.
-    3. ts + quantity + price fallback — only used when neither hash nor
-       order_id is available (e.g. manually entered transactions).
-    """
-    # 1. Hash-based dedup (most precise)
-    if dedup_hash:
-        row = conn.execute(
-            "SELECT 1 FROM transactions WHERE dedup_hash=? LIMIT 1",
-            (dedup_hash,),
-        ).fetchone()
-        if row:
-            return True
-        # Hash not in DB — definitely not a dup (skip the weaker checks)
-        return False
-
-    # 2. Order-ID dedup
-    if order_id:
-        row = conn.execute(
-            "SELECT 1 FROM transactions WHERE account_id=? AND order_id=? LIMIT 1",
-            (account_id, order_id),
-        ).fetchone()
-        if row:
-            return True
-
-    # 3. Fallback: ts + quantity + price (may produce false positives for
-    #    simultaneous identical buys, but unavoidable without a hash or order_id)
-    row = conn.execute(
-        "SELECT 1 FROM transactions WHERE account_id=? AND ts=? AND quantity=? AND price=? LIMIT 1",
-        (account_id, ts, str(quantity), str(price)),
-    ).fetchone()
-    return row is not None
-
-
 def _check_event_dup(conn, dedup_hash: str) -> bool:
     row = conn.execute(
         "SELECT 1 FROM cash_events WHERE dedup_hash=? LIMIT 1", (dedup_hash,)
@@ -305,23 +263,24 @@ def _check_event_dup(conn, dedup_hash: str) -> bool:
 
 
 def _stage_transactions(parse_result, account_id: int, conn) -> list[tuple]:
+    from collections import Counter
     from ..importers.generic import _get_or_create_instrument
+    from ..importers.transaction_dedup import is_duplicate_transaction
     staged = []
-    seen_keys: set = set()  # dedup within this upload session
+    occurrences: Counter = Counter()
     for txn in parse_result.rows:
-        # Within-session dedup: use order_id if available, else hash
-        dedup_key = txn.dedup_hash if hasattr(txn, 'dedup_hash') and txn.dedup_hash else \
-                    (account_id, txn.order_id or "", txn.ts, str(txn.quantity), str(txn.price))
-        in_session = dedup_key in seen_keys
-        seen_keys.add(dedup_key)
-        is_dup = in_session or _check_transaction_dup(
-            conn, account_id, txn.order_id, txn.ts, txn.quantity, txn.price,
-            dedup_hash=getattr(txn, 'dedup_hash', None),
-        )
-        status = "duplicate" if is_dup else "new"
         instrument_id = _get_or_create_instrument(
             conn, txn.isin or txn.product, txn.local_currency
         )
+        key = (instrument_id, txn.order_id, txn.ts, txn.quantity, txn.price, txn.local_currency)
+        occurrences[key] += 1
+        is_dup = is_duplicate_transaction(
+            conn, account_id, instrument_id, txn.order_id, txn.ts,
+            txn.quantity, txn.price, txn.local_currency,
+            dedup_hash=getattr(txn, 'dedup_hash', None),
+            occurrence=occurrences[key],
+        )
+        status = "duplicate" if is_dup else "new"
         direction = "Koop" if txn.quantity > 0 else "Verkoop"
         desc = f"{txn.ts[:10]}  {txn.product}  {direction} {abs(txn.quantity)}x  @{txn.price} {txn.price_currency}"
         row_json = json.dumps({
@@ -347,28 +306,26 @@ def _stage_transactions(parse_result, account_id: int, conn) -> list[tuple]:
 
 
 def _stage_account_events(parse_result, account_id: int, conn) -> list[tuple]:
+    from collections import Counter
     from ..importers.degiro_account import _get_instrument_id
     from ..importers.generic import _get_or_create_instrument
+    from ..importers.transaction_dedup import is_duplicate_transaction
     staged = []
-    seen_txn_keys: set = set()  # dedup within this upload session
+    occurrences: Counter = Counter()
 
     # Stage buy/sell transactions from account CSV (Koop/Verkoop rows)
     for txn in parse_result.txn_rows:
-        # Use dedup_hash (SHA-256 of full CSV row incl. Saldo) as primary dedup key.
-        # This correctly handles two purchases of the same stock at the same price
-        # within the same minute — they look identical on ts+qty+price but the
-        # running balance (Saldo) differs, so their hashes differ.
-        dedup_key = txn.dedup_hash  # always set for account CSV rows
-        in_session = dedup_key in seen_txn_keys
-        seen_txn_keys.add(dedup_key)
-        is_dup = in_session or _check_transaction_dup(
-            conn, account_id, txn.order_id, txn.ts, txn.quantity, txn.price,
-            dedup_hash=txn.dedup_hash,
-        )
-        status = "duplicate" if is_dup else "new"
         instrument_id = _get_or_create_instrument(
             conn, txn.isin or txn.product, txn.local_currency
         )
+        key = (instrument_id, txn.order_id, txn.ts, txn.quantity, txn.price, txn.local_currency)
+        occurrences[key] += 1
+        is_dup = is_duplicate_transaction(
+            conn, account_id, instrument_id, txn.order_id, txn.ts,
+            txn.quantity, txn.price, txn.local_currency,
+            dedup_hash=txn.dedup_hash, occurrence=occurrences[key],
+        )
+        status = "duplicate" if is_dup else "new"
         direction = "Koop" if txn.quantity > 0 else "Verkoop"
         desc = (f"{txn.ts[:10]}  {txn.product}  {direction} {abs(txn.quantity)}x"
                 f"  @{txn.price} {txn.price_currency}")
@@ -421,12 +378,12 @@ def _stage_account_events(parse_result, account_id: int, conn) -> list[tuple]:
             value_eur = -(ca.quantity * ca.price)     # negative (value received)
             direction_label = "Ontvangen"
 
-        dedup_key = ca.dedup_hash
-        in_session = dedup_key in seen_txn_keys
-        seen_txn_keys.add(dedup_key)
-        is_dup = in_session or _check_transaction_dup(
-            conn, account_id, None, ca.ts, quantity, ca.price,
-            dedup_hash=ca.dedup_hash,
+        key = (instrument_id, None, ca.ts, quantity, ca.price, ca.price_currency)
+        occurrences[key] += 1
+        is_dup = is_duplicate_transaction(
+            conn, account_id, instrument_id, None, ca.ts, quantity, ca.price,
+            ca.price_currency, dedup_hash=ca.dedup_hash,
+            occurrence=occurrences[key],
         )
         status = "duplicate" if is_dup else "new"
 
@@ -518,12 +475,20 @@ def _compute_cash_balance_eur(parse_result):
 
 
 def _stage_generic(parse_result, account_id: int, conn) -> list[tuple]:
+    from collections import Counter
+    from ..importers.generic import _get_or_create_instrument
+    from ..importers.transaction_dedup import is_duplicate_transaction
     staged = []
+    occurrences: Counter = Counter()
     for row in parse_result.rows:
+        instrument_id = _get_or_create_instrument(conn, row.isin_or_name)
         if row.row_type == "transaction":
-            is_dup = _check_transaction_dup(
-                conn, account_id, None, f"{row.date}T00:00:00",
-                row.quantity or 0, row.price or 0
+            key = (instrument_id, None, row.date, row.quantity, row.price, "EUR")
+            occurrences[key] += 1
+            is_dup = is_duplicate_transaction(
+                conn, account_id, instrument_id, None, f"{row.date}T00:00:00",
+                row.quantity or 0, row.price or 0, "EUR",
+                dedup_hash=row.dedup_hash, occurrence=occurrences[key],
             )
         elif row.row_type == "balance":
             is_dup = False
@@ -531,8 +496,6 @@ def _stage_generic(parse_result, account_id: int, conn) -> list[tuple]:
             is_dup = _check_event_dup(conn, row.dedup_hash)
 
         status = "duplicate" if is_dup else "new"
-        from ..importers.generic import _get_or_create_instrument
-        instrument_id = _get_or_create_instrument(conn, row.isin_or_name)
         row_json = json.dumps({
             "account_id": account_id,
             "instrument_id": instrument_id,
