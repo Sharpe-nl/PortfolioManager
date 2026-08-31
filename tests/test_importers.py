@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from decimal import Decimal
 from pathlib import Path
 
@@ -235,6 +236,25 @@ class TestAccountParser:
             ("GB00B10RZP78", Decimal("10"), Decimal("47.73")),
             ("GB00BVZK7T90", Decimal("8"), Decimal("53.6962")),
         ]
+
+    def test_split_mutations_define_transfer_out_and_in(self, mem_db):
+        content = (
+            "Datum,Tijd,Valutadatum,Product,ISIN,Omschrijving,FX,Mutatie,,Saldo,,Order Id\n"
+            "09-12-2025,08:45,09-12-2025,UNILEVER PLC,GB00B10RZP78,"
+            "\"SPLIT AANPASSING: 10 Unilever PLC @ 47,73 EUR (GB00B10RZP78)\",,"
+            "EUR,\"477,30\",EUR,\"65,27\",SPLIT-OLD\n"
+            "09-12-2025,08:45,09-12-2025,UNILEVER PLC,GB00BVZK7T90,"
+            "\"SPLIT AANPASSING: 8 Unilever PLC @ 53,6962 EUR (GB00BVZK7T90)\",,"
+            "EUR,\"-429,57\",EUR,\"-412,03\",SPLIT-NEW\n"
+        )
+        result = acc_parser.parse(content)
+
+        staged = imports_router._stage_account_events(result, 1, mem_db)
+        transfers = [json.loads(row[4]) for row in staged if row[0] == "transaction"]
+
+        assert [row["quantity"] for row in transfers] == ["-10", "8"]
+        assert [row["value_eur"] for row in transfers] == ["477.30", "-429.57"]
+        assert all(row["source"] == "corporate_action" for row in transfers)
 
     def test_skips_koop_verkoop_valuta_rows(self, account_csv):
         result = acc_parser.parse(account_csv)

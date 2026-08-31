@@ -203,7 +203,7 @@ class AccountRow:
 
 @dataclass
 class CorporateActionRow:
-    """A corporate action row (split, merger, etc.) that needs manual review."""
+    """A position transfer caused by a split, merger or similar action."""
     ts: str
     product: str
     isin: Optional[str]
@@ -211,6 +211,7 @@ class CorporateActionRow:
     quantity: Decimal
     price: Decimal
     price_currency: str
+    book_value_eur: Decimal
     dedup_hash: str
 
 
@@ -451,6 +452,14 @@ def _parse_corporate_action_row(
     price          = parse_dutch_decimal(m.group(2))
     price_currency = m.group(3).upper()
 
+    amount_currency = col.get(raw, "Mutatie") or price_currency
+    amount_str = col.get_next(raw, "Mutatie")
+    book_value = parse_dutch_decimal(amount_str) if amount_str else quantity * price
+    fx_str = col.get(raw, "FX")
+    fx_rate = parse_dutch_decimal(fx_str) if fx_str else None
+    if amount_currency != "EUR" and fx_rate:
+        book_value = (book_value / fx_rate).quantize(Decimal("0.0001"))
+
     datum_iso = parse_dutch_date(datum)
     tijd = col.get(raw, "Tijd")
     ts = f"{datum_iso}T{tijd}:00" if tijd else f"{datum_iso}T00:00:00"
@@ -466,6 +475,7 @@ def _parse_corporate_action_row(
         quantity=quantity,
         price=price,
         price_currency=price_currency,
+        book_value_eur=book_value,
         dedup_hash=row_hash(raw),
     )
 

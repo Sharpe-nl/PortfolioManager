@@ -423,15 +423,18 @@ def _stage_account_events(parse_result, account_id: int, conn) -> list[tuple]:
             conn, ca.isin or ca.product, ca.price_currency
         )
 
+        # DEGIRO books the outgoing line as a positive mutation and the
+        # incoming line as a negative mutation. This is a position transfer,
+        # not a taxable sale/purchase. Fall back to position history only for
+        # older exports that omit the mutation amount.
         has_position = bool(ca.isin and ca.isin in bought_isins)
-        if has_position:
-            quantity  = -ca.quantity                  # close: sell
-            value_eur =  ca.quantity * ca.price       # positive (value returned)
-            direction_label = "Sluiten"
+        if ca.book_value_eur > 0 or (ca.book_value_eur == 0 and has_position):
+            quantity = -ca.quantity
+            direction_label = "Overdracht uit"
         else:
-            quantity  =  ca.quantity                  # open: buy
-            value_eur = -(ca.quantity * ca.price)     # negative (value received)
-            direction_label = "Ontvangen"
+            quantity = ca.quantity
+            direction_label = "Overdracht in"
+        value_eur = ca.book_value_eur
 
         key = (instrument_id, None, ca.ts, quantity, ca.price, ca.price_currency)
         occurrences[key] += 1
