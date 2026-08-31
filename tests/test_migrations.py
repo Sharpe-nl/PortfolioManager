@@ -171,3 +171,83 @@ def test_duplicate_transaction_series_migration_keeps_isolated_equal_fills(tmp_p
     )
 
     assert conn.execute("SELECT COUNT(*) FROM transactions").fetchone()[0] == 2
+
+
+def test_mixed_duplicate_transaction_migration_repairs_exact_double_rows(tmp_path):
+    conn = sqlite3.connect(tmp_path / "portfolio.db")
+    for migration in sorted(MIGRATIONS.glob("*.sql")):
+        if migration.name < "016_repair_mixed_duplicate_transactions.sql":
+            conn.executescript(migration.read_text(encoding="utf-8"))
+
+    conn.execute("INSERT INTO accounts(id,name,type,currency) VALUES(1,'Broker','broker','EUR')")
+    conn.execute(
+        "INSERT INTO instruments(id,isin,name,trading_currency,asset_type) "
+        "VALUES(1,'NL0011872643','ASR Nederland','EUR','stock')"
+    )
+    rows = []
+    for day, price in (("2025-01-01", "40"), ("2025-02-01", "42")):
+        # Exact copies, including order/source metadata. A NULL dedup hash is
+        # representative of older imported rows and permits both to coexist.
+        rows.extend([(day, price), (day, price)])
+    conn.executemany(
+        """INSERT INTO transactions(
+               account_id,instrument_id,ts,quantity,price,local_currency,
+               value_eur,fees_eur,order_id,source,dedup_hash
+           ) VALUES(1,1,? || 'T10:00:00','1',?,'EUR',
+                    CAST(-CAST(? AS NUMERIC) AS TEXT),'0',NULL,
+                    'degiro_account_csv',NULL)""",
+        [(day, price, price) for day, price in rows],
+    )
+    # This correct singleton made migration 015 skip the entire instrument.
+    conn.execute(
+        """INSERT INTO transactions(
+               account_id,instrument_id,ts,quantity,price,local_currency,
+               value_eur,fees_eur,order_id,source,dedup_hash
+           ) VALUES(1,1,'2025-03-01T10:00:00','1','44','EUR','-44','0',
+                    'only-once','degiro_account_csv','only-once-hash')"""
+    )
+
+    conn.executescript(
+        (MIGRATIONS / "016_repair_mixed_duplicate_transactions.sql").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert conn.execute("SELECT COUNT(*) FROM transactions").fetchone()[0] == 3
+    counts = conn.execute(
+        "SELECT substr(ts,1,10), COUNT(*) FROM transactions GROUP BY substr(ts,1,10)"
+    ).fetchall()
+    assert counts == [
+        ("2025-01-01", 1),
+        ("2025-02-01", 1),
+        ("2025-03-01", 1),
+    ]
+
+
+def test_mixed_duplicate_transaction_migration_keeps_one_date_double_fill(tmp_path):
+    conn = sqlite3.connect(tmp_path / "portfolio.db")
+    for migration in sorted(MIGRATIONS.glob("*.sql")):
+        if migration.name < "016_repair_mixed_duplicate_transactions.sql":
+            conn.executescript(migration.read_text(encoding="utf-8"))
+
+    conn.execute("INSERT INTO accounts(id,name,type,currency) VALUES(1,'Broker','broker','EUR')")
+    conn.execute(
+        "INSERT INTO instruments(id,isin,name,trading_currency,asset_type) "
+        "VALUES(1,'NL0011872643','ASR Nederland','EUR','stock')"
+    )
+    conn.executemany(
+        """INSERT INTO transactions(
+               account_id,instrument_id,ts,quantity,price,local_currency,
+               value_eur,fees_eur,order_id,source,dedup_hash
+           ) VALUES(1,1,'2025-01-01T10:00:00','1','40','EUR','-40','0',?,
+                    'degiro_account_csv',?)""",
+        [("fill-order", "fill-1"), ("fill-order", "fill-2")],
+    )
+
+    conn.executescript(
+        (MIGRATIONS / "016_repair_mixed_duplicate_transactions.sql").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert conn.execute("SELECT COUNT(*) FROM transactions").fetchone()[0] == 2
