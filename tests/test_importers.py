@@ -76,6 +76,129 @@ def test_account_csv_upload_is_accepted_for_pension_account(mem_db, account_csv)
     assert response.headers["location"] == "/import/preview"
     assert mem_db.execute("SELECT COUNT(*) FROM import_staging").fetchone()[0] > 0
 
+
+def _seed_history_for_replacement(mem_db):
+    mem_db.execute(
+        """INSERT INTO instruments(
+               id,isin,name,symbol,currency,trading_currency,asset_type,sector,region
+           ) VALUES(1,'IE00B3RBWM25','Vanguard FTSE All-World','VWRL.AS','EUR','EUR',
+                    'etf','Global equity','Global')"""
+    )
+    mem_db.execute(
+        """INSERT INTO transactions(
+               account_id,instrument_id,ts,quantity,price,local_currency,
+               value_eur,fees_eur,source
+           ) VALUES(1,1,'2020-01-01T10:00:00','1','80','EUR','-80','0','old')"""
+    )
+    mem_db.execute(
+        "INSERT INTO cash_events(account_id,ts,type,amount_eur) "
+        "VALUES(1,'2020-01-01T09:00:00','deposit','100')"
+    )
+    mem_db.execute(
+        "INSERT INTO balance_snapshots(account_id,date,balance_eur) "
+        "VALUES(1,'2020-01-01','20')"
+    )
+    mem_db.execute(
+        "INSERT INTO prices(instrument_id,date,close,currency,fetched_at) "
+        "VALUES(1,'2026-01-01','140','EUR','2026-01-01T12:00:00')"
+    )
+    mem_db.execute(
+        """INSERT INTO import_log(
+               account_id,filename,file_type,imported_at,rows_imported
+           ) VALUES(1,'old.csv','degiro_account','2020-01-01',1)"""
+    )
+    mem_db.commit()
+
+
+def test_replace_history_preserves_ticker_metadata_and_prices(mem_db, account_csv):
+    _seed_history_for_replacement(mem_db)
+    mem_db.execute("INSERT INTO accounts(id,name,type,currency) VALUES(2,'Other','broker','EUR')")
+    mem_db.execute(
+        """INSERT INTO transactions(
+               account_id,instrument_id,ts,quantity,price,local_currency,
+               value_eur,fees_eur,source
+           ) VALUES(2,1,'2024-01-01T10:00:00','1','100','EUR','-100','0','other')"""
+    )
+    mem_db.commit()
+    request = _UploadRequest()
+
+    response = asyncio.run(imports_router.upload(
+        request, mem_db, None, 1,
+        _UploadFile("Account.csv", account_csv.encode("utf-8")),
+        replace_history=True,
+    ))
+
+    assert response.headers["location"] == "/import/preview"
+    assert request.session["import_replace_history"] is True
+    assert mem_db.execute(
+        "SELECT COUNT(*) FROM import_staging WHERE status='duplicate'"
+    ).fetchone()[0] == 0
+
+    response = asyncio.run(imports_router.confirm(request, mem_db, None))
+
+    assert response.headers["location"] == "/import?result=1"
+    assert request.session["import_result"]["replaced"] is True
+    assert mem_db.execute(
+        "SELECT COUNT(*) FROM transactions WHERE account_id=1 AND ts LIKE '2020-%'"
+    ).fetchone()[0] == 0
+    assert mem_db.execute(
+        "SELECT COUNT(*) FROM transactions WHERE account_id=1"
+    ).fetchone()[0] > 0
+    assert mem_db.execute(
+        "SELECT COUNT(*) FROM transactions WHERE account_id=2"
+    ).fetchone()[0] == 1
+    instrument = mem_db.execute(
+        "SELECT symbol,sector,region FROM instruments WHERE id=1"
+    ).fetchone()
+    assert tuple(instrument) == ("VWRL.AS", "Global equity", "Global")
+    assert mem_db.execute(
+        "SELECT COUNT(*) FROM prices WHERE instrument_id=1"
+    ).fetchone()[0] == 1
+    assert mem_db.execute(
+        "SELECT COUNT(*) FROM import_log WHERE account_id=1"
+    ).fetchone()[0] == 1
+
+
+def test_replace_history_rolls_back_when_commit_fails(mem_db, account_csv):
+    _seed_history_for_replacement(mem_db)
+    request = _UploadRequest()
+    asyncio.run(imports_router.upload(
+        request, mem_db, None, 1,
+        _UploadFile("Account.csv", account_csv.encode("utf-8")),
+        replace_history=True,
+    ))
+    transaction_id = mem_db.execute(
+        "SELECT id FROM import_staging WHERE row_type='transaction' ORDER BY id LIMIT 1"
+    ).fetchone()[0]
+    mem_db.execute(
+        "UPDATE import_staging SET row_json='{}' WHERE id=?", (transaction_id,)
+    )
+    mem_db.commit()
+
+    asyncio.run(imports_router.confirm(request, mem_db, None))
+
+    assert request.session["import_result"]["replaced"] is False
+    assert request.session["import_result"]["errors"] == 1
+    assert mem_db.execute(
+        "SELECT COUNT(*) FROM transactions WHERE account_id=1 AND ts='2020-01-01T10:00:00'"
+    ).fetchone()[0] == 1
+    assert mem_db.execute(
+        "SELECT COUNT(*) FROM cash_events WHERE account_id=1 AND ts='2020-01-01T09:00:00'"
+    ).fetchone()[0] == 1
+
+
+def test_replace_history_rejects_generic_csv(mem_db):
+    request = _UploadRequest()
+    content = b"date,type,isin_or_name,quantity,price,amount_eur,description\n2025-01-01,deposit,,,,100,Deposit\n"
+
+    response = asyncio.run(imports_router.upload(
+        request, mem_db, None, 1, _UploadFile("generic.csv", content),
+        replace_history=True,
+    ))
+
+    assert response.headers["location"] == "/import?result=1"
+    assert request.session["import_result"]["errors"] == 1
+
 # ── Account.csv ──────────────────────────────────────────────────────────────
 
 class TestAccountParser:

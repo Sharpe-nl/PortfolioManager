@@ -386,6 +386,20 @@ input[type="button"] {
 }
 .import-file-status { margin: -.25rem 0 .75rem; color: var(--green); font-size: .8rem; }
 .import-file-status.error { color: var(--red); }
+.import-replace-history {
+  display: flex;
+  align-items: flex-start;
+  gap: .65rem;
+  margin: .8rem 0 1rem;
+  padding: .75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+}
+.import-replace-history input { flex: 0 0 auto; margin-top: .2rem; }
+.import-replace-history span,
+.import-replace-history small { display: block; }
+.import-replace-history small { margin-top: .2rem; color: var(--text-muted); line-height: 1.45; }
 .import-preview-actions-top { margin-top: 1rem; }
 .import-tutorial-dialog p { line-height: 1.6; }
 .import-tutorial-steps { display: grid; gap: .9rem; padding-left: 1.35rem; }

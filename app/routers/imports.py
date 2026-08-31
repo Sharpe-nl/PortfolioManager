@@ -76,6 +76,7 @@ async def upload(
     _=Depends(require_auth),
     account_id: int = Form(...),
     file: UploadFile = File(...),
+    replace_history: bool = Form(False),
 ):
     filename = file.filename or "upload.csv"
     if not file.filename:
@@ -107,6 +108,10 @@ async def upload(
             parse_result = degiro_account.parse(content)
             rows = _stage_account_events(parse_result, account_id, conn)
         else:
+            if replace_history:
+                return _upload_error(
+                    request, t(request, "imports.replace_account_csv_only"), filename
+                )
             file_type = "generic"
             parse_result = generic.parse(content)
             rows = _stage_generic(parse_result, account_id, conn)
@@ -114,6 +119,16 @@ async def upload(
         return _upload_error(request, t(request, "imports.file_invalid"), filename)
     if not rows:
         return _upload_error(request, t(request, "imports.no_importable_rows"), filename)
+
+    if replace_history:
+        # Existing database rows are intentionally being replaced. Keep parse
+        # errors/informational rows intact, but import every valid CSV row after
+        # the old account history is removed on confirmation.
+        rows = [
+            (row_type, "new" if status == "duplicate" else status,
+             description, error_msg, row_json)
+            for row_type, status, description, error_msg, row_json in rows
+        ]
 
     session_key = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
@@ -134,6 +149,7 @@ async def upload(
     request.session["import_filename"] = filename
     request.session["import_file_type"] = file_type
     request.session["import_account_id"] = account_id
+    request.session["import_replace_history"] = replace_history
 
     return RedirectResponse(url="/import/preview", status_code=303)
 
@@ -163,6 +179,7 @@ async def preview(request: Request, conn=Depends(get_db), _=Depends(require_auth
         "counts": counts,
         "filename": request.session.get("import_filename"),
         "file_type": request.session.get("import_file_type"),
+        "replace_history": bool(request.session.get("import_replace_history")),
     })
 
 
@@ -177,6 +194,7 @@ async def confirm(request: Request, conn=Depends(get_db), _=Depends(require_auth
     filename = request.session.pop("import_filename", "")
     file_type = request.session.pop("import_file_type", "")
     account_id = request.session.pop("import_account_id", None)
+    replace_history = bool(request.session.pop("import_replace_history", False))
 
     if not session_key:
         request.session["import_result"] = {
@@ -185,6 +203,30 @@ async def confirm(request: Request, conn=Depends(get_db), _=Depends(require_auth
             "filename": filename,
         }
         return RedirectResponse(url="/import?result=1", status_code=303)
+
+    if replace_history:
+        account = conn.execute(
+            "SELECT type FROM accounts WHERE id=?", (account_id,)
+        ).fetchone()
+        staged_errors = conn.execute(
+            "SELECT COUNT(*) FROM import_staging WHERE session_key=? AND status='error'",
+            (session_key,),
+        ).fetchone()[0]
+        if file_type != "degiro_account" or not account or account["type"] not in ("broker", "pension"):
+            staged_errors += 1
+        if staged_errors:
+            conn.execute("DELETE FROM import_staging WHERE session_key=?", (session_key,))
+            conn.commit()
+            request.session["import_result"] = {
+                "imported": 0,
+                "skipped": 0,
+                "errors": staged_errors,
+                "error_details": [t(request, "imports.replace_aborted_errors")],
+                "file_type": file_type,
+                "filename": filename,
+                "replaced": False,
+            }
+            return RedirectResponse(url="/import?result=1", status_code=303)
 
     staged = conn.execute(
         "SELECT * FROM import_staging WHERE session_key=? AND status='new'",
@@ -197,28 +239,40 @@ async def confirm(request: Request, conn=Depends(get_db), _=Depends(require_auth
     print(f"[confirm] session={session_key[:8]}… file_type={file_type} "
           f"staged_new={len(staged)}", file=sys.stderr, flush=True)
 
-    for r in staged:
-        try:
-            data = json.loads(r["row_json"])
-            if r["row_type"] == "transaction":
-                cur = _commit_staged_transaction(conn, data)
-                if cur.rowcount:
+    replacement_failed = False
+    if replace_history:
+        conn.execute("SAVEPOINT replace_account_history")
+        _delete_account_history(conn, account_id)
+
+    try:
+        for r in staged:
+            try:
+                added = _commit_staged_row(conn, r)
+                if added:
                     imported += 1
                 else:
                     skipped += 1  # UNIQUE silently ignored (intra-CSV duplicate)
-            elif r["row_type"] == "cash_event":
-                cur = _commit_staged_cash_event(conn, data)
-                if cur.rowcount:
-                    imported += 1
-                else:
-                    skipped += 1
-            elif r["row_type"] == "balance":
-                _commit_staged_balance(conn, data)
-                imported += 1
-        except Exception as exc:
-            errors_count += 1
-            errors.append(f"{r['row_type']}: {exc}")
-            print(f"[confirm] row error: {r['row_type']} → {exc}", file=sys.stderr, flush=True)
+            except Exception as exc:
+                if replace_history:
+                    raise
+                errors_count += 1
+                errors.append(f"{r['row_type']}: {exc}")
+                print(
+                    f"[confirm] row error: {r['row_type']} → {exc}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+        if replace_history:
+            conn.execute("RELEASE SAVEPOINT replace_account_history")
+    except Exception as exc:
+        errors_count += 1
+        errors.append(f"{r['row_type']}: {exc}")
+        print(f"[confirm] row error: {r['row_type']} → {exc}", file=sys.stderr, flush=True)
+        if replace_history:
+            conn.execute("ROLLBACK TO SAVEPOINT replace_account_history")
+            conn.execute("RELEASE SAVEPOINT replace_account_history")
+            imported = skipped = 0
+            replacement_failed = True
 
     print(f"[confirm] done: imported={imported} errors={errors_count}", file=sys.stderr, flush=True)
 
@@ -247,6 +301,7 @@ async def confirm(request: Request, conn=Depends(get_db), _=Depends(require_auth
         "error_details": errors[:5],
         "file_type": file_type,
         "filename": filename,
+        "replaced": replace_history and not replacement_failed and errors_count == 0,
     }
     return RedirectResponse(url="/import?result=1", status_code=303)
 
@@ -531,6 +586,19 @@ def _commit_staged_transaction(conn, data: dict):
     )
 
 
+def _commit_staged_row(conn, row) -> bool:
+    """Commit one staged row and report whether it inserted data."""
+    data = json.loads(row["row_json"])
+    if row["row_type"] == "transaction":
+        return bool(_commit_staged_transaction(conn, data).rowcount)
+    if row["row_type"] == "cash_event":
+        return bool(_commit_staged_cash_event(conn, data).rowcount)
+    if row["row_type"] == "balance":
+        _commit_staged_balance(conn, data)
+        return True
+    return False
+
+
 def _commit_staged_cash_event(conn, data: dict):
     return conn.execute(
         """INSERT OR IGNORE INTO cash_events
@@ -550,6 +618,14 @@ def _commit_staged_balance(conn, data: dict) -> None:
            VALUES (?,?,?)""",
         (data["account_id"], data["date"], data["amount_eur"]),
     )
+
+
+def _delete_account_history(conn, account_id: int) -> None:
+    """Delete one account's ledger while preserving instruments and market data."""
+    conn.execute("DELETE FROM transactions WHERE account_id=?", (account_id,))
+    conn.execute("DELETE FROM cash_events WHERE account_id=?", (account_id,))
+    conn.execute("DELETE FROM balance_snapshots WHERE account_id=?", (account_id,))
+    conn.execute("DELETE FROM import_log WHERE account_id=?", (account_id,))
 
 
 def _cleanup_staging(conn) -> None:

@@ -27,23 +27,30 @@
   </article>
 </div>
 
+{% if replace_history %}
+<div class="notice warning">
+  <strong>{{ t(request, 'imports.replace_preview_title') }}</strong><br>
+  {{ t(request, 'imports.replace_preview_text') }}
+</div>
+{% endif %}
+
 <!-- Keep the decision available without requiring a scroll through the rows. -->
 <div class="action-bar import-preview-actions-top">
-  {% if counts.new > 0 %}
+  {% if counts.new > 0 and (not replace_history or counts.error == 0) %}
   <form method="post" action="/import/confirm">
     <button type="submit" class="primary">
-      {{ t(request, 'imports.confirm_button', count=counts.new) }}
+      {{ t(request, 'imports.replace_confirm_button' if replace_history else 'imports.confirm_button', count=counts.new) }}
     </button>
   </form>
   {% else %}
-  <p class="muted">{{ t(request, 'imports.no_new_rows') }}</p>
+  <p class="muted">{{ t(request, 'imports.replace_cannot_confirm' if replace_history and counts.error > 0 else 'imports.no_new_rows') }}</p>
   {% endif %}
   <a href="/import" role="button" class="outline secondary">{{ t(request, 'common.cancel') }}</a>
 </div>
 
 {% if counts.error > 0 %}
 <div class="notice warning">
-  {{ t(request, 'imports.error_notice', count=counts.error) }}
+  {{ t(request, 'imports.replace_error_notice' if replace_history else 'imports.error_notice', count=counts.error) }}
 </div>
 {% endif %}
 
@@ -72,14 +79,14 @@
 
 <!-- ── Confirm / Cancel ───────────────────────────────────────────────── -->
 <div class="action-bar">
-  {% if counts.new > 0 %}
+  {% if counts.new > 0 and (not replace_history or counts.error == 0) %}
   <form method="post" action="/import/confirm">
     <button type="submit" class="primary">
-      {{ t(request, 'imports.confirm_button', count=counts.new) }}
+      {{ t(request, 'imports.replace_confirm_button' if replace_history else 'imports.confirm_button', count=counts.new) }}
     </button>
   </form>
   {% else %}
-  <p class="muted">{{ t(request, 'imports.no_new_rows') }}</p>
+  <p class="muted">{{ t(request, 'imports.replace_cannot_confirm' if replace_history and counts.error > 0 else 'imports.no_new_rows') }}</p>
   {% endif %}
   <a href="/import" role="button" class="outline secondary">{{ t(request, 'common.cancel') }}</a>
 </div>

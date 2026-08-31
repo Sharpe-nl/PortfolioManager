@@ -3,6 +3,26 @@
 All notable user-facing changes are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.5.0 — 2026-08-31
+
+### Added
+
+- DEGIRO Account.csv imports can replace the complete history of one broker or
+  pension account while preserving instruments, ticker mappings,
+  classifications, cached prices and every other account.
+
+### Changed
+
+- Account-history replacement is confirmed from a preview and runs
+  atomically. CSV errors or commit failures leave the existing history intact.
+
+## 0.4.5 — 2026-08-31
+
+### Fixed
+
+- Stock-instrument merging now removes the second copy of exact transaction
+  rows even when the instrument also contains transactions that occur once.
+
 ## 0.4.4 — 2026-08-30
 
 ### Fixed
