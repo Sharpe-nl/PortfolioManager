@@ -74,7 +74,11 @@
       <div>
         <span>{{ txn.ts[:10] }} · {{ txn.account_name }}</span>
         <strong class="{{ 'pl-negative' if txn.quantity|float > 0 else 'pl-positive' }}">
-          {{ t(request, 'instrument.direction_buy') if txn.quantity|float > 0 else t(request, 'instrument.direction_sell') }} · {{ (txn.quantity | float) | abs | qty }} · {{ txn.value_eur | eur }}
+          {% if txn.source == 'corporate_action' %}
+            {{ t(request, 'instrument.direction_transfer_in') if txn.quantity|float > 0 else t(request, 'instrument.direction_transfer_out') }}
+          {% else %}
+            {{ t(request, 'instrument.direction_buy') if txn.quantity|float > 0 else t(request, 'instrument.direction_sell') }}
+          {% endif %} · {{ (txn.quantity | float) | abs | qty }} · {{ txn.value_eur | eur }}
         </strong>
       </div>
       {% else %}

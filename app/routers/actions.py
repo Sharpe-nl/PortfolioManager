@@ -39,12 +39,17 @@ async def actions_page(
             t.fees_eur,
             'transaction'           AS category,
             CASE
+                WHEN t.source = 'corporate_action'
+                     THEN 'corporate'
                 WHEN CAST(t.quantity AS REAL) > 0 AND CAST(t.price AS REAL) = 0
                      THEN 'corporate'
                 WHEN CAST(t.quantity AS REAL) > 0 THEN 'buy'
                 ELSE 'sell'
             END                     AS action_type,
-            NULL                    AS description
+            CASE WHEN t.source = 'corporate_action'
+                 THEN CASE WHEN CAST(t.quantity AS REAL) > 0
+                           THEN 'transfer_in' ELSE 'transfer_out' END
+                 ELSE NULL END      AS description
         FROM transactions t
         JOIN accounts    a ON a.id = t.account_id
         JOIN instruments i ON i.id = t.instrument_id

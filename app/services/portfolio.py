@@ -84,16 +84,73 @@ def _position_accounting(
     than one listing.
     """
     rows = conn.execute(
-        """SELECT id, account_id, instrument_id, ts, quantity, value_eur, fees_eur
-           FROM transactions
-           WHERE (:acct IS NULL OR account_id = :acct)
-             AND (:through_ts IS NULL OR ts <= :through_ts)
-           ORDER BY account_id, instrument_id, ts, id""",
+        """SELECT t.id, t.account_id, t.instrument_id, t.ts, t.quantity,
+                  t.value_eur, t.fees_eur, t.source
+           FROM transactions t
+           WHERE (:acct IS NULL OR t.account_id = :acct)
+             AND (:through_ts IS NULL OR t.ts <= :through_ts)
+           ORDER BY t.account_id, t.ts, t.id""",
         {"acct": account_id, "through_ts": through_ts},
     ).fetchall()
     states: dict[tuple[int, int], dict] = {}
     sale_events: list[dict] = []
+    corporate_groups: dict[tuple[int, str], list] = {}
     for row in rows:
+        if row["source"] == "corporate_action":
+            group_key = (row["account_id"], row["ts"])
+            corporate_groups.setdefault(group_key, []).append(row)
+    processed_corporate_groups: set[tuple[int, str]] = set()
+
+    for row in rows:
+        if row["source"] == "corporate_action":
+            group_key = (row["account_id"], row["ts"])
+            if group_key in processed_corporate_groups:
+                continue
+            processed_corporate_groups.add(group_key)
+            group = corporate_groups[group_key]
+            transferred_cost = _ZERO
+
+            # Remove the old position at its existing cost basis. No proceeds
+            # or realized result arise from a split/reorganization.
+            for transfer in group:
+                quantity = _d(transfer["quantity"])
+                if quantity >= _ZERO:
+                    continue
+                key = (transfer["account_id"], transfer["instrument_id"])
+                state = states.setdefault(
+                    key, {"quantity": _ZERO, "cost": _ZERO, "realized": _ZERO}
+                )
+                outgoing = -quantity
+                held = max(state["quantity"], _ZERO)
+                matched = min(outgoing, held)
+                removed_cost = (state["cost"] / held) * matched if held else _ZERO
+                state["quantity"] -= outgoing
+                state["cost"] -= removed_cost
+                transferred_cost += removed_cost
+                if abs(state["quantity"]) < Decimal("0.000001"):
+                    state["quantity"] = _ZERO
+                    state["cost"] = _ZERO
+
+            incoming = [transfer for transfer in group if _d(transfer["quantity"]) > _ZERO]
+            if incoming:
+                weights = [abs(_d(transfer["value_eur"])) for transfer in incoming]
+                total_weight = sum(weights, _ZERO)
+                if transferred_cost == _ZERO:
+                    transferred_cost = total_weight
+                for index, transfer in enumerate(incoming):
+                    key = (transfer["account_id"], transfer["instrument_id"])
+                    state = states.setdefault(
+                        key, {"quantity": _ZERO, "cost": _ZERO, "realized": _ZERO}
+                    )
+                    quantity = _d(transfer["quantity"])
+                    share = (
+                        transferred_cost * weights[index] / total_weight
+                        if total_weight else transferred_cost / len(incoming)
+                    )
+                    state["quantity"] += quantity
+                    state["cost"] += share
+            continue
+
         key = (row["account_id"], row["instrument_id"])
         state = states.setdefault(key, {"quantity": _ZERO, "cost": _ZERO, "realized": _ZERO})
         quantity = _d(row["quantity"])
@@ -243,6 +300,7 @@ def get_realized_pl_events(
            JOIN instruments i ON i.id=t.instrument_id
            JOIN accounts a ON a.id=t.account_id
            WHERE CAST(t.quantity AS REAL) < 0
+             AND t.source != 'corporate_action'
              AND (:acct IS NULL OR t.account_id=:acct)""",
         {"acct": account_id},
     ).fetchall()
@@ -351,7 +409,8 @@ def _cash_balance_from_snapshot(
     transaction_delta = conn.execute(
         """SELECT COALESCE(SUM(CAST(value_eur AS REAL)), 0) AS total
            FROM transactions
-           WHERE account_id=? AND ts > ? AND ts <= ?""",
+           WHERE account_id=? AND ts > ? AND ts <= ?
+             AND source != 'corporate_action'""",
         (account_id, f"{snapshot_date}T23:59:59", end_ts),
     ).fetchone()
     event_delta = conn.execute(
@@ -843,6 +902,7 @@ def get_closed_positions(
         GROUP BY t.account_id, t.instrument_id
         HAVING ABS(SUM(CAST(t.quantity AS REAL))) < 0.000001
            AND SUM(CASE WHEN CAST(t.quantity AS REAL) < 0
+                             AND t.source != 'corporate_action'
                         THEN ABS(CAST(t.quantity AS REAL)) ELSE 0 END) > 0
         ORDER BY MAX(t.ts) DESC
     """

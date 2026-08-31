@@ -3,6 +3,14 @@
 All notable user-facing changes are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.5.1 — 2026-08-31
+
+### Fixed
+
+- Split and reorganization rows are now treated as position transfers rather
+  than sales and purchases. Cost basis moves to the replacement instrument
+  without creating cash movement or realized profit/loss.
+
 ## 0.5.0 — 2026-08-31
 
 ### Added

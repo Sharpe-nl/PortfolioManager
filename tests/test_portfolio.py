@@ -256,6 +256,46 @@ class TestRealizedPL:
         assert events[0]["quantity"] == Decimal("2")
         assert events[0]["proceeds"] == Decimal("235.40")
 
+    def test_corporate_action_transfers_cost_without_sale_or_cash(self, mem_db):
+        mem_db.executemany(
+            "INSERT INTO instruments(id,isin,name,trading_currency,asset_type) "
+            "VALUES(?,?,?,'EUR','stock')",
+            [
+                (10, "GB00B10RZP78", "Unilever old"),
+                (11, "GB00BVZK7T90", "Unilever new"),
+            ],
+        )
+        mem_db.executemany(
+            """INSERT INTO transactions(
+                   account_id,instrument_id,ts,quantity,price,local_currency,
+                   value_eur,fees_eur,source
+               ) VALUES(1,?,?,?,?,? ,?,'0',?)""",
+            [
+                (10, "2025-01-01T10:00:00", "10", "40", "EUR", "-400", "degiro_account_csv"),
+                (10, "2025-12-09T08:45:00", "-10", "47.73", "EUR", "477.30", "corporate_action"),
+                (11, "2025-12-09T08:45:00", "8", "53.6962", "EUR", "-429.57", "corporate_action"),
+            ],
+        )
+        mem_db.execute(
+            "INSERT INTO prices(instrument_id,date,close,currency,fetched_at) "
+            "VALUES(11,'2025-12-10','55','EUR','2025-12-10T12:00:00')"
+        )
+        mem_db.execute(
+            "INSERT INTO balance_snapshots(account_id,date,balance_eur) "
+            "VALUES(1,'2025-12-08','100')"
+        )
+
+        holdings = get_holdings(mem_db)
+
+        assert len(holdings) == 1
+        assert holdings[0].instrument.id == 11
+        assert holdings[0].quantity == Decimal("8")
+        assert holdings[0].cost_basis == Decimal("400.00")
+        assert holdings[0].avg_cost == Decimal("50.00")
+        assert get_realized_pl(mem_db) == Decimal("0.00")
+        assert get_realized_pl_events(mem_db) == []
+        assert get_cash_balance(mem_db) == Decimal("100")
+
 
 class TestAllocation:
     def test_allocation_sector(self, mem_db):

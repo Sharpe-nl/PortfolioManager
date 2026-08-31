@@ -243,16 +243,16 @@
       <th class="num">{{ t(request, 'instrument.col_fees_eur') }}</th>
     </tr></thead>
     <tbody>
-    {% for t in transactions %}
+    {% for txn in transactions %}
     <tr>
-      <td>{{ t.ts[:10] }}</td>
-      <td>{{ t.account_name }}</td>
-      <td class="num {{ 'pl-positive' if t.quantity|float > 0 else 'pl-negative' }}">
-        {{ t.quantity }}
+      <td>{{ txn.ts[:10] }}</td>
+      <td>{{ txn.account_name }}{% if txn.source == 'corporate_action' %}<small class="muted"> · {{ t(request, 'instrument.corporate_action_label') }}</small>{% endif %}</td>
+      <td class="num {{ 'pl-positive' if txn.quantity|float > 0 else 'pl-negative' }}">
+        {{ txn.quantity }}{% if txn.source == 'corporate_action' %}<small class="muted"> · {{ t(request, 'instrument.direction_transfer_in') if txn.quantity|float > 0 else t(request, 'instrument.direction_transfer_out') }}</small>{% endif %}
       </td>
-      <td class="num">{{ t.price | eur(show_symbol=False) }} {{ t.local_currency }}</td>
-      <td class="num">{{ t.value_eur | eur }}</td>
-      <td class="num">{{ t.fees_eur | eur }}</td>
+      <td class="num">{{ txn.price | eur(show_symbol=False) }} {{ txn.local_currency }}</td>
+      <td class="num">{{ txn.value_eur | eur }}</td>
+      <td class="num">{{ txn.fees_eur | eur }}</td>
     </tr>
     {% else %}
     <tr><td colspan="6">{{ t(request, 'instrument.no_transactions') }}</td></tr>
