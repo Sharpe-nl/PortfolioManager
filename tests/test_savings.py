@@ -19,11 +19,24 @@ def _savings_account(conn):
 def test_monthly_interest_compounds_from_latest_snapshot(mem_db):
     _savings_account(mem_db)
     result = account_interest(mem_db, 2, date(2026, 3, 2))
-    # 1% in February and 1% again in March: 1000 -> 1010 -> 1020.10
-    assert result["balance"] == Decimal("1020.10")
-    assert result["interest"] == Decimal("20.10")
+    # Daily actual/365 interest, credited monthly.
+    assert result["balance"] == Decimal("1019.49")
+    assert result["interest"] == Decimal("19.49")
     assert result["interest_since"] == "2026-01-01"
     assert len(result["events"]) == 2
+
+
+def test_mid_month_deposit_only_earns_interest_for_remaining_days(mem_db):
+    _savings_account(mem_db)
+    mem_db.execute("INSERT INTO cash_events(account_id,ts,type,amount_eur) VALUES(2,'2026-01-16T00:00:00','deposit','1000')")
+    mem_db.commit()
+
+    result = account_interest(mem_db, 2, date(2026, 2, 1))
+
+    payout = next(event for event in result["events"] if event["kind"] == "automatic")
+    # January has 15 days before the deposit and 16 days after it:
+    # (1000 * 15 + 2000 * 16) * 12% / 365 = €15.45.
+    assert payout["amount"] == Decimal("15.45")
 
 
 def test_manual_interest_is_an_editable_correction(mem_db):
@@ -31,9 +44,7 @@ def test_manual_interest_is_an_editable_correction(mem_db):
     mem_db.execute("INSERT INTO savings_interest_adjustments(account_id,date,amount_eur,description) VALUES(2,'2026-03-01','5','Bank correction')")
     mem_db.commit()
     result = account_interest(mem_db, 2, date(2026, 3, 2))
-    # The correction is available before that day's monthly payout, so it
-    # also earns interest in the next compounding step.
-    assert result["balance"] == Decimal("1025.15")
+    assert result["balance"] == Decimal("1024.49")
     assert any(event["kind"] == "manual" for event in result["events"])
 
 
@@ -110,7 +121,7 @@ def test_bonus_rate_applies_only_to_the_balance_above_its_threshold(mem_db):
     mem_db.commit()
     result = account_interest(mem_db, 2, date(2026, 2, 2))
     # €19,000 at 1.5% and €1,000 at 3%, paid monthly.
-    assert result["interest"] == Decimal("26.25")
+    assert result["interest"] == Decimal("29.30")
 
 
 def test_ended_rate_stops_before_new_rate_starts(mem_db):
@@ -119,7 +130,7 @@ def test_ended_rate_stops_before_new_rate_starts(mem_db):
     mem_db.execute("INSERT INTO savings_interest_rates(account_id,annual_rate,payout_frequency,starts_on) VALUES(2,'52','weekly','2026-01-08')")
     mem_db.commit()
     result = account_interest(mem_db, 2, date(2026, 1, 16))
-    assert result["interest"] == Decimal("10.00")
+    assert result["interest"] == Decimal("13.70")
 
 
 def test_hidden_savings_is_not_returned_for_dashboard(mem_db):

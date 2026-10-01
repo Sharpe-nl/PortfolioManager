@@ -3,6 +3,14 @@
 All notable user-facing changes are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.5.2 — 2026-10-01
+
+### Fixed
+
+- Savings interest is now accrued per day, so deposits and withdrawals only
+  affect the portion of a payout period during which they were actually on the
+  account.
+
 ## 0.5.1 — 2026-08-31
 
 ### Fixed
