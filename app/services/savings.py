@@ -48,6 +48,30 @@ def _tiered_interest(balance: Decimal, rate: dict) -> Decimal:
     return total.quantize(_CENT, ROUND_HALF_UP)
 
 
+def _daily_interest(balance: Decimal, rate: dict, day: date) -> Decimal:
+    """Return one day's unrounded interest for *balance*.
+
+    Keeping the daily amount unrounded avoids losing cents when a monthly
+    period is split over many days.  Rounding happens when interest is paid
+    out (and when the result is displayed).
+    """
+    # Interest is a daily balance calculation.  The payout frequency only
+    # determines when accrued interest is credited; it does not change the
+    # daily rate.  Use actual/365 (or actual/366 in leap years).
+    divisor = Decimal(str(366 if calendar.isleap(day.year) else 365))
+    tiers = rate.get("tiers") or []
+    if not tiers:
+        return balance * _d(rate["annual_rate"]) / Decimal("100") / divisor
+    first_threshold = _d(tiers[0]["min_balance_eur"])
+    total = min(balance, first_threshold) * _d(rate["annual_rate"]) / Decimal("100") / divisor
+    for index, tier in enumerate(tiers):
+        lower = _d(tier["min_balance_eur"])
+        upper = _d(tiers[index + 1]["min_balance_eur"]) if index + 1 < len(tiers) else balance
+        portion = max(_ZERO, min(balance, upper) - lower)
+        total += portion * _d(tier["annual_rate"]) / Decimal("100") / divisor
+    return total
+
+
 def account_interest(conn: sqlite3.Connection, account_id: int, as_of: date | None = None) -> dict:
     """Return confirmed balance plus scheduled, compounded interest to *as_of*.
 
@@ -95,7 +119,7 @@ def account_interest(conn: sqlite3.Connection, account_id: int, as_of: date | No
         (account_id, start.isoformat(), as_of.isoformat()),
     ).fetchall()
     events = []
-    timeline = []
+    payout_dates: dict[date, dict] = {}
     for index, rate in enumerate(rates):
         rate_start = max(date.fromisoformat(rate["starts_on"]), start)
         if rate_start > as_of:
@@ -107,26 +131,38 @@ def account_interest(conn: sqlite3.Connection, account_id: int, as_of: date | No
             continue
         payout = _next_date(rate_start, rate["payout_frequency"])
         while payout <= period_end:
-            timeline.append((payout, 2, "automatic", rate))
+            payout_dates[payout] = rate
             payout = _next_date(payout, rate["payout_frequency"])
+    adjustments_by_date: dict[date, list] = {}
     for adjustment in adjustments:
-        timeline.append((date.fromisoformat(adjustment["date"]), 1, "manual", adjustment))
+        adjustments_by_date.setdefault(date.fromisoformat(adjustment["date"]), []).append(adjustment)
+    movements_by_date: dict[date, list] = {}
     for movement in cash_movements:
-        timeline.append((date.fromisoformat(movement["ts"][:10]), 0, movement["type"], movement))
-    for event_date, _priority, kind, source in sorted(timeline, key=lambda item: (item[0], item[1])):
-        if kind == "automatic":
-            amount = _tiered_interest(balance, source)
+        movements_by_date.setdefault(date.fromisoformat(movement["ts"][:10]), []).append(movement)
+
+    # Accrue interest every day, while retaining the existing payout schedule.
+    # This means a deposit contributes only from its actual arrival date.
+    accrued = _ZERO
+    day = start
+    while day <= as_of:
+        if day in payout_dates and accrued:
+            amount = accrued.quantize(_CENT, ROUND_HALF_UP)
             balance += amount
-            events.append({"date": event_date.isoformat(), "amount": amount, "kind": "automatic"})
-        elif kind == "manual":
-            amount = _d(source["amount_eur"]).quantize(_CENT)
+            events.append({"date": day.isoformat(), "amount": amount, "kind": "automatic"})
+            accrued = _ZERO
+        for adjustment in adjustments_by_date.get(day, []):
+            amount = _d(adjustment["amount_eur"]).quantize(_CENT)
             balance += amount
-            events.append({"date": event_date.isoformat(), "amount": amount, "kind": "manual", "id": source["id"], "description": source["description"]})
-        else:
-            amount = _d(source["amount_eur"]).quantize(_CENT)
+            events.append({"date": day.isoformat(), "amount": amount, "kind": "manual", "id": adjustment["id"], "description": adjustment["description"]})
+        for movement in movements_by_date.get(day, []):
+            amount = _d(movement["amount_eur"]).quantize(_CENT)
             balance += amount
             principal += amount
-            events.append({"date": event_date.isoformat(), "amount": amount, "kind": kind, "id": source["id"], "description": source["description"]})
+            events.append({"date": day.isoformat(), "amount": amount, "kind": movement["type"], "id": movement["id"], "description": movement["description"]})
+        active_for_day = next((rate for rate in reversed(rates) if date.fromisoformat(rate["starts_on"]) <= day and (not rate["ends_on"] or date.fromisoformat(rate["ends_on"]) >= day)), None)
+        if active_for_day and balance:
+            accrued += _daily_interest(balance, active_for_day, day)
+        day += timedelta(days=1)
     interest = (balance - principal).quantize(_CENT)
     active_rate = next((rate for rate in reversed(rates) if not rate["ends_on"] or rate["ends_on"] >= as_of.isoformat()), None)
     next_payout = None
