@@ -3,6 +3,17 @@
 All notable user-facing changes are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.5.4 — 2026-10-01
+
+### Fixed
+
+- Monthly savings interest now covers the previous calendar month and is
+  credited on the configured day in the following month. Changing the payout
+  date no longer drops interest for the remaining days of a month.
+- For monthly rates, only the day of the configured payout date is used.
+  Days absent from a month use its last day without shifting later payouts.
+- Editing existing rates preserves the default payout date.
+
 ## 0.5.3 — 2026-10-01
 
 ### Added

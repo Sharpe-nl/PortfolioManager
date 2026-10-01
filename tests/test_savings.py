@@ -132,7 +132,7 @@ def test_bonus_rate_applies_only_to_the_balance_above_its_threshold(mem_db):
     mem_db.commit()
     result = account_interest(mem_db, 2, date(2026, 2, 2))
     # €19,000 at 1.5% and €1,000 at 3%, paid monthly.
-    assert result["interest"] == Decimal("29.30")
+    assert result["interest"] == Decimal("26.75")
 
 
 def test_ended_rate_stops_before_new_rate_starts(mem_db):
@@ -141,7 +141,9 @@ def test_ended_rate_stops_before_new_rate_starts(mem_db):
     mem_db.execute("INSERT INTO savings_interest_rates(account_id,annual_rate,payout_frequency,starts_on) VALUES(2,'52','weekly','2026-01-08')")
     mem_db.commit()
     result = account_interest(mem_db, 2, date(2026, 1, 16))
-    assert result["interest"] == Decimal("13.70")
+    # The weekly rate pays seven days on January 15; January's monthly
+    # interest is not credited until February 1.
+    assert result["interest"] == Decimal("9.97")
 
 
 def test_hidden_savings_is_not_returned_for_dashboard(mem_db):

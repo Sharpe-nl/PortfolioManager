@@ -37,6 +37,13 @@ def _first_payout(rate_start: date, rate: dict) -> date:
     return payout
 
 
+def _monthly_payout(calculation_day: date, rate: dict) -> date:
+    """Pay a calendar month's interest on the configured day next month."""
+    following_month = _next_date(calculation_day.replace(day=1), "monthly")
+    payout_day = date.fromisoformat(rate["payout_on"]).day if rate.get("payout_on") else 1
+    return following_month.replace(day=min(payout_day, calendar.monthrange(following_month.year, following_month.month)[1]))
+
+
 def _tiered_interest(balance: Decimal, rate: dict) -> Decimal:
     """Interest for one payout, including optional bonus-rate tiers."""
     divisor = {"weekly": Decimal("52"), "monthly": Decimal("12"), "yearly": Decimal("1")}[rate["payout_frequency"]]
@@ -139,6 +146,15 @@ def account_interest(conn: sqlite3.Connection, account_id: int, as_of: date | No
         period_end = min(next_rate - timedelta(days=1), rate_end, as_of)
         if period_end < rate_start:
             continue
+        if rate["payout_frequency"] == "monthly":
+            calculation_day = rate_start
+            while calculation_day <= period_end:
+                payout = _monthly_payout(calculation_day, rate)
+                accrual_rates[calculation_day] = rate
+                accrual_payouts[calculation_day] = payout
+                payout_dates[payout] = rate
+                calculation_day += timedelta(days=1)
+            continue
         payout = _first_payout(rate_start, rate)
         period_start = rate_start
         while period_start <= period_end:
@@ -185,10 +201,18 @@ def account_interest(conn: sqlite3.Connection, account_id: int, as_of: date | No
     active_rate = next((rate for rate in reversed(rates) if not rate["ends_on"] or rate["ends_on"] >= as_of.isoformat()), None)
     next_payout = None
     if active_rate:
-        payout = _first_payout(date.fromisoformat(active_rate["starts_on"]), active_rate)
+        if active_rate["payout_frequency"] == "monthly":
+            payout = _monthly_payout(as_of.replace(day=1) - timedelta(days=1), active_rate)
+            if payout <= as_of:
+                payout = _monthly_payout(as_of, active_rate)
+        else:
+            payout = _first_payout(date.fromisoformat(active_rate["starts_on"]), active_rate)
         while payout <= as_of:
             payout = _next_date(payout, active_rate["payout_frequency"])
         next_payout = payout.isoformat()
+    pending_payouts = [day for day, amount in accrued_by_payout.items() if day > as_of and amount]
+    if pending_payouts:
+        next_payout = min([min(pending_payouts).isoformat()] + ([next_payout] if next_payout else []))
     return {
         "balance": balance.quantize(_CENT), "principal": principal, "interest": interest,
         "events": sorted(events, key=lambda e: e["date"], reverse=True), "as_of": as_of.isoformat(),
