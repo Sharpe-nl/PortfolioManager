@@ -1,6 +1,7 @@
 """Savings-account management."""
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -8,7 +9,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from ..db import get_db
 from ..helpers import require_auth, templates
-from ..services.savings import account_interest, savings_accounts
+from ..services.savings import _next_date, account_interest, savings_accounts
 
 router = APIRouter(prefix="/savings", tags=["savings"])
 
@@ -63,6 +64,12 @@ async def savings_settings(account_id: int, request: Request, conn=Depends(get_d
     context.update(account_interest(conn, account_id))
     context["rates"] = [dict(row) for row in conn.execute("SELECT * FROM savings_interest_rates WHERE account_id=? ORDER BY starts_on DESC", (account_id,))]
     for rate in context["rates"]:
+        # Rows created before the separate payout date was introduced retain
+        # the original schedule: the first payout is one frequency after the
+        # calculation start. Populate that value for the edit form so saving
+        # an old row cannot accidentally move its first payout to the start.
+        if not rate.get("payout_on"):
+            rate["payout_on"] = _next_date(date.fromisoformat(rate["starts_on"]), rate["payout_frequency"]).isoformat()
         rate["tiers"] = [dict(row) for row in conn.execute("SELECT * FROM savings_interest_rate_tiers WHERE rate_id=? ORDER BY CAST(min_balance_eur AS REAL)", (rate["id"],))]
     context["cash_movements"] = _cash_movements(conn, account_id)
     context["adjustments"] = [dict(row) for row in conn.execute("SELECT * FROM savings_interest_adjustments WHERE account_id=? ORDER BY date DESC, id DESC", (account_id,))]

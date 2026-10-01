@@ -5,6 +5,7 @@
 {% if request.query_params.get('saved') %}<div class="notice success">✓ {{ t(request, 'common.save') }}</div>{% endif %}
 
 <article><header>{{ t(request, 'savings.rate') }}</header>
+  <p class="muted savings-form-hint">{{ t(request, 'savings.payout_calendar_hint') }}</p>
   <details class="savings-new-entry">
     <summary>{{ t(request, 'savings.new_rate') }}</summary>
     <form method="post" action="/savings/{{ account.id }}/rate" class="savings-create-form savings-create-form--rate-end">
