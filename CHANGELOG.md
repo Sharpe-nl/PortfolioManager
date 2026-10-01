@@ -3,6 +3,13 @@
 All notable user-facing changes are documented here. Versions follow
 [Semantic Versioning](https://semver.org/).
 
+## 0.5.3 — 2026-10-01
+
+### Added
+
+- Savings rates now have a separate first payout date, independent of the
+  period over which the interest is calculated.
+
 ## 0.5.2 — 2026-10-01
 
 ### Fixed

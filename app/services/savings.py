@@ -29,6 +29,14 @@ def _next_date(value: date, frequency: str) -> date:
     return value.replace(year=year, month=month, day=min(value.day, calendar.monthrange(year, month)[1]))
 
 
+def _first_payout(rate_start: date, rate: dict) -> date:
+    """Return the first payout date, preserving legacy rows without one."""
+    payout = date.fromisoformat(rate["payout_on"]) if rate.get("payout_on") else _next_date(rate_start, rate["payout_frequency"])
+    while payout < rate_start:
+        payout = _next_date(payout, rate["payout_frequency"])
+    return payout
+
+
 def _tiered_interest(balance: Decimal, rate: dict) -> Decimal:
     """Interest for one payout, including optional bonus-rate tiers."""
     divisor = {"weekly": Decimal("52"), "monthly": Decimal("12"), "yearly": Decimal("1")}[rate["payout_frequency"]]
@@ -101,7 +109,7 @@ def account_interest(conn: sqlite3.Connection, account_id: int, as_of: date | No
         balance = principal = _ZERO
         start = date.fromisoformat(first)
     rates = [dict(row) for row in conn.execute(
-        "SELECT id, annual_rate, payout_frequency, starts_on, ends_on FROM savings_interest_rates WHERE account_id=? AND starts_on<=? ORDER BY starts_on",
+        "SELECT id, annual_rate, payout_frequency, starts_on, ends_on, payout_on FROM savings_interest_rates WHERE account_id=? AND starts_on<=? ORDER BY starts_on",
         (account_id, as_of.isoformat()),
     ).fetchall()]
     for rate in rates:
@@ -120,6 +128,8 @@ def account_interest(conn: sqlite3.Connection, account_id: int, as_of: date | No
     ).fetchall()
     events = []
     payout_dates: dict[date, dict] = {}
+    accrual_rates: dict[date, dict] = {}
+    accrual_payouts: dict[date, date] = {}
     for index, rate in enumerate(rates):
         rate_start = max(date.fromisoformat(rate["starts_on"]), start)
         if rate_start > as_of:
@@ -129,10 +139,17 @@ def account_interest(conn: sqlite3.Connection, account_id: int, as_of: date | No
         period_end = min(next_rate - timedelta(days=1), rate_end, as_of)
         if period_end < rate_start:
             continue
-        payout = _next_date(rate_start, rate["payout_frequency"])
-        while payout <= period_end:
-            payout_dates[payout] = rate
+        payout = _first_payout(rate_start, rate)
+        period_start = rate_start
+        while period_start <= period_end:
+            calculation_end = min(_next_date(period_start, rate["payout_frequency"]) - timedelta(days=1), period_end)
+            for calculation_day in (period_start + timedelta(days=offset) for offset in range((calculation_end - period_start).days + 1)):
+                accrual_rates[calculation_day] = rate
+                accrual_payouts[calculation_day] = payout
+            if payout <= as_of:
+                payout_dates[payout] = rate
             payout = _next_date(payout, rate["payout_frequency"])
+            period_start = calculation_end + timedelta(days=1)
     adjustments_by_date: dict[date, list] = {}
     for adjustment in adjustments:
         adjustments_by_date.setdefault(date.fromisoformat(adjustment["date"]), []).append(adjustment)
@@ -142,14 +159,14 @@ def account_interest(conn: sqlite3.Connection, account_id: int, as_of: date | No
 
     # Accrue interest every day, while retaining the existing payout schedule.
     # This means a deposit contributes only from its actual arrival date.
-    accrued = _ZERO
+    accrued_by_payout: dict[date, Decimal] = {}
     day = start
     while day <= as_of:
+        accrued = accrued_by_payout.pop(day, _ZERO)
         if day in payout_dates and accrued:
             amount = accrued.quantize(_CENT, ROUND_HALF_UP)
             balance += amount
             events.append({"date": day.isoformat(), "amount": amount, "kind": "automatic"})
-            accrued = _ZERO
         for adjustment in adjustments_by_date.get(day, []):
             amount = _d(adjustment["amount_eur"]).quantize(_CENT)
             balance += amount
@@ -159,15 +176,16 @@ def account_interest(conn: sqlite3.Connection, account_id: int, as_of: date | No
             balance += amount
             principal += amount
             events.append({"date": day.isoformat(), "amount": amount, "kind": movement["type"], "id": movement["id"], "description": movement["description"]})
-        active_for_day = next((rate for rate in reversed(rates) if date.fromisoformat(rate["starts_on"]) <= day and (not rate["ends_on"] or date.fromisoformat(rate["ends_on"]) >= day)), None)
+        active_for_day = accrual_rates.get(day)
         if active_for_day and balance:
-            accrued += _daily_interest(balance, active_for_day, day)
+            payout_day = accrual_payouts[day]
+            accrued_by_payout[payout_day] = accrued_by_payout.get(payout_day, _ZERO) + _daily_interest(balance, active_for_day, day)
         day += timedelta(days=1)
     interest = (balance - principal).quantize(_CENT)
     active_rate = next((rate for rate in reversed(rates) if not rate["ends_on"] or rate["ends_on"] >= as_of.isoformat()), None)
     next_payout = None
     if active_rate:
-        payout = _next_date(date.fromisoformat(active_rate["starts_on"]), active_rate["payout_frequency"])
+        payout = _first_payout(date.fromisoformat(active_rate["starts_on"]), active_rate)
         while payout <= as_of:
             payout = _next_date(payout, active_rate["payout_frequency"])
         next_payout = payout.isoformat()
