@@ -70,9 +70,9 @@ async def savings_settings(account_id: int, request: Request, conn=Depends(get_d
 
 
 @router.post("/{account_id}/rate")
-async def add_rate(account_id: int, annual_rate: str = Form(...), payout_frequency: str = Form(...), starts_on: str = Form(...), ends_on: str = Form(""), conn=Depends(get_db), _=Depends(require_auth)):
+async def add_rate(account_id: int, annual_rate: str = Form(...), payout_frequency: str = Form(...), starts_on: str = Form(...), ends_on: str = Form(""), payout_on: str = Form(...), conn=Depends(get_db), _=Depends(require_auth)):
     if _savings_account(conn, account_id):
-        conn.execute("INSERT INTO savings_interest_rates(account_id,annual_rate,payout_frequency,starts_on,ends_on) VALUES(?,?,?,?,?) ON CONFLICT(account_id,starts_on) DO UPDATE SET annual_rate=excluded.annual_rate,payout_frequency=excluded.payout_frequency,ends_on=excluded.ends_on", (account_id, annual_rate, payout_frequency, starts_on, ends_on or None))
+        conn.execute("INSERT INTO savings_interest_rates(account_id,annual_rate,payout_frequency,starts_on,ends_on,payout_on) VALUES(?,?,?,?,?,?) ON CONFLICT(account_id,starts_on) DO UPDATE SET annual_rate=excluded.annual_rate,payout_frequency=excluded.payout_frequency,ends_on=excluded.ends_on,payout_on=excluded.payout_on", (account_id, annual_rate, payout_frequency, starts_on, ends_on or None, payout_on))
     return _settings_redirect(conn, account_id)
 
 
@@ -131,8 +131,8 @@ async def delete_interest(account_id: int, adjustment_id: int, conn=Depends(get_
 
 
 @router.post("/{account_id}/rate/{rate_id}/edit")
-async def edit_rate(account_id: int, rate_id: int, annual_rate: str = Form(...), payout_frequency: str = Form(...), starts_on: str = Form(...), ends_on: str = Form(""), conn=Depends(get_db), _=Depends(require_auth)):
-    conn.execute("UPDATE savings_interest_rates SET annual_rate=?, payout_frequency=?, starts_on=?, ends_on=? WHERE id=? AND account_id=?", (annual_rate, payout_frequency, starts_on, ends_on or None, rate_id, account_id))
+async def edit_rate(account_id: int, rate_id: int, annual_rate: str = Form(...), payout_frequency: str = Form(...), starts_on: str = Form(...), ends_on: str = Form(""), payout_on: str = Form(...), conn=Depends(get_db), _=Depends(require_auth)):
+    conn.execute("UPDATE savings_interest_rates SET annual_rate=?, payout_frequency=?, starts_on=?, ends_on=?, payout_on=? WHERE id=? AND account_id=?", (annual_rate, payout_frequency, starts_on, ends_on or None, payout_on, rate_id, account_id))
     return _settings_redirect(conn, account_id)
 
 

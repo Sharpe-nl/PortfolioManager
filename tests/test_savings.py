@@ -39,6 +39,17 @@ def test_mid_month_deposit_only_earns_interest_for_remaining_days(mem_db):
     assert payout["amount"] == Decimal("15.45")
 
 
+def test_interest_can_be_paid_on_a_separate_date(mem_db):
+    _savings_account(mem_db)
+    mem_db.execute("UPDATE savings_interest_rates SET payout_on='2026-02-05' WHERE account_id=2")
+    mem_db.commit()
+
+    result = account_interest(mem_db, 2, date(2026, 2, 5))
+
+    payout = next(event for event in result["events"] if event["kind"] == "automatic")
+    assert payout["date"] == "2026-02-05"
+
+
 def test_manual_interest_is_an_editable_correction(mem_db):
     _savings_account(mem_db)
     mem_db.execute("INSERT INTO savings_interest_adjustments(account_id,date,amount_eur,description) VALUES(2,'2026-03-01','5','Bank correction')")
